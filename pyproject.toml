@@ -1,0 +1,51 @@
+[project]
+name = "atlas"
+version = "0.1.0"
+description = "Personal life-tracking backend: entries are the only facts, progress is computed on read"
+readme = "README.md"
+authors = [
+    { name = "slyh", email = "gio.whiteh@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.141.1",
+    "rich>=15.0.0",
+    "sqlmodel>=0.0.39",
+    "typer>=0.27.1",
+    "uvicorn>=0.52.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.8.4,<0.9.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.2",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "TID"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"atlas.db".msg = "domain must not import db; see .cursor/rules/architecture.mdc"
+"atlas.services".msg = "domain must not import services; see .cursor/rules/architecture.mdc"
+"atlas.api".msg = "domain must not import api; see .cursor/rules/architecture.mdc"
+"atlas.cli".msg = "domain must not import cli; see .cursor/rules/architecture.mdc"
+
+[tool.ruff.lint.per-file-ignores]
+"src/atlas/db/**" = ["TID251"]
+"src/atlas/services/**" = ["TID251"]
+"src/atlas/api/**" = ["TID251"]
+"src/atlas/cli/**" = ["TID251"]
+"tests/**" = ["TID251"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers --strict-config"

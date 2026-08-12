@@ -154,8 +154,11 @@ db → domain
 domain → (stdlib / typing only)
 ```
 
+The package lives at `src/atlas/` (src layout), so tests import the installed package rather than the repo root and a packaging mistake fails loudly instead of passing by accident.
+
 | Package | Responsibility |
 |---------|----------------|
+| `atlas/settings.py` | Configuration resolved from the environment. Stdlib only, so every layer may import it. |
 | `atlas/domain/` | Enums, value objects, and the calculation functions: period bucketing, rollups, `current_streak`, `longest_streak`, `adherence`, `goal_progress`, `pace_status`. Pure — no I/O, no session, no wall clock. |
 | `atlas/db/` | SQLModel tables, engine, session factory, schema creation. |
 | `atlas/services/` | Use cases, each taking an explicit `Session` as its first parameter. Loads rows, hands plain values to `domain`, writes results back. |
@@ -167,6 +170,8 @@ Import rules, enforced by review and by the always-applied architecture rule:
 - `atlas/domain/` must not import `atlas.db`, `atlas.api`, `atlas.cli`, or `atlas.services`.
 - `atlas/api/` and `atlas/cli/` must not open a session, query tables, or call SQLModel/SQLAlchemy APIs. They obtain a session from the factory and pass it into a service.
 - Shared behavior lives in `atlas/services/`, so the API and the CLI cannot diverge.
+
+The first of these is machine-enforced. Ruff's `flake8-tidy-imports` bans `atlas.db`, `atlas.services`, `atlas.api`, and `atlas.cli` project-wide, and `[tool.ruff.lint.per-file-ignores]` lifts the ban everywhere except `atlas/domain/`. An import that breaks domain purity fails `uv run ruff check` rather than waiting for review.
 
 ## Derived computations
 
@@ -330,11 +335,17 @@ Four verbs, deliberately unequal in weight: capture is one line, everything else
 | `ATLAS_DB` | `~/.local/share/atlas/atlas.db` | SQLite database file; the parent directory is created if missing |
 | `ATLAS_TZ` | system local timezone | IANA name (`Europe/Berlin`) used to resolve "today" into `Entry.occurred_on` |
 
+`atlas/settings.py` reads both into a frozen `Settings` value object via `load_settings(env=None)`, which defaults to `os.environ` and accepts an explicit mapping so tests never mutate the real environment. `~` in `ATLAS_DB` is expanded; a blank or unset value falls back to the default. An `ATLAS_TZ` that is not a known IANA zone raises `SettingsError` at load time instead of silently drifting to UTC. `Settings.today()` is the single place the wall clock is read for occurrence dates.
+
+Resolving the path is deliberately side-effect free: the database file and its parent directory are created by the engine module, not by reading configuration.
+
 The API is served with `uv run uvicorn atlas.api.app:app --reload`, bound to `127.0.0.1`. Single user, no auth, no remote exposure.
 
 ## Development
 
 Python 3.12, managed entirely with `uv`. Every command goes through it: `uv add`, `uv sync`, `uv run pytest`, `uv run ruff check`. Never bare `pip`, `python`, `pytest`, or `ruff`.
+
+Dependencies are declared in `pyproject.toml` and pinned in `uv.lock`; `uv_build` is the build backend. Ruff and pytest are configured in the same `pyproject.toml`: ruff at line length 100 targeting `py312` with `E`, `F`, `I`, `UP`, `B`, `SIM`, and `TID` selected, pytest with `testpaths = ["tests"]` and `--strict-markers --strict-config`.
 
 Tests by layer:
 
@@ -353,3 +364,4 @@ Append-only, one entry per cycle. Newest last.
 
 - **2026-08-12 — `rules-first`** — Added the four Cursor rules under `.cursor/rules/`: `architecture.mdc` (layering and import bans, data principles), `tooling.mdc` (uv-only commands, pre-commit gates, one todo per commit), `documentation.mdc` (this file is updated in the same cycle as the behavior it describes), and `python-conventions.mdc` (type hints, explicit `Session` first parameter, domain purity, per-layer test conventions).
 - **2026-08-12 — `docs-living`** — Created `docs/architecture.md` as the living source of truth: purpose, field-level data model for `Area`, `Metric`, `Entry`, `Habit`, `Goal`, and `Milestone`, layering with the import rules, precise definitions of bucketing, rollup, habit satisfaction, streaks, adherence, goal progress, and pace status, the planned API and CLI surface with per-item status, and configuration. No code yet; every endpoint and command is `planned`.
+- **2026-08-12 — `scaffold`** — Scaffolded the project with `uv init --lib` (src layout at `src/atlas/`), added `fastapi`, `uvicorn`, `sqlmodel`, `typer`, `rich` and dev `pytest`, `ruff`, created the empty `domain`, `db`, `services`, `api`, and `cli` packages, configured ruff and pytest in `pyproject.toml`, and added `atlas/settings.py` reading `ATLAS_DB` and `ATLAS_TZ` into a frozen `Settings` (six tests). The domain import ban is now enforced by ruff's banned-api rule rather than by review alone. No tables, endpoints, or commands yet.
