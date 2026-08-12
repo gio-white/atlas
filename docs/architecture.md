@@ -187,7 +187,7 @@ The package lives at `src/atlas/` (src layout), so tests import the installed pa
 | `atlas/domain/`     | Enums, value objects (`EntryView`, `HabitSpec`, `GoalSpec`, `MilestoneView`, `Bucket`, `GoalProgress`), and the calculation functions: period bucketing, rollups, `current_streak`, `longest_streak`, `adherence`, `goal_progress`, `pace_status`. Implemented. Pure — no I/O, no session, no wall clock. |
 | `atlas/db/`         | SQLModel tables (`Area`, `Metric`, `Entry`, `Habit`, `Goal`, `Milestone`, `SchemaVersion`), engine, session factory, schema creation. Implemented. Unique slugs; `Entry` indexed on `(metric_id, occurred_on)`. |
 | `atlas/services/`   | Use cases, each taking an explicit `Session` as its first parameter. Loads rows, hands plain values to `domain`, writes results back. Implemented. |
-| `atlas/api/`        | FastAPI routers: parse, call a service, serialize. Dedicated request/response schemas only where the wire shape must differ from the table.                                                                |
+| `atlas/api/`        | FastAPI routers: parse, call a service, serialize. Dedicated request/response schemas only where the wire shape must differ from the table (slugs instead of integer FKs). Implemented. Session comes from a factory dependency; `uv run uvicorn atlas.api.app:app --reload` and `python -m atlas.api` bind to `127.0.0.1` only. |
 | `atlas/cli/`        | Typer commands calling the same services in-process (no HTTP hop), Rich for output.                                                                                                                        |
 
 
@@ -348,30 +348,34 @@ Slugs are normalized to lowercase and must match `[a-z0-9]+(?:-[a-z0-9]+)*`. An 
 
 Status is `implemented` only when the endpoint is merged with tests. Everything else is `planned`.
 
+Routers parse the request, call a service, and serialize. Create/list bodies use slugs (`area`, `metric`) rather than integer foreign keys; entries are addressed by integer `id`. `POST /entries` sets `source` to `api`. Service failures map to HTTP status: `NotFoundError` → 404, `AlreadyExistsError` → 409, `ValidationError` → 400. Pydantic request-shape errors remain 422.
 
-| Method   | Path                     | Purpose                                       | Status  |
-| -------- | ------------------------ | --------------------------------------------- | ------- |
-| `POST`   | `/entries`               | Record an observation (accepts a metric slug) | planned |
-| `PATCH`  | `/entries/{id}`          | Amend an entry                                | planned |
-| `DELETE` | `/entries/{id}`          | Delete an entry                               | planned |
-| `GET`    | `/areas`                 | List areas                                    | planned |
-| `POST`   | `/areas`                 | Create an area                                | planned |
-| `GET`    | `/metrics`               | List metrics, filterable by area              | planned |
-| `POST`   | `/metrics`               | Create a metric                               | planned |
-| `GET`    | `/habits`                | List habits                                   | planned |
-| `POST`   | `/habits`                | Create a habit                                | planned |
-| `GET`    | `/habits/{slug}/status`  | Streaks and adherence for a habit             | planned |
-| `GET`    | `/goals`                 | List goals                                    | planned |
-| `POST`   | `/goals`                 | Create a goal                                 | planned |
-| `GET`    | `/goals/{slug}/progress` | Progress and pace for a goal                  | planned |
-| `GET`    | `/views/today`           | What is due today and what is logged          | planned |
-| `GET`    | `/views/week`            | The current week across habits                | planned |
-| `GET`    | `/views/areas/{slug}`    | One area's metrics, habits, and goals         | planned |
-| `GET`    | `/export`                | Full JSON export                              | planned |
-| `POST`   | `/import`                | Full JSON import                              | planned |
+Optional filters the services already support are query parameters: `area` on metrics and goals, `metric` on habits, `status` on goals, `include_archived` on areas and metrics, `as_of` on status/progress/views, and `replace` on import.
 
 
-There is no authentication. The app binds to localhost only.
+| Method   | Path                     | Purpose                                       | Status      |
+| -------- | ------------------------ | --------------------------------------------- | ----------- |
+| `POST`   | `/entries`               | Record an observation (accepts a metric slug) | implemented |
+| `PATCH`  | `/entries/{id}`          | Amend an entry                                | implemented |
+| `DELETE` | `/entries/{id}`          | Delete an entry                               | implemented |
+| `GET`    | `/areas`                 | List areas                                    | implemented |
+| `POST`   | `/areas`                 | Create an area                                | implemented |
+| `GET`    | `/metrics`               | List metrics, filterable by area              | implemented |
+| `POST`   | `/metrics`               | Create a metric                               | implemented |
+| `GET`    | `/habits`                | List habits                                   | implemented |
+| `POST`   | `/habits`                | Create a habit                                | implemented |
+| `GET`    | `/habits/{slug}/status`  | Streaks and adherence for a habit             | implemented |
+| `GET`    | `/goals`                 | List goals                                    | implemented |
+| `POST`   | `/goals`                 | Create a goal                                 | implemented |
+| `GET`    | `/goals/{slug}/progress` | Progress and pace for a goal                  | implemented |
+| `GET`    | `/views/today`           | What is due today and what is logged          | implemented |
+| `GET`    | `/views/week`            | The current week across habits                | implemented |
+| `GET`    | `/views/areas/{slug}`    | One area's metrics, habits, and goals         | implemented |
+| `GET`    | `/export`                | Full JSON export                              | implemented |
+| `POST`   | `/import`                | Full JSON import                              | implemented |
+
+
+There is no authentication. The app binds to localhost only (`127.0.0.1`). Tests use FastAPI `TestClient` against `create_app(session_factory=...)` with in-memory SQLite; they never start a live server.
 
 ## CLI
 
@@ -443,4 +447,5 @@ Append-only, one entry per cycle. Newest last.
 - **2026-08-13 —** `domain` — Implemented `atlas/domain/`: enums (`ValueType`, `Aggregation`, `Direction`, `Period`, `Comparator`, `GoalKind`, `GoalStatus`, plus `Measure`, `Source`, `PaceStatus`), value objects (`EntryView`, `HabitSpec`, `GoalSpec`, `MilestoneView`, `Bucket`, `GoalProgress`), and the pure calculation functions for period bucketing, rollups, habit satisfaction, `current_streak`, `longest_streak`, `adherence`, `goal_progress`, and `pace_status`. Unit tests cover the definitions in this document over plain lists; no database.
 - **2026-08-13 —** `persistence` — Implemented `atlas/db/`: SQLModel tables for `Area`, `Metric`, `Entry`, `Habit`, `Goal`, `Milestone`, and `schema_version`; unique slugs; index on `Entry(metric_id, occurred_on)`; engine, in-memory engine, and session factory; `create_all` with `CURRENT_SCHEMA_VERSION = 1`. `atlas init` creates the database file (and parent directory) at `ATLAS_DB` and is idempotent.
 - **2026-08-13 —** `services` — Implemented `atlas/services/`: `log_entry` / `amend_entry` / `delete_entry`, create/list/archive for areas and metrics, `create_habit` + `habit_status`, `create_goal` + `goal_progress` + `toggle_milestone`, `today_view` / `week_view` / `area_view`, and `export_all` / `import_all`. Services take an explicit session, look up by slug, call domain for derived values, and stamp `achieved` when a goal's target is met. Tests use in-memory SQLite.
+- **2026-08-13 —** `api` — Implemented `atlas/api/`: FastAPI app with Pydantic request/response schemas and routers for entries, areas, metrics, habits, goals, views, and export/import. Session dependency yields from a factory; service errors map to 404/409/400; uvicorn entrypoint binds `127.0.0.1`. Endpoint tests use `TestClient` over in-memory SQLite.
 
