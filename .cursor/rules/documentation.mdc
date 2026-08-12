@@ -1,0 +1,32 @@
+---
+description: Keep docs/architecture.md in lockstep with every behavior change
+alwaysApply: true
+---
+
+# Documentation
+
+`docs/architecture.md` is the living source of truth alongside the code. Update it in the **same cycle** as the change that alters behavior — never as a follow-up chore.
+
+Code and docs disagreeing is a bug, not a stale doc. Do not commit a behavior change without the matching docs edit.
+
+## What to keep current
+
+When a change touches any of these, update the corresponding section:
+
+- Purpose and data model (entities, fields, enums)
+- Layering and import rules
+- Derived computations (streak, adherence, goal progress, pace) — precise definitions, not summaries
+- Implemented API endpoints and CLI commands, including status (planned / implemented)
+- Configuration (`ATLAS_DB`, `ATLAS_TZ`, bind address)
+- Development log: append one entry per cycle (date, todo id, what landed)
+
+Do not duplicate `docs/architecture.md` into the README. Link to it instead.
+
+```markdown
+# ❌ BAD — commit the feature, "docs later"
+# (docs/architecture.md still lists POST /entries as planned)
+
+# ✅ GOOD — same commit updates status and the development log
+# Implemented endpoints: POST /entries
+# Development log: 2026-08-12 — services — log_entry + amend_entry
+```

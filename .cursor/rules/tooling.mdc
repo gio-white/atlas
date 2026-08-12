@@ -1,0 +1,41 @@
+---
+description: uv-only commands, ruff/pytest gates, one-todo-per-commit
+alwaysApply: true
+---
+
+# Tooling
+
+Python 3.12. Stack: uv, FastAPI, uvicorn, SQLModel, Typer, Rich, pytest, ruff, SQLite.
+
+## uv only
+
+Every Python, install, and test command goes through `uv`. Never `pip`, never bare `python` / `pytest` / `ruff`.
+
+```bash
+# ❌ BAD
+pip install fastapi
+python -m pytest
+ruff check .
+
+# ✅ GOOD
+uv add fastapi
+uv add --dev pytest ruff
+uv run pytest
+uv run ruff check
+uv run uvicorn atlas.api.app:app --reload
+```
+
+Use `uv add` / `uv add --dev` / `uv sync`. The lockfile is `uv.lock`; do not invent a `requirements.txt`.
+
+## Pre-commit gates
+
+Before every commit, both must pass:
+
+1. `uv run ruff check`
+2. `uv run pytest`
+
+Fix failures in the same cycle. Do not commit with failing lint or tests.
+
+## One todo, one commit
+
+Each assigned plan todo is one cycle: implement, lint, test, update `docs/architecture.md`, then a single focused commit. Stop after that commit so the change can be reviewed before the next todo starts. Do not batch multiple todos into one commit.

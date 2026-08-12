@@ -1,0 +1,37 @@
+---
+description: Atlas layering, import bans, and data principles
+alwaysApply: true
+---
+
+# Architecture
+
+Layers (imports only flow downward):
+
+```
+cli, api  →  services  →  db, domain
+db        →  domain
+domain    →  (stdlib / typing only)
+```
+
+## Import bans
+
+- `atlas/domain/` must not import `atlas.db`, `atlas.api`, `atlas.cli`, or `atlas.services`.
+- `atlas/api/` and `atlas/cli/` must not open a session, query tables, or import `atlas.db` except to obtain a session factory they pass into services. They never call SQLModel/SQLAlchemy APIs themselves.
+- Routers and Typer commands call `atlas.services` only. Shared behavior lives in services so API and CLI cannot diverge.
+
+```python
+# ❌ BAD — router talks to the session
+def create_area(session: Session, body: AreaCreate):
+    session.add(Area(**body.model_dump()))
+
+# ✅ GOOD — router calls a service
+def create_area(session: Session, body: AreaCreate):
+    return area_service.create_area(session, **body.model_dump())
+```
+
+## Data principles
+
+- **Entries are the only stored facts.** Streaks, adherence, goal progress, and pace are computed on read from entries. Never persist derived columns.
+- **Habits and goals reference metrics.** One capture path (`log` / `POST /entries`) serves everything. Do not add a second tracking table.
+- **Slugs are the human key.** Integer PKs internally; unique slugs (`health`, `pushups`) on the wire and CLI.
+- **Local dates for occurrence, UTC for bookkeeping.** `Entry.occurred_on` is a local `date` in `ATLAS_TZ`. `created_at` is UTC.

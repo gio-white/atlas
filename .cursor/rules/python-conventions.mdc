@@ -1,0 +1,51 @@
+---
+description: Python type hints, service signatures, purity, and test conventions
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# Python conventions
+
+## Types and signatures
+
+- Public functions have type hints on parameters and return values.
+- Service functions take an explicit `Session` as the first parameter. Do not hide the session in a global or a contextvar.
+
+```python
+# ❌ BAD
+def log_entry(metric_slug: str, value: float):
+    session = get_session()
+    ...
+
+# ✅ GOOD
+def log_entry(session: Session, metric_slug: str, value: float) -> Entry:
+    ...
+```
+
+## Domain purity
+
+Functions in `atlas/domain/` are pure: no I/O, no session, no datetime.now() unless the clock is passed in. They operate on in-memory values and return new values.
+
+## Comments
+
+Do not write comments that narrate what the next line does. Comments are for non-obvious invariants, trade-offs, or why a naive approach is wrong.
+
+## Tests
+
+| Layer    | How to test                                      |
+|----------|--------------------------------------------------|
+| domain   | Plain lists / dataclasses. No database.          |
+| services | In-memory SQLite session.                        |
+| api      | FastAPI `TestClient`. No live server.            |
+| cli      | Typer's runner if needed; prefer service tests.  |
+
+```python
+# ❌ BAD — domain test hits SQLite
+def test_current_streak(session: Session):
+    session.add(Entry(...))
+
+# ✅ GOOD — domain test is a pure function over a list
+def test_current_streak():
+    entries = [EntryView(occurred_on=date(2026, 8, 10), value_num=1)]
+    assert current_streak(entries, period=Period.day) == 1
+```
