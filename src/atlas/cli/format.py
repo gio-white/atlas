@@ -8,6 +8,7 @@ from atlas.services import (
     AreaView,
     GoalProgressReport,
     HabitStatus,
+    SeedSummary,
     TodayView,
     WeekView,
 )
@@ -45,6 +46,15 @@ def print_deleted(entry_id: int) -> None:
 def print_imported(path: str, *, replace: bool) -> None:
     mode = "replaced and imported" if replace else "imported"
     console.print(f"{mode} {path}")
+
+
+def print_seeded(summary: SeedSummary) -> None:
+    console.print(
+        f"seeded demo as of {summary.as_of}: "
+        f"{summary.areas} areas, {summary.metrics} metrics, "
+        f"{summary.habits} habits, {summary.goals} goals, "
+        f"{summary.entries} entries"
+    )
 
 
 def print_today(view: TodayView) -> None:

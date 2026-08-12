@@ -13,6 +13,7 @@ from atlas.services.goals import (
 from atlas.services.habits import HabitStatus, create_habit, get_habit, habit_status, list_habits
 from atlas.services.metrics import archive_metric, create_metric, get_metric, list_metrics
 from atlas.services.port import export_all, import_all
+from atlas.services.seed import SeedSummary, demo_payload, seed_demo
 from atlas.services.views import (
     AreaView,
     LoggedEntry,
@@ -35,6 +36,7 @@ __all__ = [
     "MetricSnapshot",
     "MilestoneInput",
     "NotFoundError",
+    "SeedSummary",
     "ServiceError",
     "TodayView",
     "ValidationError",
@@ -50,6 +52,7 @@ __all__ = [
     "create_habit",
     "create_metric",
     "delete_entry",
+    "demo_payload",
     "export_all",
     "get_area",
     "get_goal",
@@ -63,6 +66,7 @@ __all__ = [
     "list_habits",
     "list_metrics",
     "log_entry",
+    "seed_demo",
     "today_view",
     "toggle_milestone",
     "week_view",

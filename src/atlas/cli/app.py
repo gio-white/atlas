@@ -14,6 +14,7 @@ from atlas.cli.format import (
     print_habit_status,
     print_imported,
     print_logged,
+    print_seeded,
     print_today,
     print_week,
 )
@@ -48,6 +49,7 @@ from atlas.services import (
     list_areas,
     list_goals,
     log_entry,
+    seed_demo,
     today_view,
     week_view,
 )
@@ -88,6 +90,16 @@ def init() -> None:
     settings = load_settings()
     init_db(settings.db_path)
     typer.echo(f"Initialized {settings.db_path}")
+
+
+@app.command()
+def seed(
+    replace: Annotated[bool, typer.Option("--replace")] = False,
+    on: Annotated[str | None, typer.Option("--on")] = None,
+) -> None:
+    """Load a demo dataset dated relative to today."""
+    with cli_session() as session:
+        print_seeded(seed_demo(session, as_of=parse_iso_date(on), replace=replace))
 
 
 @app.command()
