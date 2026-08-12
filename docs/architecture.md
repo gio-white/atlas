@@ -155,7 +155,7 @@ A manual checkpoint under a goal. Available to both goal kinds, so a `metric_tar
 
 ### Schema management
 
-Tables are created with `SQLModel.metadata.create_all`. A single-row `schema_version` table records the version the file was created with. There is no Alembic in the MVP; a schema change ships as an explicit migration step documented in the development log.
+Tables are created with `SQLModel.metadata.create_all`. A single-row `schema_version` table records the version the file was created with (`CURRENT_SCHEMA_VERSION = 1`). `atlas init` creates the parent directory if needed, opens the SQLite file at `ATLAS_DB`, runs `create_all`, and inserts that row when missing; it is safe to run twice. There is no Alembic in the MVP; a schema change ships as an explicit migration step documented in the development log.
 
 ## Layering
 
@@ -185,7 +185,7 @@ The package lives at `src/atlas/` (src layout), so tests import the installed pa
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `atlas/settings.py` | Configuration resolved from the environment. Stdlib only, so every layer may import it.                                                                                                                    |
 | `atlas/domain/`     | Enums, value objects (`EntryView`, `HabitSpec`, `GoalSpec`, `MilestoneView`, `Bucket`, `GoalProgress`), and the calculation functions: period bucketing, rollups, `current_streak`, `longest_streak`, `adherence`, `goal_progress`, `pace_status`. Implemented. Pure — no I/O, no session, no wall clock. |
-| `atlas/db/`         | SQLModel tables, engine, session factory, schema creation.                                                                                                                                                 |
+| `atlas/db/`         | SQLModel tables (`Area`, `Metric`, `Entry`, `Habit`, `Goal`, `Milestone`, `SchemaVersion`), engine, session factory, schema creation. Implemented. Unique slugs; `Entry` indexed on `(metric_id, occurred_on)`. |
 | `atlas/services/`   | Use cases, each taking an explicit `Session` as its first parameter. Loads rows, hands plain values to `domain`, writes results back.                                                                      |
 | `atlas/api/`        | FastAPI routers: parse, call a service, serialize. Dedicated request/response schemas only where the wire shape must differ from the table.                                                                |
 | `atlas/cli/`        | Typer commands calling the same services in-process (no HTTP hop), Rich for output.                                                                                                                        |
@@ -346,8 +346,9 @@ There is no authentication. The app binds to localhost only.
 Four verbs, deliberately unequal in weight: capture is one line, everything else may cost a few keystrokes.
 
 
-| Command                                        | Purpose                                                                                                                            | Status  |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| Command                                        | Purpose                                                                                                                            | Status      |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `atlas init`                                   | Create the SQLite file and schema at `ATLAS_DB`                                                                                    | implemented |
 | `atlas log <metric> [value]`                   | Capture, the hot path: `atlas log pushups 40`, `atlas log meditated`, `atlas log weight 78.4 --on 2026-08-10 --note "post-travel"` | planned |
 | `atlas area add <slug>`                        | Define an area                                                                                                                     | planned |
 | `atlas metric add <slug> --area --type --agg`  | Define a metric                                                                                                                    | planned |
@@ -408,4 +409,5 @@ Append-only, one entry per cycle. Newest last.
 - **2026-08-12 —** `docs-living` — Created `docs/architecture.md` as the living source of truth: purpose, field-level data model for `Area`, `Metric`, `Entry`, `Habit`, `Goal`, and `Milestone`, layering with the import rules, precise definitions of bucketing, rollup, habit satisfaction, streaks, adherence, goal progress, and pace status, the planned API and CLI surface with per-item status, and configuration. No code yet; every endpoint and command is `planned`.
 - **2026-08-12 —** `scaffold` — Scaffolded the project with `uv init --lib` (src layout at `src/atlas/`), added `fastapi`, `uvicorn`, `sqlmodel`, `typer`, `rich` and dev `pytest`, `ruff`, created the empty `domain`, `db`, `services`, `api`, and `cli` packages, configured ruff and pytest in `pyproject.toml`, and added `atlas/settings.py` reading `ATLAS_DB` and `ATLAS_TZ` into a frozen `Settings` (six tests). The domain import ban is now enforced by ruff's banned-api rule rather than by review alone. No tables, endpoints, or commands yet.
 - **2026-08-13 —** `domain` — Implemented `atlas/domain/`: enums (`ValueType`, `Aggregation`, `Direction`, `Period`, `Comparator`, `GoalKind`, `GoalStatus`, plus `Measure`, `Source`, `PaceStatus`), value objects (`EntryView`, `HabitSpec`, `GoalSpec`, `MilestoneView`, `Bucket`, `GoalProgress`), and the pure calculation functions for period bucketing, rollups, habit satisfaction, `current_streak`, `longest_streak`, `adherence`, `goal_progress`, and `pace_status`. Unit tests cover the definitions in this document over plain lists; no database.
+- **2026-08-13 —** `persistence` — Implemented `atlas/db/`: SQLModel tables for `Area`, `Metric`, `Entry`, `Habit`, `Goal`, `Milestone`, and `schema_version`; unique slugs; index on `Entry(metric_id, occurred_on)`; engine, in-memory engine, and session factory; `create_all` with `CURRENT_SCHEMA_VERSION = 1`. `atlas init` creates the database file (and parent directory) at `ATLAS_DB` and is idempotent.
 
