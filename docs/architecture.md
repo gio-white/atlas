@@ -1,0 +1,355 @@
+# Atlas architecture
+
+This document is the living source of truth for Atlas, maintained alongside the code. A change in behavior and the matching edit here belong to the same cycle: code and this document disagreeing is a bug, not a stale doc.
+
+## Purpose
+
+Atlas is a single-user, local-first life-tracking backend. It records what actually happened, then layers commitments (habits) and outcomes (goals) on top of that record. Everything a review screen wants to show — streaks, adherence, goal progress, whether a goal is on pace — is computed on read from the recorded facts.
+
+Consequences of that stance:
+
+- Backfilling an entry for last Tuesday automatically corrects every streak, adherence ratio, and goal percentage that depends on it. There is no recalculation step and nothing to migrate.
+- There is exactly one capture path. Habits and goals point at metrics; they never store their own observations.
+- The HTTP API is the only consumer path. The CLI is an in-process adapter over the same service layer, so a future frontend has no privileged access and no behavior of its own to reimplement.
+
+## Data model
+
+Integer primary keys are internal. Slugs are the human key and are what the CLI and the API accept: unique per entity type, lowercase, `[a-z0-9-]`.
+
+```mermaid
+flowchart TD
+  Area[Area: life aspect] -->|groups| Metric[Metric: what is measured]
+  Area -->|groups| Goal[Goal: outcome by a date]
+  Metric -->|has many| Entry[Entry: one observation]
+  Habit[Habit: recurring commitment] -->|measured by| Metric
+  Goal -->|measured by| Metric
+  Goal -->|has many| Milestone[Milestone: manual checkpoint]
+```
+
+### Area
+
+A life aspect that groups metrics and goals: Health, Career, Finance, Relationships.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | int | primary key |
+| `slug` | str | unique |
+| `name` | str | display name |
+| `description` | str \| None | |
+| `archived_at` | datetime \| None | UTC; archived areas are hidden from views but never deleted |
+
+### Metric
+
+The definition of a measurable thing. A metric says what a value means and how same-period values roll up; it stores no values itself.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | int | primary key |
+| `area_id` | int | FK to `Area` |
+| `slug` | str | unique |
+| `name` | str | |
+| `value_type` | enum | `bool \| count \| quantity \| duration \| rating \| text` |
+| `unit` | str \| None | free text, for display only (`reps`, `kg`, `min`) |
+| `aggregation` | enum | `sum \| last \| mean \| max \| min` — how entries in the same period combine |
+| `direction` | enum | `higher_is_better \| lower_is_better \| neutral` |
+| `archived_at` | datetime \| None | UTC |
+
+`aggregation` is the field that makes one entry table serve everything: pushups sum across a day, bodyweight takes the last reading, mood averages.
+
+`duration` values are stored in minutes. `bool` values are stored in `value_bool` and count as `1.0` / `0.0` wherever arithmetic is needed.
+
+### Entry
+
+One observation of a metric. Entries are the only stored facts in Atlas and are treated as immutable in spirit: they are corrected through amend and delete, never silently rewritten by derived logic.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | int | primary key |
+| `metric_id` | int | FK to `Metric` |
+| `occurred_on` | date | **local** date in `ATLAS_TZ`; the answer to "which day does this count for" |
+| `occurred_at` | datetime \| None | UTC; optional precise time, used to order entries within a day |
+| `value_num` | float \| None | for `count`, `quantity`, `duration`, `rating` |
+| `value_bool` | bool \| None | for `bool` |
+| `value_text` | str \| None | for `text` |
+| `note` | str \| None | free text |
+| `source` | enum | `cli \| api \| import` |
+| `created_at` | datetime | UTC, set on insert |
+
+Multiple entries per metric per day are always allowed; the metric's `aggregation` resolves them. There is no uniqueness constraint on `(metric_id, occurred_on)`.
+
+### Habit
+
+A recurring commitment over a metric: a schedule plus a target.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | int | primary key |
+| `metric_id` | int | FK to `Metric` |
+| `slug` | str | unique |
+| `name` | str | |
+| `period` | enum | `day \| week \| month` — the bucket the target applies to |
+| `target_value` | float | |
+| `comparator` | enum | `at_least \| at_most \| exactly` |
+| `weekdays` | set[int] \| None | ISO weekdays (Mon=1 … Sun=7); only valid when `period` is `day`, `None` means every day |
+| `active_from` | date | inclusive |
+| `active_to` | date \| None | inclusive; `None` means open-ended |
+
+`at_most` is not an afterthought: "no more than one coffee a day" and "at least three runs a week" are the same machinery with a different comparator.
+
+### Goal
+
+An outcome to reach by a date. Two kinds share one table because they share a lifecycle and a due date.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | int | primary key |
+| `area_id` | int | FK to `Area` |
+| `slug` | str | unique |
+| `name` | str | |
+| `kind` | enum | `metric_target \| milestone` |
+| `metric_id` | int \| None | required when `kind` is `metric_target` |
+| `target_value` | float \| None | required when `kind` is `metric_target` |
+| `comparator` | enum \| None | `at_least \| at_most \| exactly`; required when `kind` is `metric_target` |
+| `baseline_value` | float \| None | optional explicit starting point; see [goal progress](#goal-progress) |
+| `measure` | enum \| None | `latest_value \| cumulative_since_start`; required when `kind` is `metric_target` |
+| `start_on` | date | inclusive |
+| `due_on` | date | inclusive |
+| `status` | enum | `active \| achieved \| paused \| abandoned` |
+| `achieved_at` | datetime \| None | UTC |
+
+`measure` distinguishes the two shapes of numeric goal: `latest_value` for "weigh 75 kg" (the current reading is what matters), `cumulative_since_start` for "read 12 books this year" (the running total is what matters).
+
+### Milestone
+
+A manual checkpoint under a goal. Available to both goal kinds, so a `metric_target` goal can still carry qualitative steps.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | int | primary key |
+| `goal_id` | int | FK to `Goal` |
+| `name` | str | |
+| `due_on` | date \| None | |
+| `done_at` | datetime \| None | UTC; `None` means open |
+
+### Schema management
+
+Tables are created with `SQLModel.metadata.create_all`. A single-row `schema_version` table records the version the file was created with. There is no Alembic in the MVP; a schema change ships as an explicit migration step documented in the development log.
+
+## Layering
+
+```mermaid
+flowchart LR
+  CLI[Typer CLI] --> Services[services: use cases]
+  API[FastAPI routers] --> Services
+  Services --> Domain[domain: pure logic]
+  Services --> DB[db: SQLModel + SQLite]
+  DB --> Domain
+```
+
+Imports only flow downward:
+
+```
+cli, api → services → db, domain
+db → domain
+domain → (stdlib / typing only)
+```
+
+| Package | Responsibility |
+|---------|----------------|
+| `atlas/domain/` | Enums, value objects, and the calculation functions: period bucketing, rollups, `current_streak`, `longest_streak`, `adherence`, `goal_progress`, `pace_status`. Pure — no I/O, no session, no wall clock. |
+| `atlas/db/` | SQLModel tables, engine, session factory, schema creation. |
+| `atlas/services/` | Use cases, each taking an explicit `Session` as its first parameter. Loads rows, hands plain values to `domain`, writes results back. |
+| `atlas/api/` | FastAPI routers: parse, call a service, serialize. Dedicated request/response schemas only where the wire shape must differ from the table. |
+| `atlas/cli/` | Typer commands calling the same services in-process (no HTTP hop), Rich for output. |
+
+Import rules, enforced by review and by the always-applied architecture rule:
+
+- `atlas/domain/` must not import `atlas.db`, `atlas.api`, `atlas.cli`, or `atlas.services`.
+- `atlas/api/` and `atlas/cli/` must not open a session, query tables, or call SQLModel/SQLAlchemy APIs. They obtain a session from the factory and pass it into a service.
+- Shared behavior lives in `atlas/services/`, so the API and the CLI cannot diverge.
+
+## Derived computations
+
+Nothing in this section is stored. Every definition below is a pure function of entries (plus habit/goal configuration) and an explicit `as_of` date, so results are reproducible and testable without a database.
+
+### Period bucketing
+
+A bucket is derived from an entry's local `occurred_on`:
+
+| Period | Bucket key | Range |
+|--------|-----------|-------|
+| `day` | the date itself | one day |
+| `week` | `(iso_year, iso_week)` | Monday through Sunday (ISO 8601) |
+| `month` | `(year, month)` | first through last day of the month |
+
+A bucket is **complete** when its last day is strictly before `as_of`, and **in progress** when it contains `as_of`. The distinction matters: an in-progress bucket has not failed yet, it is merely unfinished.
+
+### Rollup
+
+The value of a bucket is its entries combined by the metric's `aggregation`:
+
+| Aggregation | Value |
+|-------------|-------|
+| `sum` | sum of numeric values |
+| `mean` | arithmetic mean of numeric values |
+| `max` / `min` | extreme numeric value |
+| `last` | value of the most recent entry, ordered by `occurred_at` when present, then `created_at`, then `id` |
+
+A bucket with no entries rolls up to `None`, not `0`. Conflating them would make a `last`-aggregated metric like bodyweight read as zero on days it was not measured.
+
+### Habit satisfaction
+
+For a habit and a bucket, let `v` be the rollup of that bucket's entries.
+
+- If `v` is not `None`, the bucket is **satisfied** when the comparator holds: `at_least` → `v >= target_value`, `at_most` → `v <= target_value`, `exactly` → `v == target_value`.
+- If `v` is `None` (nothing recorded), the bucket is satisfied only when the comparator is `at_most`. Recording nothing cannot exceed a ceiling, so a coffee-free day satisfies "at most 1 coffee"; a run-free week fails "at least 3 runs".
+
+A consequence worth knowing: `exactly 0` is never satisfied by an empty bucket. Express that commitment as `at_most 0`.
+
+A bucket is **scheduled** when all of the following hold:
+
+- its range intersects `[active_from, active_to]` (an edge bucket only partly inside the window still counts, once),
+- for `period = day` with a `weekdays` mask, the day's ISO weekday is in the mask,
+- its range intersects `[…, as_of]` — future buckets are not scheduled yet.
+
+Unscheduled buckets are invisible to every habit computation: they do not break streaks and do not appear in adherence denominators. A weekday-masked habit is not failed by its off days.
+
+### Streaks
+
+`current_streak(habit, as_of)` counts consecutive satisfied scheduled buckets walking backwards from `as_of`:
+
+1. Start at the bucket containing `as_of`. If it is in progress and already satisfied, count it. If it is in progress and not yet satisfied, skip it without breaking the streak — the period is still open.
+2. Continue to earlier scheduled buckets, adding one for each satisfied bucket.
+3. Stop at the first complete scheduled bucket that is not satisfied, or when the buckets leave the active window.
+
+So a "3 runs per week" habit satisfied for the past four weeks reports a streak of 4 on Monday morning, and 5 once the third run of the current week is logged.
+
+`longest_streak(habit, as_of)` is the longest run of consecutive satisfied scheduled buckets anywhere in the active window up to `as_of`. The in-progress bucket participates only if it is already satisfied.
+
+### Adherence
+
+`adherence(habit, from_date, to_date)` is `satisfied / scheduled` over the scheduled buckets in the range, counting **complete** buckets only. The in-progress bucket is excluded from both numerator and denominator so that a fresh week cannot drag the ratio down. The result is a float in `0.0 … 1.0`, or `None` when the denominator is zero (nothing was scheduled in the range).
+
+### Goal progress
+
+`goal_progress(goal, as_of)` returns the current value, the baseline, a fraction in `0.0 … 1.0`, and whether the target is met.
+
+For `kind = metric_target`, the current value depends on `measure`:
+
+- `latest_value` — the value of the most recent entry with `occurred_on <= as_of`. `None` if there is no such entry.
+- `cumulative_since_start` — the sum of `value_num` over entries with `start_on <= occurred_on <= as_of`.
+
+The baseline is `baseline_value` when set. Otherwise it is:
+
+- for `latest_value`, the value of the most recent entry with `occurred_on <= start_on`, falling back to the current value (a goal with no history starts at 0 % rather than dividing by nothing),
+- for `cumulative_since_start`, `0.0`.
+
+The fraction is
+
+```
+fraction = clamp((current - baseline) / (target_value - baseline), 0.0, 1.0)
+```
+
+Signed arithmetic handles both directions with one formula: for "lose weight to 75 kg" the numerator and denominator are both negative, so shedding kilos moves the fraction up. When `target_value == baseline`, the fraction is `1.0` if the target is met and `0.0` otherwise. When the current value is `None`, the fraction is `None`.
+
+The target is met when the comparator holds against `target_value`, using the same three comparisons as habit satisfaction. Reaching it does not by itself change `status`; a service marks the goal `achieved` and stamps `achieved_at`.
+
+For `kind = milestone`, the fraction is `done_milestones / total_milestones`, `None` when the goal has no milestones, and the target is met when every milestone is done.
+
+### Pace status
+
+`pace_status(goal, as_of)` answers "is this on track" by comparing progress against elapsed time.
+
+```
+elapsed = clamp((as_of - start_on) / (due_on - start_on), 0.0, 1.0)   # inclusive day counts
+```
+
+| Status | Condition |
+|--------|-----------|
+| `achieved` | the target is met |
+| `overdue` | `as_of > due_on` and the target is not met |
+| `no_data` | the progress fraction is `None` |
+| `ahead` | `fraction > elapsed + 0.05` |
+| `on_track` | `fraction` within `0.05` of `elapsed` |
+| `behind` | `fraction < elapsed - 0.05` |
+
+The `0.05` tolerance keeps a goal from flickering between `ahead` and `behind` on consecutive days. When `due_on == start_on`, `elapsed` is `1.0` from the start date onward.
+
+## HTTP API
+
+Status is `implemented` only when the endpoint is merged with tests. Everything else is `planned`.
+
+| Method | Path | Purpose | Status |
+|--------|------|---------|--------|
+| `POST` | `/entries` | Record an observation (accepts a metric slug) | planned |
+| `PATCH` | `/entries/{id}` | Amend an entry | planned |
+| `DELETE` | `/entries/{id}` | Delete an entry | planned |
+| `GET` | `/areas` | List areas | planned |
+| `POST` | `/areas` | Create an area | planned |
+| `GET` | `/metrics` | List metrics, filterable by area | planned |
+| `POST` | `/metrics` | Create a metric | planned |
+| `GET` | `/habits` | List habits | planned |
+| `POST` | `/habits` | Create a habit | planned |
+| `GET` | `/habits/{slug}/status` | Streaks and adherence for a habit | planned |
+| `GET` | `/goals` | List goals | planned |
+| `POST` | `/goals` | Create a goal | planned |
+| `GET` | `/goals/{slug}/progress` | Progress and pace for a goal | planned |
+| `GET` | `/views/today` | What is due today and what is logged | planned |
+| `GET` | `/views/week` | The current week across habits | planned |
+| `GET` | `/views/areas/{slug}` | One area's metrics, habits, and goals | planned |
+| `GET` | `/export` | Full JSON export | planned |
+| `POST` | `/import` | Full JSON import | planned |
+
+There is no authentication. The app binds to localhost only.
+
+## CLI
+
+Four verbs, deliberately unequal in weight: capture is one line, everything else may cost a few keystrokes.
+
+| Command | Purpose | Status |
+|---------|---------|--------|
+| `atlas log <metric> [value]` | Capture, the hot path: `atlas log pushups 40`, `atlas log meditated`, `atlas log weight 78.4 --on 2026-08-10 --note "post-travel"` | planned |
+| `atlas area add <slug>` | Define an area | planned |
+| `atlas metric add <slug> --area --type --agg` | Define a metric | planned |
+| `atlas habit add --metric --period --at-least` | Define a habit | planned |
+| `atlas goal add <name> --metric --target --by` | Define a goal | planned |
+| `atlas today` | Review: what is due, what is logged | planned |
+| `atlas week` | Review: the week across habits | planned |
+| `atlas area <slug>` | Review: one area | planned |
+| `atlas habit <slug>` | Review: one habit's streak and adherence | planned |
+| `atlas goals` | Review: goals with progress and pace | planned |
+| `atlas entry amend <id>` | Correct an entry | planned |
+| `atlas entry rm <id>` | Delete an entry | planned |
+| `atlas export` | Write a JSON export to stdout | planned |
+| `atlas import <file>` | Load a JSON export | planned |
+
+## Configuration
+
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `ATLAS_DB` | `~/.local/share/atlas/atlas.db` | SQLite database file; the parent directory is created if missing |
+| `ATLAS_TZ` | system local timezone | IANA name (`Europe/Berlin`) used to resolve "today" into `Entry.occurred_on` |
+
+The API is served with `uv run uvicorn atlas.api.app:app --reload`, bound to `127.0.0.1`. Single user, no auth, no remote exposure.
+
+## Development
+
+Python 3.12, managed entirely with `uv`. Every command goes through it: `uv add`, `uv sync`, `uv run pytest`, `uv run ruff check`. Never bare `pip`, `python`, `pytest`, or `ruff`.
+
+Tests by layer:
+
+| Layer | How it is tested |
+|-------|------------------|
+| `domain` | Plain lists and dataclasses, no database |
+| `services` | In-memory SQLite session |
+| `api` | FastAPI `TestClient`, no live server |
+| `cli` | Typer's runner where it adds value; prefer service tests |
+
+One todo, one commit. Each cycle implements a single todo, gets `uv run ruff check` and `uv run pytest` clean, updates this document, and lands one focused commit.
+
+## Development log
+
+Append-only, one entry per cycle. Newest last.
+
+- **2026-08-12 — `rules-first`** — Added the four Cursor rules under `.cursor/rules/`: `architecture.mdc` (layering and import bans, data principles), `tooling.mdc` (uv-only commands, pre-commit gates, one todo per commit), `documentation.mdc` (this file is updated in the same cycle as the behavior it describes), and `python-conventions.mdc` (type hints, explicit `Session` first parameter, domain purity, per-layer test conventions).
+- **2026-08-12 — `docs-living`** — Created `docs/architecture.md` as the living source of truth: purpose, field-level data model for `Area`, `Metric`, `Entry`, `Habit`, `Goal`, and `Milestone`, layering with the import rules, precise definitions of bucketing, rollup, habit satisfaction, streaks, adherence, goal progress, and pace status, the planned API and CLI surface with per-item status, and configuration. No code yet; every endpoint and command is `planned`.
