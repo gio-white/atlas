@@ -188,7 +188,7 @@ The package lives at `src/atlas/` (src layout), so tests import the installed pa
 | `atlas/db/`         | SQLModel tables (`Area`, `Metric`, `Entry`, `Habit`, `Goal`, `Milestone`, `SchemaVersion`), engine, session factory, schema creation. Implemented. Unique slugs; `Entry` indexed on `(metric_id, occurred_on)`. |
 | `atlas/services/`   | Use cases, each taking an explicit `Session` as its first parameter. Loads rows, hands plain values to `domain`, writes results back. Implemented. |
 | `atlas/api/`        | FastAPI routers: parse, call a service, serialize. Dedicated request/response schemas only where the wire shape must differ from the table (slugs instead of integer FKs). Implemented. Session comes from a factory dependency; `uv run uvicorn atlas.api.app:app --reload` and `python -m atlas.api` bind to `127.0.0.1` only. |
-| `atlas/cli/`        | Typer commands calling the same services in-process (no HTTP hop), Rich for output.                                                                                                                        |
+| `atlas/cli/`        | Typer commands calling the same services in-process (no HTTP hop), Rich for output. Implemented. Session comes from the factory; commands never query tables. `log` resolves metric slugs by unique prefix, substring, or close match. |
 
 
 Import rules, enforced by review and by the always-applied architecture rule:
@@ -385,20 +385,20 @@ Four verbs, deliberately unequal in weight: capture is one line, everything else
 | Command                                        | Purpose                                                                                                                            | Status      |
 | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------- |
 | `atlas init`                                   | Create the SQLite file and schema at `ATLAS_DB`                                                                                    | implemented |
-| `atlas log <metric> [value]`                   | Capture, the hot path: `atlas log pushups 40`, `atlas log meditated`, `atlas log weight 78.4 --on 2026-08-10 --note "post-travel"` | planned |
-| `atlas area add <slug>`                        | Define an area                                                                                                                     | planned |
-| `atlas metric add <slug> --area --type --agg`  | Define a metric                                                                                                                    | planned |
-| `atlas habit add --metric --period --at-least` | Define a habit                                                                                                                     | planned |
-| `atlas goal add <name> --metric --target --by` | Define a goal                                                                                                                      | planned |
-| `atlas today`                                  | Review: what is due, what is logged                                                                                                | planned |
-| `atlas week`                                   | Review: the week across habits                                                                                                     | planned |
-| `atlas area <slug>`                            | Review: one area                                                                                                                   | planned |
-| `atlas habit <slug>`                           | Review: one habit's streak and adherence                                                                                           | planned |
-| `atlas goals`                                  | Review: goals with progress and pace                                                                                               | planned |
-| `atlas entry amend <id>`                       | Correct an entry                                                                                                                   | planned |
-| `atlas entry rm <id>`                          | Delete an entry                                                                                                                    | planned |
-| `atlas export`                                 | Write a JSON export to stdout                                                                                                      | planned |
-| `atlas import <file>`                          | Load a JSON export                                                                                                                 | planned |
+| `atlas log <metric> [value]`                   | Capture, the hot path: `atlas log pushups 40`, `atlas log meditated`, `atlas log weight 78.4 --on 2026-08-10 --note "post-travel"`. Metric slugs accept a unique prefix (`push` → `pushups`). | implemented |
+| `atlas area add <slug>`                        | Define an area                                                                                                                     | implemented |
+| `atlas metric add <slug> --area --type --agg`  | Define a metric                                                                                                                    | implemented |
+| `atlas habit add --metric --period --at-least` | Define a habit. Slug is optional and defaults to `{metric}-{period}`. Comparator is exactly one of `--at-least`, `--at-most`, `--exactly`. | implemented |
+| `atlas goal add <name> --metric --target --by` | Define a goal. Area is inferred from the metric when `--area` is omitted; slug is derived from the name. `--at-most` / `--at-least` / `--exactly` are flags; `--cumulative` selects `cumulative_since_start`. | implemented |
+| `atlas today`                                  | Review: what is due, what is logged. `--on` selects the local date.                                                                | implemented |
+| `atlas week`                                   | Review: the week across habits                                                                                                     | implemented |
+| `atlas area <slug>`                            | Review: one area                                                                                                                   | implemented |
+| `atlas habit <slug>`                           | Review: one habit's streak and adherence                                                                                           | implemented |
+| `atlas goals`                                  | Review: goals with progress and pace                                                                                               | implemented |
+| `atlas entry amend <id>`                       | Correct an entry                                                                                                                   | implemented |
+| `atlas entry rm <id>`                          | Delete an entry                                                                                                                    | implemented |
+| `atlas export`                                 | Write a JSON export to stdout                                                                                                      | implemented |
+| `atlas import <file>`                          | Load a JSON export. `--replace` clears user rows first.                                                                            | implemented |
 
 
 
@@ -448,4 +448,5 @@ Append-only, one entry per cycle. Newest last.
 - **2026-08-13 —** `persistence` — Implemented `atlas/db/`: SQLModel tables for `Area`, `Metric`, `Entry`, `Habit`, `Goal`, `Milestone`, and `schema_version`; unique slugs; index on `Entry(metric_id, occurred_on)`; engine, in-memory engine, and session factory; `create_all` with `CURRENT_SCHEMA_VERSION = 1`. `atlas init` creates the database file (and parent directory) at `ATLAS_DB` and is idempotent.
 - **2026-08-13 —** `services` — Implemented `atlas/services/`: `log_entry` / `amend_entry` / `delete_entry`, create/list/archive for areas and metrics, `create_habit` + `habit_status`, `create_goal` + `goal_progress` + `toggle_milestone`, `today_view` / `week_view` / `area_view`, and `export_all` / `import_all`. Services take an explicit session, look up by slug, call domain for derived values, and stamp `achieved` when a goal's target is met. Tests use in-memory SQLite.
 - **2026-08-13 —** `api` — Implemented `atlas/api/`: FastAPI app with Pydantic request/response schemas and routers for entries, areas, metrics, habits, goals, views, and export/import. Session dependency yields from a factory; service errors map to 404/409/400; uvicorn entrypoint binds `127.0.0.1`. Endpoint tests use `TestClient` over in-memory SQLite.
+- **2026-08-13 —** `cli` — Implemented `atlas/cli/`: Typer app over the same services in-process. Commands: `log` (fuzzy metric slug), `area add` / `area <slug>`, `metric add`, `habit add` / `habit <slug>`, `goal add`, `goals`, `today`, `week`, `entry amend` / `entry rm`, `export`, `import`. Rich tables for review; service errors exit 1. Tests use Typer's `CliRunner` against a temp SQLite file.
 
