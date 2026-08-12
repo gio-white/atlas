@@ -186,7 +186,7 @@ The package lives at `src/atlas/` (src layout), so tests import the installed pa
 | `atlas/settings.py` | Configuration resolved from the environment. Stdlib only, so every layer may import it.                                                                                                                    |
 | `atlas/domain/`     | Enums, value objects (`EntryView`, `HabitSpec`, `GoalSpec`, `MilestoneView`, `Bucket`, `GoalProgress`), and the calculation functions: period bucketing, rollups, `current_streak`, `longest_streak`, `adherence`, `goal_progress`, `pace_status`. Implemented. Pure — no I/O, no session, no wall clock. |
 | `atlas/db/`         | SQLModel tables (`Area`, `Metric`, `Entry`, `Habit`, `Goal`, `Milestone`, `SchemaVersion`), engine, session factory, schema creation. Implemented. Unique slugs; `Entry` indexed on `(metric_id, occurred_on)`. |
-| `atlas/services/`   | Use cases, each taking an explicit `Session` as its first parameter. Loads rows, hands plain values to `domain`, writes results back.                                                                      |
+| `atlas/services/`   | Use cases, each taking an explicit `Session` as its first parameter. Loads rows, hands plain values to `domain`, writes results back. Implemented. |
 | `atlas/api/`        | FastAPI routers: parse, call a service, serialize. Dedicated request/response schemas only where the wire shape must differ from the table.                                                                |
 | `atlas/cli/`        | Typer commands calling the same services in-process (no HTTP hop), Rich for output.                                                                                                                        |
 
@@ -312,6 +312,38 @@ elapsed = clamp((as_of - start_on) / (due_on - start_on), 0.0, 1.0)   # inclusiv
 
 The `0.05` tolerance keeps a goal from flickering between `ahead` and `behind` on consecutive days. When `due_on == start_on`, `elapsed` is `1.0` from the start date onward.
 
+## Services
+
+Implemented. Every use case takes an explicit `Session` as its first parameter, loads table rows, hands `EntryView` / `HabitSpec` / `GoalSpec` values to `atlas.domain`, and commits its own transaction. Slugs are the lookup key except for entries (integer `id`) and milestone toggle (goal slug + milestone name). When `occurred_on` or `as_of` is omitted, the service uses `Settings.today()`.
+
+Failures raise `ServiceError` subclasses the API and CLI will map: `NotFoundError`, `AlreadyExistsError` (duplicate slug), `ValidationError` (bad slug, archived target, missing goal fields, wrong value type).
+
+| Function | Role |
+| -------- | ---- |
+| `create_area` / `list_areas` / `get_area` / `archive_area` | Areas. Archive stamps `archived_at` (UTC) and hides the row from default lists; areas are never deleted. |
+| `create_metric` / `list_metrics` / `get_metric` / `archive_metric` | Metrics, keyed by slug, created under an area slug. `list_metrics` can filter by area and hides archived metrics and metrics whose area is archived. |
+| `log_entry` / `amend_entry` / `delete_entry` | Capture and correction. `log_entry` accepts a metric slug and a single `value`; a bool metric with no value stores `true`. Multiple entries per day remain allowed. Logging to an archived metric is rejected; amend and delete still work. |
+| `create_habit` / `list_habits` / `get_habit` / `habit_status` | Habits. `weekdays` is valid only for `period = day`. Text metrics cannot be habit targets. `habit_status` returns current/longest streak, adherence from `active_from` to `as_of`, the current bucket's rollup, and whether that bucket is scheduled and satisfied. |
+| `create_goal` / `list_goals` / `get_goal` / `goal_progress` / `toggle_milestone` | Goals. `metric_target` requires metric, target, comparator, and measure, and the metric must belong to the goal's area. `milestone` kind forbids those fields. Optional `MilestoneInput` values can be created with the goal. `goal_progress` returns current/baseline/fraction/`target_met` plus `pace_status`. When the target is met and `status` is still `active`, the service sets `status = achieved` and stamps `achieved_at`; it does not reopen an achieved, paused, or abandoned goal. |
+| `today_view` / `week_view` / `area_view` | Review. `today_view` is habits whose current bucket is scheduled, entries with `occurred_on = as_of`, and active goals with progress. `week_view` is the ISO week containing `as_of`, one cell per day per habit. `area_view` is one area's non-archived metrics (latest day's rollup), habits, and non-abandoned goals. |
+| `export_all` / `import_all` | Port. Export is a JSON-serializable dict keyed by slugs, not integer ids. Import upserts areas, metrics, habits, goals, and milestones by slug (milestones by goal slug + name) and always inserts entries. `replace=True` deletes user rows first. `schema_version` must equal `CURRENT_SCHEMA_VERSION` (1). |
+
+Export shape:
+
+```json
+{
+  "schema_version": 1,
+  "areas": [{"slug": "health", "name": "Health", "description": null, "archived_at": null}],
+  "metrics": [{"slug": "pushups", "area": "health", "name": "Pushups", "value_type": "count", "unit": "reps", "aggregation": "sum", "direction": "higher_is_better", "archived_at": null}],
+  "habits": [{"slug": "pushups-daily", "metric": "pushups", "name": "Pushups Daily", "period": "day", "target_value": 1.0, "comparator": "at_least", "weekdays": null, "active_from": "2026-08-01", "active_to": null}],
+  "goals": [{"slug": "bodyweight-75", "area": "health", "name": "Bodyweight 75kg", "kind": "metric_target", "metric": "weight", "target_value": 75.0, "comparator": "at_most", "baseline_value": null, "measure": "latest_value", "start_on": "2026-01-01", "due_on": "2026-12-01", "status": "active", "achieved_at": null}],
+  "milestones": [{"goal": "bodyweight-75", "name": "Hit 78kg", "due_on": null, "done_at": null}],
+  "entries": [{"metric": "pushups", "occurred_on": "2026-08-10", "occurred_at": null, "value_num": 40.0, "value_bool": null, "value_text": null, "note": "post-travel", "source": "cli", "created_at": "2026-08-10T12:00:00+00:00"}]
+}
+```
+
+Slugs are normalized to lowercase and must match `[a-z0-9]+(?:-[a-z0-9]+)*`. An omitted `name` defaults to the slug with hyphens turned into spaces and title-cased.
+
 ## HTTP API
 
 Status is `implemented` only when the endpoint is merged with tests. Everything else is `planned`.
@@ -410,4 +442,5 @@ Append-only, one entry per cycle. Newest last.
 - **2026-08-12 —** `scaffold` — Scaffolded the project with `uv init --lib` (src layout at `src/atlas/`), added `fastapi`, `uvicorn`, `sqlmodel`, `typer`, `rich` and dev `pytest`, `ruff`, created the empty `domain`, `db`, `services`, `api`, and `cli` packages, configured ruff and pytest in `pyproject.toml`, and added `atlas/settings.py` reading `ATLAS_DB` and `ATLAS_TZ` into a frozen `Settings` (six tests). The domain import ban is now enforced by ruff's banned-api rule rather than by review alone. No tables, endpoints, or commands yet.
 - **2026-08-13 —** `domain` — Implemented `atlas/domain/`: enums (`ValueType`, `Aggregation`, `Direction`, `Period`, `Comparator`, `GoalKind`, `GoalStatus`, plus `Measure`, `Source`, `PaceStatus`), value objects (`EntryView`, `HabitSpec`, `GoalSpec`, `MilestoneView`, `Bucket`, `GoalProgress`), and the pure calculation functions for period bucketing, rollups, habit satisfaction, `current_streak`, `longest_streak`, `adherence`, `goal_progress`, and `pace_status`. Unit tests cover the definitions in this document over plain lists; no database.
 - **2026-08-13 —** `persistence` — Implemented `atlas/db/`: SQLModel tables for `Area`, `Metric`, `Entry`, `Habit`, `Goal`, `Milestone`, and `schema_version`; unique slugs; index on `Entry(metric_id, occurred_on)`; engine, in-memory engine, and session factory; `create_all` with `CURRENT_SCHEMA_VERSION = 1`. `atlas init` creates the database file (and parent directory) at `ATLAS_DB` and is idempotent.
+- **2026-08-13 —** `services` — Implemented `atlas/services/`: `log_entry` / `amend_entry` / `delete_entry`, create/list/archive for areas and metrics, `create_habit` + `habit_status`, `create_goal` + `goal_progress` + `toggle_milestone`, `today_view` / `week_view` / `area_view`, and `export_all` / `import_all`. Services take an explicit session, look up by slug, call domain for derived values, and stamp `achieved` when a goal's target is met. Tests use in-memory SQLite.
 
