@@ -8,6 +8,7 @@ This README is how to install and run it. The data model, layering, derived comp
 
 - Python 3.12+
 - [uv](https://docs.astral.sh/uv/)
+- Node.js 20+ (only when working on the web UI)
 
 ## Install
 
@@ -53,15 +54,15 @@ uv run atlas goals
 
 Define, correct, and port (`export` / `import`) are listed in the [CLI](docs/architecture.md#cli) section of the architecture doc. `uv run atlas --help` prints the same surface.
 
-## API
+## API and web UI
 
-The HTTP API is the only consumer path. It binds to localhost only (`127.0.0.1`); there is no authentication.
+The HTTP API is the only consumer path. It binds to localhost only (`127.0.0.1`); there is no authentication. `atlas serve` runs that API and, after `web/` is built, the React SPA from `web/dist`.
 
 ```bash
-uv run uvicorn atlas.api.app:app --reload --host 127.0.0.1
+uv run atlas serve
 ```
 
-Equivalent: `uv run python -m atlas.api`. OpenAPI UI is at <http://127.0.0.1:8000/docs>.
+Equivalent: `uv run uvicorn atlas.api.app:app --reload --host 127.0.0.1` or `uv run python -m atlas.api`. OpenAPI UI is at <http://127.0.0.1:8000/docs>. During UI development the Vite app on port 5173 is allowed by CORS; see [frontend](docs/architecture.md#frontend).
 
 ```bash
 curl -s http://127.0.0.1:8000/views/today

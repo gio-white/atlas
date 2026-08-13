@@ -85,6 +85,14 @@ def main() -> None:
 
 
 @app.command()
+def serve() -> None:
+    """Serve the HTTP API and the web UI on localhost."""
+    from atlas.api.app import main as serve_api
+
+    serve_api()
+
+
+@app.command()
 def init() -> None:
     """Create the local SQLite database and schema."""
     settings = load_settings()

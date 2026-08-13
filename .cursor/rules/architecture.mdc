@@ -18,6 +18,7 @@ domain    →  (stdlib / typing only)
 - `atlas/domain/` must not import `atlas.db`, `atlas.api`, `atlas.cli`, or `atlas.services`.
 - `atlas/api/` and `atlas/cli/` must not open a session, query tables, or import `atlas.db` except to obtain a session factory they pass into services. They never call SQLModel/SQLAlchemy APIs themselves.
 - Routers and Typer commands call `atlas.services` only. Shared behavior lives in services so API and CLI cannot diverge.
+- The React SPA in `web/` is not a Python package. It consumes the HTTP API only and must not import `atlas.*` or reimplement streaks, adherence, or goal progress.
 
 ```python
 # ❌ BAD — router talks to the session

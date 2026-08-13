@@ -5,3 +5,5 @@ __pycache__/
 .ruff_cache/
 *.db
 *.db-journal
+web/node_modules/
+web/dist/

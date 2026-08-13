@@ -10,7 +10,7 @@ Consequences of that stance:
 
 - Backfilling an entry for last Tuesday automatically corrects every streak, adherence ratio, and goal percentage that depends on it. There is no recalculation step and nothing to migrate.
 - There is exactly one capture path. Habits and goals point at metrics; they never store their own observations.
-- The HTTP API is the only consumer path. The CLI is an in-process adapter over the same service layer, so a future frontend has no privileged access and no behavior of its own to reimplement.
+- The HTTP API is the only consumer path. The CLI is an in-process adapter over the same service layer. The React SPA in `web/` is an HTTP client of that API: it has no privileged access and no streaks, adherence, or progress of its own to reimplement.
 
 
 
@@ -161,8 +161,9 @@ Tables are created with `SQLModel.metadata.create_all`. A single-row `schema_ver
 
 ```mermaid
 flowchart LR
+  SPA[React SPA] -->|HTTP JSON| API[FastAPI routers]
   CLI[Typer CLI] --> Services[services: use cases]
-  API[FastAPI routers] --> Services
+  API --> Services
   Services --> Domain[domain: pure logic]
   Services --> DB[db: SQLModel + SQLite]
   DB --> Domain
@@ -178,6 +179,8 @@ db → domain
 domain → (stdlib / typing only)
 ```
 
+`web/` is not a Python package and is not in this import graph. It talks to the API over HTTP only.
+
 The package lives at `src/atlas/` (src layout), so tests import the installed package rather than the repo root and a packaging mistake fails loudly instead of passing by accident.
 
 
@@ -187,7 +190,7 @@ The package lives at `src/atlas/` (src layout), so tests import the installed pa
 | `atlas/domain/`     | Enums, value objects (`EntryView`, `HabitSpec`, `GoalSpec`, `MilestoneView`, `Bucket`, `GoalProgress`), and the calculation functions: period bucketing, rollups, `current_streak`, `longest_streak`, `adherence`, `goal_progress`, `pace_status`. Implemented. Pure — no I/O, no session, no wall clock. |
 | `atlas/db/`         | SQLModel tables (`Area`, `Metric`, `Entry`, `Habit`, `Goal`, `Milestone`, `SchemaVersion`), engine, session factory, schema creation. Implemented. Unique slugs; `Entry` indexed on `(metric_id, occurred_on)`. |
 | `atlas/services/`   | Use cases, each taking an explicit `Session` as its first parameter. Loads rows, hands plain values to `domain`, writes results back. Implemented. |
-| `atlas/api/`        | FastAPI routers: parse, call a service, serialize. Dedicated request/response schemas only where the wire shape must differ from the table (slugs instead of integer FKs). Implemented. Session comes from a factory dependency; `uv run uvicorn atlas.api.app:app --reload` and `python -m atlas.api` bind to `127.0.0.1` only. |
+| `atlas/api/`        | FastAPI routers: parse, call a service, serialize. Dedicated request/response schemas only where the wire shape must differ from the table (slugs instead of integer FKs). Implemented. Session comes from a factory dependency; CORS allows the Vite dev origins (`http://127.0.0.1:5173`, `http://localhost:5173`). If `web/dist/index.html` exists, GET 404s fall back to that SPA without shadowing API routes. `uv run uvicorn atlas.api.app:app --reload`, `python -m atlas.api`, and `atlas serve` bind to `127.0.0.1` only. |
 | `atlas/cli/`        | Typer commands calling the same services in-process (no HTTP hop), Rich for output. Implemented. Session comes from the factory; commands never query tables. `log` resolves metric slugs by unique prefix, substring, or close match. `seed` loads the demo dataset through `seed_demo`. Review commands share one chrome: a header plus titled Rich panels. `today` and `area` split habits into Daily vs This period (two columns when the terminal is wide enough). Capture commands stay one-line confirmations. |
 
 
@@ -196,6 +199,7 @@ Import rules, enforced by review and by the always-applied architecture rule:
 - `atlas/domain/` must not import `atlas.db`, `atlas.api`, `atlas.cli`, or `atlas.services`.
 - `atlas/api/` and `atlas/cli/` must not open a session, query tables, or call SQLModel/SQLAlchemy APIs. They obtain a session from the factory and pass it into a service.
 - Shared behavior lives in `atlas/services/`, so the API and the CLI cannot diverge.
+- `web/` must not import `atlas.*` or reimplement domain calculations. It is an HTTP client of the API.
 
 The first of these is machine-enforced. Ruff's `flake8-tidy-imports` bans `atlas.db`, `atlas.services`, `atlas.api`, and `atlas.cli` project-wide, and `[tool.ruff.lint.per-file-ignores]` lifts the ban everywhere except `atlas/domain/`. An import that breaks domain purity fails `uv run ruff check` rather than waiting for review.
 
@@ -376,7 +380,27 @@ Optional filters the services already support are query parameters: `area` on me
 | `POST`   | `/import`                | Full JSON import                              | implemented |
 
 
-There is no authentication. The app binds to localhost only (`127.0.0.1`). Tests use FastAPI `TestClient` against `create_app(session_factory=...)` with in-memory SQLite; they never start a live server.
+There is no authentication. The app binds to localhost only (`127.0.0.1`). CORS allows the Vite dev server origins so the SPA on `:5173` can call the API on `:8000`; production is same-origin and does not need CORS. Tests use FastAPI `TestClient` against `create_app(session_factory=...)` with in-memory SQLite; they never start a live server.
+
+## Frontend
+
+The UI is a React SPA in `web/` (Vite, TypeScript, Tailwind). It is planned as a sequence of cycles; this cycle only hosts it. FastAPI does not render HTML templates. When `web/dist` is present, unknown paths that are not API routes return `index.html`.
+
+SPA routes are chosen so they do not overlap API prefixes (`/areas`, `/metrics`, `/habits`, `/goals`, `/entries`, `/views`, `/export`, `/import`, `/docs`, `/openapi.json`):
+
+
+| Path            | Page                                      | Status  |
+| --------------- | ----------------------------------------- | ------- |
+| `/`             | Today: habits due, log, entries, goal pace | planned |
+| `/week`         | Week grid                                 | planned |
+| `/area/:slug`   | Area dashboard                            | planned |
+| `/habit/:slug`  | Habit streak and adherence                | planned |
+| `/goal`         | Goals with progress and pace              | planned |
+| `/goal/:slug`   | Goal detail and milestones                | planned |
+| `/catalog`      | Create and edit areas, metrics, habits, goals | planned |
+
+
+Dev: Vite on `:5173` proxies those API prefixes to `127.0.0.1:8000`. Prod: `atlas serve` (or uvicorn) serves API and `web/dist` together on `127.0.0.1:8000`.
 
 ## CLI
 
@@ -401,6 +425,7 @@ Four verbs, deliberately unequal in weight: capture is one line, everything else
 | `atlas entry rm <id>`                          | Delete an entry                                                                                                                    | implemented |
 | `atlas export`                                 | Write a JSON export to stdout                                                                                                      | implemented |
 | `atlas import <file>`                          | Load a JSON export. `--replace` clears user rows first.                                                                            | implemented |
+| `atlas serve`                                  | Serve the HTTP API and, when `web/dist` exists, the SPA on `127.0.0.1:8000`.                                                       | implemented |
 
 
 
@@ -418,7 +443,7 @@ Four verbs, deliberately unequal in weight: capture is one line, everything else
 
 Resolving the path is deliberately side-effect free: the database file and its parent directory are created by the engine module, not by reading configuration.
 
-The API is served with `uv run uvicorn atlas.api.app:app --reload`, bound to `127.0.0.1`. Single user, no auth, no remote exposure.
+The API is served with `uv run atlas serve` or `uv run uvicorn atlas.api.app:app --reload`, bound to `127.0.0.1`. Single user, no auth, no remote exposure. CORS is limited to the Vite origins above.
 
 ## Development
 
@@ -455,4 +480,5 @@ Append-only, one entry per cycle. Newest last.
 - **2026-08-13 —** `cli-dashboard` — Restyled `atlas today` as a Rich dashboard: shared panel/column helpers in `format.py`, daily habits as a left checklist, weekly/monthly habits (e.g. family calls) on the right, logged entries and goals below. Console width follows the terminal. Capture output unchanged.
 - **2026-08-13 —** `cli-review-chrome` — Applied the same header-and-panel chrome to `week`, `area`, `habit show`, and `goals`. Area review splits habits into Daily vs This period like `today`.
 - **2026-08-13 —** `cli-tests-docs` — CLI review tests assert dashboard panel titles and that `atlas today` shows a daily habit beside a weekly/monthly habit. Architecture CLI section documents the shared chrome.
+- **2026-08-13 —** `api-host` — CORS for the Vite origins, optional `web/dist` SPA mount with a catch-all that does not shadow API routes, and `atlas serve`. The React app itself is not in this cycle.
 

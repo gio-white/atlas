@@ -1,8 +1,10 @@
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
 
 from atlas.api.errors import register_exception_handlers
@@ -15,6 +17,7 @@ from atlas.api.routers import (
     port_router,
     views_router,
 )
+from atlas.api.spa import VITE_ORIGINS, mount_spa, resolve_spa_dir
 from atlas.db import init_db, make_session_factory
 from atlas.settings import load_settings
 
@@ -30,7 +33,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
 
 
-def create_app(*, session_factory: Callable[[], Session] | None = None) -> FastAPI:
+def create_app(
+    *,
+    session_factory: Callable[[], Session] | None = None,
+    spa_dir: Path | None = None,
+) -> FastAPI:
     app = FastAPI(
         title="Atlas",
         description="Personal life-tracking backend",
@@ -46,10 +53,19 @@ def create_app(*, session_factory: Callable[[], Session] | None = None) -> FastA
     app.include_router(goals_router)
     app.include_router(views_router)
     app.include_router(port_router)
+    if spa_dir is not None:
+        mount_spa(app, spa_dir)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=list(VITE_ORIGINS),
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     return app
 
 
-app = create_app()
+app = create_app(spa_dir=resolve_spa_dir())
 
 
 def main() -> None:
