@@ -1,19 +1,24 @@
 from typing import Any
 
-from rich.console import Console
+from rich.console import Console, Group, RenderableType
+from rich.panel import Panel
 from rich.table import Table
 
-from atlas.domain import Comparator
+from atlas.domain import Comparator, Period
 from atlas.services import (
     AreaView,
     GoalProgressReport,
     HabitStatus,
+    LoggedEntry,
+    MetricSnapshot,
     SeedSummary,
     TodayView,
     WeekView,
 )
 
-console = Console(highlight=False, width=120)
+console = Console(highlight=False)
+
+_TWO_PANE_MIN_WIDTH = 100
 
 _COMPARATOR = {
     Comparator.AT_LEAST: "≥",
@@ -58,87 +63,64 @@ def print_seeded(summary: SeedSummary) -> None:
 
 
 def print_today(view: TodayView) -> None:
-    console.print(f"[bold]Today[/bold] {view.as_of}")
-    _print_habit_status_table(view.habits, empty="No habits due.")
-    table = Table(title="Logged", show_lines=False)
-    table.add_column("ID", justify="right")
-    table.add_column("Metric")
-    table.add_column("Value")
-    table.add_column("Note")
-    if view.entries:
-        for entry in view.entries:
-            table.add_row(
-                str(entry.id),
-                entry.metric_slug,
-                format_entry_value(entry.value_num, entry.value_bool, entry.value_text),
-                entry.note or "",
-            )
-        console.print(table)
-    else:
-        console.print("No entries logged.")
-    _print_goal_table(view.goals, empty="No active goals.")
+    _header("Today", str(view.as_of))
+    daily = [habit for habit in view.habits if habit.period is Period.DAY]
+    period = [habit for habit in view.habits if habit.period is not Period.DAY]
+    console.print(
+        _two_pane(
+            _section("Daily", _habit_status_table(daily), "No daily habits due."),
+            _section(
+                "This period",
+                _habit_status_table(period),
+                "No weekly or monthly habits due.",
+            ),
+        )
+    )
+    console.print(_section("Logged", _logged_table(view.entries), "No entries logged."))
+    console.print(_section("Goals", _goal_table(view.goals), "No active goals."))
 
 
 def print_week(view: WeekView) -> None:
-    console.print(f"[bold]Week[/bold] {view.week_start} → {view.week_end}")
-    if not view.habits:
-        console.print("No habits this week.")
-        return
-    table = Table(show_lines=False)
-    table.add_column("Habit", no_wrap=True)
-    for cell in view.habits[0].days:
-        table.add_column(f"{cell.day:%a} {cell.day.day}", justify="center")
-    table.add_column("Streak", justify="right")
-    for habit in view.habits:
-        row = [habit.slug]
-        for cell in habit.days:
-            if not cell.scheduled:
-                row.append("")
-            elif cell.value is None:
-                row.append("·")
-            else:
-                row.append(format_number(cell.value))
-        row.append(str(habit.current_streak))
-        table.add_row(*row)
-    console.print(table)
+    _header("Week", f"{view.week_start} → {view.week_end}")
+    console.print(_section("Habits", _week_grid(view), "No habits this week."))
 
 
 def print_area(view: AreaView) -> None:
-    console.print(f"[bold]{view.name}[/bold] ({view.slug})  {view.as_of}")
+    _header(view.name, f"({view.slug})  {view.as_of}")
     if view.description:
         console.print(view.description)
-    table = Table(title="Metrics", show_lines=False)
-    table.add_column("Metric")
-    table.add_column("Latest")
-    table.add_column("On")
-    table.add_column("Unit")
-    if view.metrics:
-        for metric in view.metrics:
-            table.add_row(
-                metric.slug,
-                format_number(metric.latest_value),
-                str(metric.latest_on) if metric.latest_on is not None else "—",
-                metric.unit or "",
-            )
-        console.print(table)
-    else:
-        console.print("No metrics.")
-    _print_habit_status_table(view.habits, empty="No habits.")
-    _print_goal_table(view.goals, empty="No goals.")
+    daily = [habit for habit in view.habits if habit.period is Period.DAY]
+    period = [habit for habit in view.habits if habit.period is not Period.DAY]
+    console.print(_section("Metrics", _metrics_table(view.metrics), "No metrics."))
+    console.print(
+        _two_pane(
+            _section("Daily", _habit_status_table(daily), "No daily habits."),
+            _section(
+                "This period",
+                _habit_status_table(period),
+                "No weekly or monthly habits.",
+            ),
+        )
+    )
+    console.print(_section("Goals", _goal_table(view.goals), "No goals."))
 
 
 def print_habit_status(status: HabitStatus) -> None:
+    _header(status.name, f"({status.slug})")
     target = format_target(status.comparator, status.target_value)
     mark = "✓" if status.satisfied else "·"
-    console.print(f"[bold]{status.name}[/bold] ({status.slug})")
-    console.print(f"  metric    {status.metric_slug}  {status.period}  {target}")
-    console.print(f"  streak    {status.current_streak}  (longest {status.longest_streak})")
-    console.print(f"  adhere    {format_pct(status.adherence)}")
-    console.print(f"  current   {format_number(status.current_value)}  {mark}")
+    table = Table(box=None, pad_edge=False, show_header=False)
+    table.add_column(no_wrap=True)
+    table.add_column()
+    table.add_row("metric", f"{status.metric_slug}  {status.period}  {target}")
+    table.add_row("streak", f"{status.current_streak}  (longest {status.longest_streak})")
+    table.add_row("adhere", format_pct(status.adherence))
+    table.add_row("current", f"{format_number(status.current_value)}  {mark}")
+    console.print(_section("Status", table, ""))
 
 
 def print_goals(reports: list[GoalProgressReport]) -> None:
-    _print_goal_table(reports, empty="No goals.")
+    console.print(_section("Goals", _goal_table(reports), "No goals."))
 
 
 def format_entry_value(
@@ -171,38 +153,79 @@ def format_target(comparator: Comparator, target_value: float) -> str:
     return f"{_COMPARATOR[Comparator(comparator)]} {format_number(target_value)}"
 
 
-def _print_habit_status_table(habits: list[HabitStatus], *, empty: str) -> None:
-    table = Table(title="Habits", show_lines=False)
-    table.add_column("Habit")
-    table.add_column("Value", justify="right")
-    table.add_column("Target")
-    table.add_column("Streak", justify="right")
-    table.add_column("")
+def _header(title: str, detail: str = "") -> None:
+    if detail:
+        console.print(f"[bold]{title}[/bold] {detail}")
+    else:
+        console.print(f"[bold]{title}[/bold]")
+
+
+def _section(title: str, body: RenderableType | None, empty: str) -> Panel:
+    return Panel(
+        body if body is not None else empty,
+        title=title,
+        title_align="left",
+        padding=(0, 1),
+    )
+
+
+def _two_pane(left: RenderableType, right: RenderableType) -> RenderableType:
+    if console.size.width < _TWO_PANE_MIN_WIDTH:
+        return Group(left, right)
+    row = Table.grid(expand=True, padding=0)
+    row.add_column(ratio=1)
+    row.add_column(ratio=1)
+    row.add_row(left, right)
+    return row
+
+
+def _habit_status_table(habits: list[HabitStatus]) -> Table | None:
     if not habits:
-        console.print(empty)
-        return
+        return None
+    table = Table(box=None, pad_edge=False, expand=False)
+    table.add_column("", min_width=2, no_wrap=True)
+    table.add_column("Habit", no_wrap=True)
+    table.add_column("Value", justify="right", no_wrap=True)
+    table.add_column("Target", no_wrap=True)
+    table.add_column("Streak", justify="right", no_wrap=True)
     for habit in habits:
-        mark = "✓" if habit.satisfied else "·"
         table.add_row(
+            "✓" if habit.satisfied else "·",
             habit.slug,
             format_number(habit.current_value),
             format_target(habit.comparator, habit.target_value),
             str(habit.current_streak),
-            mark,
         )
-    console.print(table)
+    return table
 
 
-def _print_goal_table(reports: list[GoalProgressReport], *, empty: str) -> None:
-    table = Table(title="Goals", show_lines=False)
-    table.add_column("Goal")
-    table.add_column("Progress")
-    table.add_column("Pace")
-    table.add_column("Due")
-    table.add_column("Status")
+def _logged_table(entries: list[LoggedEntry]) -> Table | None:
+    if not entries:
+        return None
+    table = Table(box=None, pad_edge=False, expand=True)
+    table.add_column("ID", justify="right", no_wrap=True)
+    table.add_column("Metric")
+    table.add_column("Value")
+    table.add_column("Note")
+    for entry in entries:
+        table.add_row(
+            str(entry.id),
+            entry.metric_slug,
+            format_entry_value(entry.value_num, entry.value_bool, entry.value_text),
+            entry.note or "",
+        )
+    return table
+
+
+def _goal_table(reports: list[GoalProgressReport]) -> Table | None:
     if not reports:
-        console.print(empty)
-        return
+        return None
+    table = Table(box=None, pad_edge=False, expand=True)
+    table.add_column("Goal")
+    table.add_column("Progress", no_wrap=True)
+    table.add_column("Pace", no_wrap=True)
+    table.add_column("Due", no_wrap=True)
+    table.add_column("Status", no_wrap=True)
     for report in reports:
         table.add_row(
             report.slug,
@@ -211,4 +234,44 @@ def _print_goal_table(reports: list[GoalProgressReport], *, empty: str) -> None:
             str(report.due_on),
             str(report.status),
         )
-    console.print(table)
+    return table
+
+
+def _metrics_table(metrics: list[MetricSnapshot]) -> Table | None:
+    if not metrics:
+        return None
+    table = Table(box=None, pad_edge=False, expand=True)
+    table.add_column("Metric")
+    table.add_column("Latest")
+    table.add_column("On")
+    table.add_column("Unit")
+    for metric in metrics:
+        table.add_row(
+            metric.slug,
+            format_number(metric.latest_value),
+            str(metric.latest_on) if metric.latest_on is not None else "—",
+            metric.unit or "",
+        )
+    return table
+
+
+def _week_grid(view: WeekView) -> Table | None:
+    if not view.habits:
+        return None
+    table = Table(box=None, pad_edge=False, expand=True)
+    table.add_column("Habit", no_wrap=True)
+    for cell in view.habits[0].days:
+        table.add_column(f"{cell.day:%a} {cell.day.day}", justify="center", no_wrap=True)
+    table.add_column("Streak", justify="right", no_wrap=True)
+    for habit in view.habits:
+        row = [habit.slug]
+        for cell in habit.days:
+            if not cell.scheduled:
+                row.append("")
+            elif cell.value is None:
+                row.append("·")
+            else:
+                row.append(format_number(cell.value))
+        row.append(str(habit.current_streak))
+        table.add_row(*row)
+    return table

@@ -188,7 +188,7 @@ The package lives at `src/atlas/` (src layout), so tests import the installed pa
 | `atlas/db/`         | SQLModel tables (`Area`, `Metric`, `Entry`, `Habit`, `Goal`, `Milestone`, `SchemaVersion`), engine, session factory, schema creation. Implemented. Unique slugs; `Entry` indexed on `(metric_id, occurred_on)`. |
 | `atlas/services/`   | Use cases, each taking an explicit `Session` as its first parameter. Loads rows, hands plain values to `domain`, writes results back. Implemented. |
 | `atlas/api/`        | FastAPI routers: parse, call a service, serialize. Dedicated request/response schemas only where the wire shape must differ from the table (slugs instead of integer FKs). Implemented. Session comes from a factory dependency; `uv run uvicorn atlas.api.app:app --reload` and `python -m atlas.api` bind to `127.0.0.1` only. |
-| `atlas/cli/`        | Typer commands calling the same services in-process (no HTTP hop), Rich for output. Implemented. Session comes from the factory; commands never query tables. `log` resolves metric slugs by unique prefix, substring, or close match. `seed` loads the demo dataset through `seed_demo`. |
+| `atlas/cli/`        | Typer commands calling the same services in-process (no HTTP hop), Rich for output. Implemented. Session comes from the factory; commands never query tables. `log` resolves metric slugs by unique prefix, substring, or close match. `seed` loads the demo dataset through `seed_demo`. Review commands share one chrome: a header plus titled Rich panels. `today` and `area` split habits into Daily vs This period (two columns when the terminal is wide enough). Capture commands stay one-line confirmations. |
 
 
 Import rules, enforced by review and by the always-applied architecture rule:
@@ -380,7 +380,7 @@ There is no authentication. The app binds to localhost only (`127.0.0.1`). Tests
 
 ## CLI
 
-Four verbs, deliberately unequal in weight: capture is one line, everything else may cost a few keystrokes.
+Four verbs, deliberately unequal in weight: capture is one line, everything else may cost a few keystrokes. Review commands share a Rich dashboard chrome (header plus titled panels). `atlas today` and `atlas area <slug>` split habits into Daily vs This period (side by side when the terminal is wide enough).
 
 
 | Command                                        | Purpose                                                                                                                            | Status      |
@@ -392,11 +392,11 @@ Four verbs, deliberately unequal in weight: capture is one line, everything else
 | `atlas metric add <slug> --area --type --agg`  | Define a metric                                                                                                                    | implemented |
 | `atlas habit add --metric --period --at-least` | Define a habit. Slug is optional and defaults to `{metric}-{period}`. Comparator is exactly one of `--at-least`, `--at-most`, `--exactly`. | implemented |
 | `atlas goal add <name> --metric --target --by` | Define a goal. Area is inferred from the metric when `--area` is omitted; slug is derived from the name. `--at-most` / `--at-least` / `--exactly` are flags; `--cumulative` selects `cumulative_since_start`. | implemented |
-| `atlas today`                                  | Review: what is due, what is logged. `--on` selects the local date.                                                                | implemented |
-| `atlas week`                                   | Review: the week across habits                                                                                                     | implemented |
-| `atlas area <slug>`                            | Review: one area                                                                                                                   | implemented |
-| `atlas habit <slug>`                           | Review: one habit's streak and adherence                                                                                           | implemented |
-| `atlas goals`                                  | Review: goals with progress and pace                                                                                               | implemented |
+| `atlas today`                                  | Review dashboard: daily habits (left) and weekly/monthly habits (right) when the terminal is wide enough, otherwise stacked; then logged entries and active goals. `--on` selects the local date. | implemented |
+| `atlas week`                                   | Review dashboard: ISO week habit grid in a Habits panel. `--on` selects a date in the week.                                        | implemented |
+| `atlas area <slug>`                            | Review dashboard: metrics, daily vs period habits, and goals for one area. `--on` selects the local date.                          | implemented |
+| `atlas habit <slug>`                           | Review dashboard: one habit's metric, streak, adherence, and current bucket. `--on` selects the local date.                        | implemented |
+| `atlas goals`                                  | Review dashboard: goals with progress and pace. `--area` and `--status` filter; `--on` selects the local date.                     | implemented |
 | `atlas entry amend <id>`                       | Correct an entry                                                                                                                   | implemented |
 | `atlas entry rm <id>`                          | Delete an entry                                                                                                                    | implemented |
 | `atlas export`                                 | Write a JSON export to stdout                                                                                                      | implemented |
@@ -452,4 +452,7 @@ Append-only, one entry per cycle. Newest last.
 - **2026-08-13 —** `api` — Implemented `atlas/api/`: FastAPI app with Pydantic request/response schemas and routers for entries, areas, metrics, habits, goals, views, and export/import. Session dependency yields from a factory; service errors map to 404/409/400; uvicorn entrypoint binds `127.0.0.1`. Endpoint tests use `TestClient` over in-memory SQLite.
 - **2026-08-13 —** `cli` — Implemented `atlas/cli/`: Typer app over the same services in-process. Commands: `log` (fuzzy metric slug), `area add` / `area <slug>`, `metric add`, `habit add` / `habit <slug>`, `goal add`, `goals`, `today`, `week`, `entry amend` / `entry rm`, `export`, `import`. Rich tables for review; service errors exit 1. Tests use Typer's `CliRunner` against a temp SQLite file.
 - **2026-08-13 —** `docs-seed` — Added `seed_demo` and `atlas seed` (demo dataset dated relative to today, `--replace` to overwrite). README covers install and run for uv, the CLI, and the localhost API, and links to this document rather than duplicating it. Final pass: every planned endpoint and command is `implemented`.
+- **2026-08-13 —** `cli-dashboard` — Restyled `atlas today` as a Rich dashboard: shared panel/column helpers in `format.py`, daily habits as a left checklist, weekly/monthly habits (e.g. family calls) on the right, logged entries and goals below. Console width follows the terminal. Capture output unchanged.
+- **2026-08-13 —** `cli-review-chrome` — Applied the same header-and-panel chrome to `week`, `area`, `habit show`, and `goals`. Area review splits habits into Daily vs This period like `today`.
+- **2026-08-13 —** `cli-tests-docs` — CLI review tests assert dashboard panel titles and that `atlas today` shows a daily habit beside a weekly/monthly habit. Architecture CLI section documents the shared chrome.
 
