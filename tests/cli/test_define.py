@@ -27,6 +27,8 @@ def test_area_add_and_show(runner):
 
     shown = invoke(runner, ["area", "health", "--on", "2026-08-13"])
     assert "health" in shown.output
+    assert "Metrics" in shown.output
+    assert "Daily" in shown.output
     assert "pushups" in shown.output
     assert "pushups-daily" in shown.output
 

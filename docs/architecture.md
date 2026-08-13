@@ -454,4 +454,5 @@ Append-only, one entry per cycle. Newest last.
 - **2026-08-13 —** `docs-seed` — Added `seed_demo` and `atlas seed` (demo dataset dated relative to today, `--replace` to overwrite). README covers install and run for uv, the CLI, and the localhost API, and links to this document rather than duplicating it. Final pass: every planned endpoint and command is `implemented`.
 - **2026-08-13 —** `cli-dashboard` — Restyled `atlas today` as a Rich dashboard: shared panel/column helpers in `format.py`, daily habits as a left checklist, weekly/monthly habits (e.g. family calls) on the right, logged entries and goals below. Console width follows the terminal. Capture output unchanged.
 - **2026-08-13 —** `cli-review-chrome` — Applied the same header-and-panel chrome to `week`, `area`, `habit show`, and `goals`. Area review splits habits into Daily vs This period like `today`.
+- **2026-08-13 —** `cli-tests-docs` — CLI review tests assert dashboard panel titles and that `atlas today` shows a daily habit beside a weekly/monthly habit. Architecture CLI section documents the shared chrome.
 
