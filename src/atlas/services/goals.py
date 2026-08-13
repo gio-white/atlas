@@ -22,6 +22,8 @@ from atlas.services.lookups import (
 from atlas.services.mapping import entry_view, goal_spec, milestone_view
 from atlas.services.slugs import display_name, normalize_slug
 
+_UNSET = object()
+
 
 @dataclass(frozen=True, slots=True)
 class MilestoneInput:
@@ -106,8 +108,54 @@ def list_goals(
     return list(session.exec(statement).all())
 
 
+@dataclass(frozen=True, slots=True)
+class GoalDetail:
+    goal: Goal
+    milestones: list[Milestone]
+
+
 def get_goal(session: Session, slug: str) -> Goal:
     return require_goal(session, normalize_slug(slug))
+
+
+def get_goal_detail(session: Session, slug: str) -> GoalDetail:
+    goal = get_goal(session, slug)
+    return GoalDetail(goal=goal, milestones=milestones_for_goal(session, goal.id))
+
+
+def update_goal(
+    session: Session,
+    slug: str,
+    *,
+    name: str | None = None,
+    due_on: date | None = None,
+    target_value: float | None = None,
+    status: GoalStatus | None = None,
+) -> Goal:
+    goal = require_goal(session, normalize_slug(slug))
+    if name is not None:
+        if not isinstance(name, str) or not name.strip():
+            raise ValidationError("name must be a non-empty string")
+        goal.name = name
+    if due_on is not None:
+        if due_on < goal.start_on:
+            raise ValidationError("due_on must be on or after start_on")
+        goal.due_on = due_on
+    if target_value is not None:
+        if GoalKind(goal.kind) is GoalKind.MILESTONE:
+            raise ValidationError("milestone goals cannot set target_value")
+        goal.target_value = target_value
+    if status is not None:
+        if status is GoalStatus.ACHIEVED:
+            raise ValidationError(
+                "status cannot be set to achieved; it is stamped when the target is met"
+            )
+        goal.status = status
+        goal.achieved_at = None
+    session.add(goal)
+    session.commit()
+    session.refresh(goal)
+    return goal
 
 
 def goal_progress(session: Session, slug: str, *, as_of: date | None = None) -> GoalProgressReport:

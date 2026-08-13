@@ -324,11 +324,11 @@ Failures raise `ServiceError` subclasses the API and CLI will map: `NotFoundErro
 
 | Function | Role |
 | -------- | ---- |
-| `create_area` / `list_areas` / `get_area` / `archive_area` | Areas. Archive stamps `archived_at` (UTC) and hides the row from default lists; areas are never deleted. |
-| `create_metric` / `list_metrics` / `get_metric` / `archive_metric` | Metrics, keyed by slug, created under an area slug. `list_metrics` can filter by area and hides archived metrics and metrics whose area is archived. |
+| `create_area` / `list_areas` / `get_area` / `update_area` / `archive_area` | Areas. Archive stamps `archived_at` (UTC) and hides the row from default lists; areas are never deleted. `update_area` may change name and description. |
+| `create_metric` / `list_metrics` / `get_metric` / `update_metric` / `archive_metric` | Metrics, keyed by slug, created under an area slug. `list_metrics` can filter by area and hides archived metrics and metrics whose area is archived. `update_metric` may change name, unit, and direction, not `value_type` or `aggregation`. |
 | `log_entry` / `amend_entry` / `delete_entry` | Capture and correction. `log_entry` accepts a metric slug and a single `value`; a bool metric with no value stores `true`. Multiple entries per day remain allowed. Logging to an archived metric is rejected; amend and delete still work. |
-| `create_habit` / `list_habits` / `get_habit` / `habit_status` | Habits. `weekdays` is valid only for `period = day`. Text metrics cannot be habit targets. `habit_status` returns current/longest streak, adherence from `active_from` to `as_of`, the current bucket's rollup, and whether that bucket is scheduled and satisfied. |
-| `create_goal` / `list_goals` / `get_goal` / `goal_progress` / `toggle_milestone` | Goals. `metric_target` requires metric, target, comparator, and measure, and the metric must belong to the goal's area. `milestone` kind forbids those fields. Optional `MilestoneInput` values can be created with the goal. `goal_progress` returns current/baseline/fraction/`target_met` plus `pace_status`. When the target is met and `status` is still `active`, the service sets `status = achieved` and stamps `achieved_at`; it does not reopen an achieved, paused, or abandoned goal. |
+| `create_habit` / `list_habits` / `get_habit` / `update_habit` / `habit_status` | Habits. `weekdays` is valid only for `period = day`. Text metrics cannot be habit targets. `habit_status` returns current/longest streak, adherence from `active_from` to `as_of`, the current bucket's rollup, and whether that bucket is scheduled and satisfied. `update_habit` may change name, target, comparator, weekdays, and `active_to`. |
+| `create_goal` / `list_goals` / `get_goal` / `get_goal_detail` / `update_goal` / `goal_progress` / `toggle_milestone` | Goals. `metric_target` requires metric, target, comparator, and measure, and the metric must belong to the goal's area. `milestone` kind forbids those fields. Optional `MilestoneInput` values can be created with the goal. `get_goal_detail` includes milestones. `update_goal` may change name, `due_on`, `target_value`, and status (`active` / `paused` / `abandoned`; not `achieved`). `goal_progress` returns current/baseline/fraction/`target_met` plus `pace_status`. When the target is met and `status` is still `active`, the service sets `status = achieved` and stamps `achieved_at`; it does not reopen an achieved, paused, or abandoned goal. |
 | `today_view` / `week_view` / `area_view` | Review. `today_view` is habits whose current bucket is scheduled, entries with `occurred_on = as_of`, and active goals with progress. `week_view` is the ISO week containing `as_of`, one cell per day per habit. `area_view` is one area's non-archived metrics (latest day's rollup), habits, and non-abandoned goals. |
 | `export_all` / `import_all` | Port. Export is a JSON-serializable dict keyed by slugs, not integer ids. Import upserts areas, metrics, habits, goals, and milestones by slug (milestones by goal slug + name) and always inserts entries. `replace=True` deletes user rows first. `schema_version` must equal `CURRENT_SCHEMA_VERSION` (1). |
 | `seed_demo` | Demo dataset. Builds a payload in the export shape dated relative to `as_of` (default `Settings.today()`) and loads it through `import_all`. Four areas (health, career, finance, relationships), metrics covering every `value_type`, daily/weekly/monthly habits including `at_most` and a weekday mask, both goal kinds, and enough entries for `today_view` / `week_view` / goal progress to be non-empty. Refuses when areas already exist unless `replace=True`. Entries are sourced as `import`. |
@@ -365,14 +365,25 @@ Optional filters the services already support are query parameters: `area` on me
 | `DELETE` | `/entries/{id}`          | Delete an entry                               | implemented |
 | `GET`    | `/areas`                 | List areas                                    | implemented |
 | `POST`   | `/areas`                 | Create an area                                | implemented |
+| `GET`    | `/areas/{slug}`          | Get one area                                  | implemented |
+| `PATCH`  | `/areas/{slug}`          | Update name and description                   | implemented |
+| `POST`   | `/areas/{slug}/archive`  | Archive an area                               | implemented |
 | `GET`    | `/metrics`               | List metrics, filterable by area              | implemented |
 | `POST`   | `/metrics`               | Create a metric                               | implemented |
+| `GET`    | `/metrics/{slug}`        | Get one metric                                | implemented |
+| `PATCH`  | `/metrics/{slug}`        | Update name, unit, and direction              | implemented |
+| `POST`   | `/metrics/{slug}/archive`| Archive a metric                              | implemented |
 | `GET`    | `/habits`                | List habits                                   | implemented |
 | `POST`   | `/habits`                | Create a habit                                | implemented |
+| `GET`    | `/habits/{slug}`         | Get one habit                                 | implemented |
+| `PATCH`  | `/habits/{slug}`         | Update name, target, comparator, weekdays, `active_to` | implemented |
 | `GET`    | `/habits/{slug}/status`  | Streaks and adherence for a habit             | implemented |
 | `GET`    | `/goals`                 | List goals                                    | implemented |
 | `POST`   | `/goals`                 | Create a goal                                 | implemented |
+| `GET`    | `/goals/{slug}`          | Get one goal including milestones             | implemented |
+| `PATCH`  | `/goals/{slug}`          | Update name, due date, target, or status (`active`/`paused`/`abandoned`) | implemented |
 | `GET`    | `/goals/{slug}/progress` | Progress and pace for a goal                  | implemented |
+| `POST`   | `/goals/{slug}/milestones/{name}/toggle` | Toggle a milestone done | implemented |
 | `GET`    | `/views/today`           | What is due today and what is logged          | implemented |
 | `GET`    | `/views/week`            | The current week across habits                | implemented |
 | `GET`    | `/views/areas/{slug}`    | One area's metrics, habits, and goals         | implemented |
@@ -483,4 +494,5 @@ Append-only, one entry per cycle. Newest last.
 - **2026-08-13 —** `web-scaffold` — Scaffolded `web/`: Vite, React, TypeScript, Tailwind, shadcn-style primitives, React Router, typed API client, and the app shell. Review and catalog pages are placeholders.
 - **2026-08-13 —** `web-today` — Today page: scheduled habits with streaks, log form (`POST /entries`), amend/delete for today's entries, and goal pace chips. Bool habits can one-click log.
 - **2026-08-13 —** `web-week-area` — Week grid, area dashboard, habit status, goals list, and goal detail (progress/pace). Milestone toggles wait on the catalog API.
+- **2026-08-13 —** `api-catalog` — GET by slug, archive, PATCH for areas/metrics/habits/goals, goal detail with milestones, and milestone toggle on the HTTP API.
 

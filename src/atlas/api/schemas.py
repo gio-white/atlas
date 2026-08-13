@@ -24,6 +24,13 @@ class AreaCreate(BaseModel):
     description: str | None = None
 
 
+class AreaUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = None
+    description: str | None = None
+
+
 class AreaOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -44,6 +51,14 @@ class MetricCreate(BaseModel):
     name: str | None = None
     unit: str | None = None
     direction: Direction = Direction.NEUTRAL
+
+
+class MetricUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = None
+    unit: str | None = None
+    direction: Direction | None = None
 
 
 class MetricOut(BaseModel):
@@ -104,6 +119,16 @@ class HabitCreate(BaseModel):
     active_to: date | None = None
 
 
+class HabitUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = None
+    target_value: float | None = None
+    comparator: Comparator | None = None
+    weekdays: list[int] | None = None
+    active_to: date | None = None
+
+
 class HabitOut(BaseModel):
     id: int
     slug: str
@@ -156,6 +181,25 @@ class GoalOut(BaseModel):
     due_on: date
     status: GoalStatus
     achieved_at: datetime | None
+
+
+class GoalUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = None
+    due_on: date | None = None
+    target_value: float | None = None
+    status: GoalStatus | None = None
+
+
+class MilestoneOut(BaseModel):
+    name: str
+    due_on: date | None
+    done_at: datetime | None
+
+
+class GoalDetailOut(GoalOut):
+    milestones: list[MilestoneOut]
 
 
 class HabitStatusOut(BaseModel):

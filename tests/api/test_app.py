@@ -18,6 +18,11 @@ def test_openapi_lists_the_implemented_paths(client):
     assert "/views/today" in paths
     assert "/views/week" in paths
     assert "/views/areas/{slug}" in paths
+    assert "/areas/{slug}" in paths
+    assert "/metrics/{slug}" in paths
+    assert "/habits/{slug}" in paths
+    assert "/goals/{slug}" in paths
+    assert "/goals/{slug}/milestones/{name}/toggle" in paths
     assert "/export" in paths
     assert "/import" in paths
 
