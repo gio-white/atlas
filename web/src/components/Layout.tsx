@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useSearchParams } from 'react-router-dom'
 
 import { listAreas, type Area } from '@/lib/api'
+import type { ShellContext } from '@/lib/asOf'
 import { todayIso } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
@@ -86,7 +87,7 @@ export function Layout() {
       </header>
       <Separator className="my-6" />
       <main className="flex-1">
-        <Outlet context={{ asOf }} />
+        <Outlet context={{ asOf } satisfies ShellContext} />
       </main>
     </div>
   )
