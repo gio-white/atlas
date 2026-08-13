@@ -71,6 +71,14 @@ export type Goal = {
   achieved_at: string | null
 }
 
+export type Milestone = {
+  name: string
+  due_on: string | null
+  done_at: string | null
+}
+
+export type GoalDetail = Goal & { milestones: Milestone[] }
+
 export type HabitStatus = {
   slug: string
   name: string
@@ -269,4 +277,125 @@ export function amendEntry(
 
 export function deleteEntry(id: number): Promise<void> {
   return request(`/entries/${id}`, { method: 'DELETE' })
+}
+
+export function createArea(body: {
+  slug: string
+  name?: string | null
+  description?: string | null
+}): Promise<Area> {
+  return request('/areas', { method: 'POST', body: JSON.stringify(body) })
+}
+
+export function updateArea(
+  slug: string,
+  body: { name?: string; description?: string | null },
+): Promise<Area> {
+  return request(`/areas/${encodeURIComponent(slug)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+}
+
+export function archiveArea(slug: string): Promise<Area> {
+  return request(`/areas/${encodeURIComponent(slug)}/archive`, { method: 'POST' })
+}
+
+export function createMetric(body: {
+  slug: string
+  area: string
+  value_type: ValueType
+  aggregation: Aggregation
+  name?: string | null
+  unit?: string | null
+  direction?: Direction
+}): Promise<Metric> {
+  return request('/metrics', { method: 'POST', body: JSON.stringify(body) })
+}
+
+export function updateMetric(
+  slug: string,
+  body: { name?: string; unit?: string | null; direction?: Direction },
+): Promise<Metric> {
+  return request(`/metrics/${encodeURIComponent(slug)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+}
+
+export function archiveMetric(slug: string): Promise<Metric> {
+  return request(`/metrics/${encodeURIComponent(slug)}/archive`, { method: 'POST' })
+}
+
+export function createHabit(body: {
+  slug: string
+  metric: string
+  period: Period
+  target_value: number
+  comparator: Comparator
+  name?: string | null
+  weekdays?: number[] | null
+  active_from?: string | null
+  active_to?: string | null
+}): Promise<Habit> {
+  return request('/habits', { method: 'POST', body: JSON.stringify(body) })
+}
+
+export function updateHabit(
+  slug: string,
+  body: {
+    name?: string
+    target_value?: number
+    comparator?: Comparator
+    weekdays?: number[] | null
+    active_to?: string | null
+  },
+): Promise<Habit> {
+  return request(`/habits/${encodeURIComponent(slug)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+}
+
+export function createGoal(body: {
+  slug: string
+  area: string
+  kind: GoalKind
+  start_on: string
+  due_on: string
+  name?: string | null
+  metric?: string | null
+  target_value?: number | null
+  comparator?: Comparator | null
+  baseline_value?: number | null
+  measure?: 'latest_value' | 'cumulative_since_start' | null
+  milestones?: { name: string; due_on?: string | null }[] | null
+}): Promise<Goal> {
+  return request('/goals', { method: 'POST', body: JSON.stringify(body) })
+}
+
+export function getGoal(slug: string): Promise<GoalDetail> {
+  return request(`/goals/${encodeURIComponent(slug)}`)
+}
+
+export function updateGoal(
+  slug: string,
+  body: {
+    name?: string
+    due_on?: string
+    target_value?: number
+    status?: Exclude<GoalStatus, 'achieved'>
+  },
+): Promise<Goal> {
+  return request(`/goals/${encodeURIComponent(slug)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+}
+
+export function toggleMilestone(goalSlug: string, name: string, done?: boolean): Promise<Milestone> {
+  return request(
+    `/goals/${encodeURIComponent(goalSlug)}/milestones/${encodeURIComponent(name)}/toggle${queryString({ done })}`,
+    { method: 'POST' },
+  )
 }

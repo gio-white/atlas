@@ -397,7 +397,7 @@ There is no authentication. The app binds to localhost only (`127.0.0.1`). CORS 
 
 The UI is a React SPA in `web/` (Vite, TypeScript, Tailwind, shadcn-style primitives). It consumes the HTTP API only. FastAPI does not render HTML templates. When `web/dist` is present, GET 404s that are not API routes return `index.html`.
 
-Implemented this cycle: app shell, typed `fetch` client, Today, Week, Area, Habit, and Goals pages. Catalog and milestone toggles remain.
+Implemented this cycle: app shell, typed `fetch` client, Today, Week, Area, Habit, Goals, Catalog, and milestone toggles on goal detail.
 
 
 | Path            | Page                                      | Status      |
@@ -407,8 +407,8 @@ Implemented this cycle: app shell, typed `fetch` client, Today, Week, Area, Habi
 | `/area/:slug`   | Area dashboard                            | implemented |
 | `/habit/:slug`  | Habit streak and adherence                | implemented |
 | `/goal`         | Goals with progress and pace              | implemented |
-| `/goal/:slug`   | Goal detail (progress and pace; milestones later) | implemented |
-| `/catalog`      | Create and edit areas, metrics, habits, goals | planned |
+| `/goal/:slug`   | Goal detail, progress, pace, milestone toggles | implemented |
+| `/catalog`      | Create and edit areas, metrics, habits, goals | implemented |
 
 Dev: `cd web && npm run dev` on `:5173`; Vite proxies API prefixes to `127.0.0.1:8000`. Prod: `npm run build` then `atlas serve` serves API and `web/dist` together. Frontend tests: `cd web && npm test`. The UI gate is `npm run build`.
 
@@ -495,4 +495,5 @@ Append-only, one entry per cycle. Newest last.
 - **2026-08-13 —** `web-today` — Today page: scheduled habits with streaks, log form (`POST /entries`), amend/delete for today's entries, and goal pace chips. Bool habits can one-click log.
 - **2026-08-13 —** `web-week-area` — Week grid, area dashboard, habit status, goals list, and goal detail (progress/pace). Milestone toggles wait on the catalog API.
 - **2026-08-13 —** `api-catalog` — GET by slug, archive, PATCH for areas/metrics/habits/goals, goal detail with milestones, and milestone toggle on the HTTP API.
+- **2026-08-13 —** `web-catalog` — Catalog UI to create/edit/archive areas, metrics, habits, and goals. Goal detail toggles milestones through the API.
 
