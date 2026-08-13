@@ -384,23 +384,22 @@ There is no authentication. The app binds to localhost only (`127.0.0.1`). CORS 
 
 ## Frontend
 
-The UI is a React SPA in `web/` (Vite, TypeScript, Tailwind). It is planned as a sequence of cycles; this cycle only hosts it. FastAPI does not render HTML templates. When `web/dist` is present, unknown paths that are not API routes return `index.html`.
+The UI is a React SPA in `web/` (Vite, TypeScript, Tailwind, shadcn-style primitives). It consumes the HTTP API only. FastAPI does not render HTML templates. When `web/dist` is present, GET 404s that are not API routes return `index.html`.
 
-SPA routes are chosen so they do not overlap API prefixes (`/areas`, `/metrics`, `/habits`, `/goals`, `/entries`, `/views`, `/export`, `/import`, `/docs`, `/openapi.json`):
+Implemented this cycle: app shell (nav, local-date `on` query, area switcher from `GET /areas`), typed `fetch` client, placeholder routes. Page bodies are still planned.
 
 
-| Path            | Page                                      | Status  |
-| --------------- | ----------------------------------------- | ------- |
-| `/`             | Today: habits due, log, entries, goal pace | planned |
-| `/week`         | Week grid                                 | planned |
-| `/area/:slug`   | Area dashboard                            | planned |
-| `/habit/:slug`  | Habit streak and adherence                | planned |
-| `/goal`         | Goals with progress and pace              | planned |
-| `/goal/:slug`   | Goal detail and milestones                | planned |
+| Path            | Page                                      | Status      |
+| --------------- | ----------------------------------------- | ----------- |
+| `/`             | Today: habits due, log, entries, goal pace | planned     |
+| `/week`         | Week grid                                 | planned     |
+| `/area/:slug`   | Area dashboard                            | planned     |
+| `/habit/:slug`  | Habit streak and adherence                | planned     |
+| `/goal`         | Goals with progress and pace              | planned     |
+| `/goal/:slug`   | Goal detail and milestones                | planned     |
 | `/catalog`      | Create and edit areas, metrics, habits, goals | planned |
 
-
-Dev: Vite on `:5173` proxies those API prefixes to `127.0.0.1:8000`. Prod: `atlas serve` (or uvicorn) serves API and `web/dist` together on `127.0.0.1:8000`.
+Dev: `cd web && npm run dev` on `:5173`; Vite proxies API prefixes to `127.0.0.1:8000`. Prod: `npm run build` then `atlas serve` serves API and `web/dist` together. Frontend tests: `cd web && npm test`. The UI gate is `npm run build`.
 
 ## CLI
 
@@ -481,4 +480,5 @@ Append-only, one entry per cycle. Newest last.
 - **2026-08-13 —** `cli-review-chrome` — Applied the same header-and-panel chrome to `week`, `area`, `habit show`, and `goals`. Area review splits habits into Daily vs This period like `today`.
 - **2026-08-13 —** `cli-tests-docs` — CLI review tests assert dashboard panel titles and that `atlas today` shows a daily habit beside a weekly/monthly habit. Architecture CLI section documents the shared chrome.
 - **2026-08-13 —** `api-host` — CORS for the Vite origins, optional `web/dist` SPA mount with a catch-all that does not shadow API routes, and `atlas serve`. The React app itself is not in this cycle.
+- **2026-08-13 —** `web-scaffold` — Scaffolded `web/`: Vite, React, TypeScript, Tailwind, shadcn-style primitives, React Router, typed API client, and the app shell. Review and catalog pages are placeholders.
 

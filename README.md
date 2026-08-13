@@ -73,11 +73,21 @@ curl -s -X POST http://127.0.0.1:8000/entries \
 
 Endpoints are listed in the [HTTP API](docs/architecture.md#http-api) section of the architecture doc.
 
+UI development (Vite on port 5173, proxies API paths to `:8000`):
+
+```bash
+uv run atlas serve
+cd web && npm install && npm run dev
+```
+
+Open <http://127.0.0.1:5173>. After `npm run build`, `atlas serve` also serves `web/dist` on `:8000`.
+
 ## Develop
 
 ```bash
 uv run ruff check
 uv run pytest
+cd web && npm test && npm run build
 ```
 
-Both must pass before a commit. See [docs/architecture.md](docs/architecture.md) for layering rules and how streaks, adherence, and goal progress are defined.
+Python gates (`ruff`, `pytest`) must pass before a commit. When `web/` changes, `npm test` and `npm run build` must pass too. See [docs/architecture.md](docs/architecture.md) for layering rules and how streaks, adherence, and goal progress are defined.

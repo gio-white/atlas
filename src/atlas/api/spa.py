@@ -15,8 +15,12 @@ VITE_ORIGINS = (
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
-def resolve_spa_dir() -> Path | None:
-    for candidate in (Path.cwd() / "web" / "dist", _REPO_ROOT / "web" / "dist"):
+def resolve_spa_dir(candidates: list[Path] | None = None) -> Path | None:
+    paths = candidates or [
+        Path.cwd() / "web" / "dist",
+        _REPO_ROOT / "web" / "dist",
+    ]
+    for candidate in paths:
         if (candidate / "index.html").is_file():
             return candidate
     return None

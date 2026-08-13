@@ -92,6 +92,12 @@ def test_unknown_path_is_404_when_spa_is_absent(client):
     assert response.status_code == 404
 
 
-def test_resolve_spa_dir_returns_none_without_index(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    assert resolve_spa_dir() is None
+def test_resolve_spa_dir_returns_none_without_index(tmp_path):
+    assert resolve_spa_dir([tmp_path / "dist"]) is None
+
+
+def test_resolve_spa_dir_finds_index(tmp_path):
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<!doctype html>", encoding="utf-8")
+    assert resolve_spa_dir([dist]) == dist
