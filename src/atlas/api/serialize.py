@@ -12,11 +12,13 @@ from atlas.api.schemas import (
     ScreenAppOut,
     ScreenBudgetOut,
     ScreenCategoryOut,
+    TaskOut,
 )
 from atlas.domain import (
     Aggregation,
     Comparator,
     Direction,
+    GoalHorizon,
     GoalKind,
     GoalStatus,
     Measure,
@@ -24,9 +26,11 @@ from atlas.domain import (
     ScreenBudgetTargetKind,
     ScreenJudgment,
     Source,
+    TaskBucket,
+    TaskPriority,
     ValueType,
 )
-from atlas.services import list_areas, list_metrics, list_screen_categories
+from atlas.services import list_areas, list_goals, list_metrics, list_screen_categories
 
 
 def area_slug_by_id(session: Session) -> dict[int, str]:
@@ -103,7 +107,12 @@ def habits_out(session: Session, habits: list[Any]) -> list[HabitOut]:
     return [habit_out(habit, metrics[habit.metric_id]) for habit in habits]
 
 
-def goal_out(goal: Any, area_slug: str, metric_slug: str | None) -> GoalOut:
+def goal_out(
+    goal: Any,
+    area_slug: str,
+    metric_slug: str | None,
+    parent_slug: str | None,
+) -> GoalOut:
     return GoalOut(
         id=goal.id,
         slug=goal.slug,
@@ -117,19 +126,28 @@ def goal_out(goal: Any, area_slug: str, metric_slug: str | None) -> GoalOut:
         measure=Measure(goal.measure) if goal.measure is not None else None,
         start_on=goal.start_on,
         due_on=goal.due_on,
+        horizon=GoalHorizon(goal.horizon),
+        parent=parent_slug,
+        description=goal.description,
         status=GoalStatus(goal.status),
         achieved_at=goal.achieved_at,
     )
 
 
+def goal_slug_by_id(session: Session) -> dict[int, str]:
+    return {goal.id: goal.slug for goal in list_goals(session) if goal.id is not None}
+
+
 def goals_out(session: Session, goals: list[Any]) -> list[GoalOut]:
     areas = area_slug_by_id(session)
     metrics = metric_slug_by_id(session)
+    parents = goal_slug_by_id(session)
     return [
         goal_out(
             goal,
             areas[goal.area_id],
             metrics.get(goal.metric_id) if goal.metric_id is not None else None,
+            parents.get(goal.parent_id) if goal.parent_id is not None else None,
         )
         for goal in goals
     ]
@@ -146,6 +164,9 @@ def goal_detail_out(session: Session, detail: Any) -> GoalDetailOut:
         detail.goal,
         areas[detail.goal.area_id],
         metrics.get(detail.goal.metric_id) if detail.goal.metric_id is not None else None,
+        goal_slug_by_id(session).get(detail.goal.parent_id)
+        if detail.goal.parent_id is not None
+        else None,
     )
     return GoalDetailOut(
         **base.model_dump(),
@@ -183,6 +204,28 @@ def screen_apps_out(session: Session, apps: list[Any]) -> list[ScreenAppOut]:
     metrics = metric_slug_by_id(session)
     return [
         screen_app_out(app, categories[app.category_id], metrics[app.metric_id]) for app in apps
+    ]
+
+
+def task_out(task: Any, goal_slug: str | None) -> TaskOut:
+    return TaskOut(
+        id=task.id,
+        title=task.title,
+        bucket=TaskBucket(task.bucket),
+        due_on=task.due_on,
+        due_at=task.due_at,
+        priority=TaskPriority(task.priority),
+        goal=goal_slug,
+        done_at=task.done_at,
+        created_at=task.created_at,
+    )
+
+
+def tasks_out(session: Session, tasks: list[Any]) -> list[TaskOut]:
+    goals = goal_slug_by_id(session)
+    return [
+        task_out(task, goals.get(task.goal_id) if task.goal_id is not None else None)
+        for task in tasks
     ]
 
 

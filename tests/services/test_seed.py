@@ -19,8 +19,8 @@ def test_seed_demo_loads_the_demo_dataset(session):
     assert summary.areas == 4
     assert summary.metrics == 11
     assert summary.habits == 6
-    assert summary.goals == 4
-    assert summary.milestones == 5
+    assert summary.goals == 7
+    assert summary.milestones == 7
     assert summary.entries > 0
 
     payload = export_all(session)
@@ -41,9 +41,20 @@ def test_seed_demo_loads_the_demo_dataset(session):
     }
     assert {goal["slug"] for goal in payload["goals"]} == {
         "bodyweight-75",
+        "durable-health",
         "emergency-fund",
+        "financial-freedom",
         "read-12-books",
         "ship-side-project",
+        "workout-this-week",
+    }
+    by_slug = {goal["slug"]: goal for goal in payload["goals"]}
+    assert by_slug["bodyweight-75"]["parent"] == "durable-health"
+    assert by_slug["bodyweight-75"]["horizon"] == "medium"
+    assert {task["title"] for task in payload["tasks"]} == {
+        "Evening walk",
+        "Meditate for 10 minutes",
+        "Pushups - 3 sets",
     }
     occurred = {entry["occurred_on"] for entry in payload["entries"]}
     assert as_of.isoformat() in occurred

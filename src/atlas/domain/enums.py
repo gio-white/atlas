@@ -41,6 +41,12 @@ class GoalKind(StrEnum):
     MILESTONE = "milestone"
 
 
+class GoalHorizon(StrEnum):
+    LONG = "long"
+    MEDIUM = "medium"
+    SHORT = "short"
+
+
 class GoalStatus(StrEnum):
     ACTIVE = "active"
     ACHIEVED = "achieved"

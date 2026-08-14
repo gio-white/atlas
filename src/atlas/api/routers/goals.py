@@ -12,7 +12,7 @@ from atlas.api.schemas import (
     MilestoneOut,
 )
 from atlas.api.serialize import goal_detail_out, goals_out, milestone_out
-from atlas.domain import GoalStatus
+from atlas.domain import GoalHorizon, GoalStatus
 from atlas.services import (
     MilestoneInput,
     create_goal,
@@ -31,8 +31,13 @@ def get_goals(
     session: SessionDep,
     area: str | None = None,
     status: GoalStatus | None = None,
+    horizon: GoalHorizon | None = None,
+    parent: str | None = None,
 ) -> list[GoalOut]:
-    return goals_out(session, list_goals(session, area_slug=area, status=status))
+    return goals_out(
+        session,
+        list_goals(session, area_slug=area, status=status, horizon=horizon, parent_slug=parent),
+    )
 
 
 @router.post("", response_model=GoalOut, status_code=201)
@@ -56,6 +61,9 @@ def post_goal(session: SessionDep, body: GoalCreate) -> GoalOut:
         baseline_value=body.baseline_value,
         measure=body.measure,
         milestones=milestones,
+        horizon=body.horizon,
+        parent_slug=body.parent,
+        description=body.description,
     )
     return goals_out(session, [goal])[0]
 
@@ -76,7 +84,10 @@ def get_goal_by_slug(session: SessionDep, slug: str) -> GoalDetailOut:
 
 @router.patch("/{slug}", response_model=GoalOut)
 def patch_goal(session: SessionDep, slug: str, body: GoalUpdate) -> GoalOut:
-    goal = update_goal(session, slug, **body.model_dump(exclude_unset=True))
+    data = body.model_dump(exclude_unset=True)
+    if "parent" in data:
+        data["parent_slug"] = data.pop("parent")
+    goal = update_goal(session, slug, **data)
     return goals_out(session, [goal])[0]
 
 

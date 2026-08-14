@@ -2,15 +2,19 @@ from datetime import date
 
 import pytest
 
-from atlas.domain import Comparator, GoalKind, GoalStatus, Measure, PaceStatus
+from atlas.domain import Comparator, GoalHorizon, GoalKind, GoalStatus, Measure, PaceStatus
 from atlas.services import (
     MilestoneInput,
     ValidationError,
     create_goal,
+    create_task,
     get_goal,
     goal_progress,
+    goals_board,
+    list_goals,
     log_entry,
     toggle_milestone,
+    update_goal,
 )
 from tests.services.helpers import seed_health
 
@@ -146,3 +150,160 @@ def test_due_on_before_start_on_is_rejected(session):
             start_on=date(2026, 12, 31),
             due_on=date(2026, 1, 1),
         )
+
+
+def test_create_goal_infers_horizon_and_accepts_optional_parent(session):
+    seed_health(session)
+    long_goal = create_goal(
+        session,
+        "durable-health",
+        area_slug="health",
+        kind=GoalKind.MILESTONE,
+        start_on=date(2026, 1, 1),
+        due_on=date(2028, 1, 1),
+        description="Stay strong.",
+    )
+    assert long_goal.horizon is GoalHorizon.LONG
+    medium = create_goal(
+        session,
+        "bodyweight-75",
+        area_slug="health",
+        kind=GoalKind.METRIC_TARGET,
+        metric_slug="weight",
+        target_value=75.0,
+        comparator=Comparator.AT_MOST,
+        measure=Measure.LATEST_VALUE,
+        start_on=date(2026, 1, 1),
+        due_on=date(2026, 6, 1),
+        parent_slug="durable-health",
+    )
+    assert medium.horizon is GoalHorizon.MEDIUM
+    assert medium.parent_id == long_goal.id
+    short = create_goal(
+        session,
+        "workout-week",
+        area_slug="health",
+        kind=GoalKind.MILESTONE,
+        start_on=date(2026, 8, 10),
+        due_on=date(2026, 8, 16),
+        parent_slug="bodyweight-75",
+        horizon=GoalHorizon.SHORT,
+    )
+    assert short.parent_id == medium.id
+    assert [goal.slug for goal in list_goals(session, parent_slug="durable-health")] == [
+        "bodyweight-75"
+    ]
+    assert [goal.slug for goal in list_goals(session, horizon=GoalHorizon.SHORT)] == [
+        "workout-week"
+    ]
+
+
+def test_long_goal_cannot_have_a_parent(session):
+    seed_health(session)
+    create_goal(
+        session,
+        "north",
+        area_slug="health",
+        kind=GoalKind.MILESTONE,
+        start_on=date(2026, 1, 1),
+        due_on=date(2028, 1, 1),
+    )
+    with pytest.raises(ValidationError, match="parent"):
+        create_goal(
+            session,
+            "other-north",
+            area_slug="health",
+            kind=GoalKind.MILESTONE,
+            start_on=date(2026, 1, 1),
+            due_on=date(2028, 1, 1),
+            parent_slug="north",
+        )
+
+
+def test_short_goal_cannot_parent_under_long(session):
+    seed_health(session)
+    create_goal(
+        session,
+        "north",
+        area_slug="health",
+        kind=GoalKind.MILESTONE,
+        start_on=date(2026, 1, 1),
+        due_on=date(2028, 1, 1),
+    )
+    with pytest.raises(ValidationError, match="short"):
+        create_goal(
+            session,
+            "this-week",
+            area_slug="health",
+            kind=GoalKind.MILESTONE,
+            start_on=date(2026, 8, 10),
+            due_on=date(2026, 8, 16),
+            parent_slug="north",
+        )
+
+
+def test_cannot_change_horizon_while_goal_has_children(session):
+    seed_health(session)
+    create_goal(
+        session,
+        "north",
+        area_slug="health",
+        kind=GoalKind.MILESTONE,
+        start_on=date(2026, 1, 1),
+        due_on=date(2028, 1, 1),
+    )
+    create_goal(
+        session,
+        "mid",
+        area_slug="health",
+        kind=GoalKind.MILESTONE,
+        start_on=date(2026, 1, 1),
+        due_on=date(2026, 6, 1),
+        parent_slug="north",
+    )
+    with pytest.raises(ValidationError, match="children"):
+        update_goal(session, "north", horizon=GoalHorizon.MEDIUM)
+
+
+def test_goals_board_groups_by_horizon_and_lists_week_tasks(session):
+    seed_health(session)
+    create_goal(
+        session,
+        "north",
+        area_slug="health",
+        kind=GoalKind.MILESTONE,
+        start_on=date(2026, 1, 1),
+        due_on=date(2028, 1, 1),
+        milestones=[MilestoneInput("keep going")],
+    )
+    create_goal(
+        session,
+        "mid",
+        area_slug="health",
+        kind=GoalKind.MILESTONE,
+        start_on=date(2026, 1, 1),
+        due_on=date(2026, 6, 1),
+        parent_slug="north",
+        milestones=[MilestoneInput("checkpoint")],
+    )
+    create_goal(
+        session,
+        "this-week",
+        area_slug="health",
+        kind=GoalKind.MILESTONE,
+        start_on=date(2026, 8, 10),
+        due_on=date(2026, 8, 16),
+        parent_slug="mid",
+        milestones=[MilestoneInput("four sessions")],
+    )
+    create_task(session, "Pushups", goal_slug="this-week", due_on=date(2026, 8, 14))
+    board = goals_board(session, as_of=date(2026, 8, 14))
+    assert [goal.slug for goal in board.long.goals] == ["north"]
+    assert [goal.slug for goal in board.medium.goals] == ["mid"]
+    assert [goal.slug for goal in board.short.goals] == ["this-week"]
+    assert board.week.total == 1
+    assert board.week.done == 0
+    assert board.week.tasks[0].goal == "this-week"
+    assert board.long.total == 1
+    assert board.long.on_track == 0
+

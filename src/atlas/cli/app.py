@@ -35,6 +35,7 @@ from atlas.db import init_db
 from atlas.domain import (
     Aggregation,
     Direction,
+    GoalHorizon,
     GoalKind,
     GoalStatus,
     Period,
@@ -283,6 +284,9 @@ def goal_add(
     baseline: Annotated[float | None, typer.Option("--baseline")] = None,
     cumulative: Annotated[bool, typer.Option("--cumulative")] = False,
     start: Annotated[str | None, typer.Option("--start")] = None,
+    horizon: Annotated[GoalHorizon | None, typer.Option("--horizon")] = None,
+    parent: Annotated[str | None, typer.Option("--parent")] = None,
+    description: Annotated[str | None, typer.Option("--description")] = None,
 ) -> None:
     """Define a goal."""
     with cli_session() as session:
@@ -317,6 +321,9 @@ def goal_add(
             comparator=comparator,
             baseline_value=baseline,
             measure=measure,
+            horizon=horizon,
+            parent_slug=parent,
+            description=description,
         )
         print_created("goal", goal.slug)
 
@@ -325,6 +332,7 @@ def goal_add(
 def goals(
     area: Annotated[str | None, typer.Option("--area")] = None,
     status: Annotated[GoalStatus | None, typer.Option("--status")] = None,
+    horizon: Annotated[GoalHorizon | None, typer.Option("--horizon")] = None,
     on: Annotated[str | None, typer.Option("--on")] = None,
 ) -> None:
     """Review goals with progress and pace."""
@@ -332,7 +340,7 @@ def goals(
         as_of = parse_iso_date(on)
         reports = [
             goal_progress(session, goal.slug, as_of=as_of)
-            for goal in list_goals(session, area_slug=area, status=status)
+            for goal in list_goals(session, area_slug=area, status=status, horizon=horizon)
         ]
         print_goals(reports)
 
@@ -386,6 +394,7 @@ def task_add(
     bucket: Annotated[TaskBucket, typer.Option("--bucket")] = TaskBucket.TODAY,
     priority: Annotated[TaskPriority, typer.Option("--priority")] = TaskPriority.NORMAL,
     due: Annotated[str | None, typer.Option("--due")] = None,
+    goal: Annotated[str | None, typer.Option("--goal")] = None,
 ) -> None:
     """Add a one-off task."""
     with cli_session() as session:
@@ -395,6 +404,7 @@ def task_add(
             bucket=bucket,
             due_on=parse_iso_date(due),
             priority=priority,
+            goal_slug=goal,
         )
         typer.echo(f"created task #{task.id} {task.title}")
 

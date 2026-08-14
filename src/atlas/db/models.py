@@ -7,6 +7,7 @@ from atlas.domain import (
     Aggregation,
     Comparator,
     Direction,
+    GoalHorizon,
     GoalKind,
     GoalStatus,
     Measure,
@@ -90,6 +91,9 @@ class Goal(SQLModel, table=True):
     measure: Measure | None = None
     start_on: date
     due_on: date
+    horizon: GoalHorizon = GoalHorizon.LONG
+    parent_id: int | None = Field(default=None, foreign_key="goal.id")
+    description: str | None = None
     status: GoalStatus = GoalStatus.ACTIVE
     achieved_at: datetime | None = None
 
@@ -149,6 +153,7 @@ class Task(SQLModel, table=True):
     due_on: date | None = None
     due_at: datetime | None = None
     priority: TaskPriority = TaskPriority.NORMAL
+    goal_id: int | None = Field(default=None, foreign_key="goal.id")
     done_at: datetime | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 

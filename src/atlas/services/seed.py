@@ -57,6 +57,7 @@ def demo_payload(as_of: date) -> dict[str, Any]:
         "habits": _habits(start),
         "goals": _goals(as_of),
         "milestones": _milestones(as_of),
+        "tasks": _tasks(as_of),
         "entries": _entries(start, as_of),
     }
 
@@ -127,7 +128,29 @@ def _habits(start: date) -> list[dict[str, Any]]:
 
 
 def _goals(as_of: date) -> list[dict[str, Any]]:
+    long_start = as_of - timedelta(days=200)
+    long_due = as_of + timedelta(days=530)
     return [
+        _goal(
+            "durable-health",
+            "health",
+            "Durable health",
+            "milestone",
+            long_start,
+            long_due,
+            horizon="long",
+            description="Stay strong, light, and consistent for years.",
+        ),
+        _goal(
+            "financial-freedom",
+            "finance",
+            "Financial freedom",
+            "milestone",
+            long_start,
+            long_due,
+            horizon="long",
+            description="Runway and buffers so work is a choice.",
+        ),
         _goal(
             "bodyweight-75",
             "health",
@@ -140,6 +163,9 @@ def _goals(as_of: date) -> list[dict[str, Any]]:
             comparator="at_most",
             baseline_value=82.0,
             measure="latest_value",
+            horizon="medium",
+            parent="durable-health",
+            description="Land at a sustainable racing weight.",
         ),
         _goal(
             "read-12-books",
@@ -152,6 +178,8 @@ def _goals(as_of: date) -> list[dict[str, Any]]:
             target_value=12.0,
             comparator="at_least",
             measure="cumulative_since_start",
+            horizon="long",
+            description="A book a month, with room to miss one.",
         ),
         _goal(
             "emergency-fund",
@@ -164,6 +192,9 @@ def _goals(as_of: date) -> list[dict[str, Any]]:
             target_value=5000.0,
             comparator="at_least",
             measure="latest_value",
+            horizon="medium",
+            parent="financial-freedom",
+            description="Three months of expenses in cash.",
         ),
         _goal(
             "ship-side-project",
@@ -172,6 +203,19 @@ def _goals(as_of: date) -> list[dict[str, Any]]:
             "milestone",
             as_of - timedelta(days=45),
             as_of + timedelta(days=90),
+            horizon="medium",
+            description="Spec, MVP, first user.",
+        ),
+        _goal(
+            "workout-this-week",
+            "health",
+            "Workout four times",
+            "milestone",
+            as_of - timedelta(days=1),
+            as_of + timedelta(days=6),
+            horizon="short",
+            parent="bodyweight-75",
+            description="Four sessions this week to keep the streak honest.",
         ),
     ]
 
@@ -185,6 +229,8 @@ def _milestones(as_of: date) -> list[dict[str, Any]]:
         _milestone("ship-side-project", "Spec written", spec, done_on=spec),
         _milestone("ship-side-project", "MVP shipped", as_of + timedelta(days=21)),
         _milestone("ship-side-project", "First user", as_of + timedelta(days=75)),
+        _milestone("durable-health", "Keep a 30-day streak", as_of + timedelta(days=30)),
+        _milestone("workout-this-week", "Four sessions", as_of + timedelta(days=6)),
     ]
 
 
@@ -220,6 +266,44 @@ def _entries(start: date, as_of: date) -> list[dict[str, Any]]:
     entries.append(_text("journal", as_of - timedelta(days=7), "Week started slow."))
     entries.append(_text("journal", as_of - timedelta(days=1), "Wrapped the deep-work block."))
     return entries
+
+
+def _tasks(as_of: date) -> list[dict[str, Any]]:
+    noon = datetime(as_of.year, as_of.month, as_of.day, 12, 0, tzinfo=UTC)
+    morning = datetime(as_of.year, as_of.month, as_of.day, 7, 0, tzinfo=UTC)
+    done_at = datetime(as_of.year, as_of.month, as_of.day, 8, 0, tzinfo=UTC)
+    return [
+        {
+            "title": "Pushups - 3 sets",
+            "bucket": "today",
+            "due_on": as_of.isoformat(),
+            "due_at": None,
+            "priority": "normal",
+            "goal": "workout-this-week",
+            "done_at": done_at.isoformat(),
+            "created_at": noon.isoformat(),
+        },
+        {
+            "title": "Meditate for 10 minutes",
+            "bucket": "today",
+            "due_on": as_of.isoformat(),
+            "due_at": morning.isoformat(),
+            "priority": "normal",
+            "goal": "workout-this-week",
+            "done_at": None,
+            "created_at": noon.isoformat(),
+        },
+        {
+            "title": "Evening walk",
+            "bucket": "today",
+            "due_on": None,
+            "due_at": None,
+            "priority": "low",
+            "goal": "workout-this-week",
+            "done_at": None,
+            "created_at": noon.isoformat(),
+        },
+    ]
 
 
 def _area(slug: str, name: str, description: str) -> dict[str, Any]:
@@ -283,6 +367,9 @@ def _goal(
     comparator: str | None = None,
     baseline_value: float | None = None,
     measure: str | None = None,
+    horizon: str | None = None,
+    parent: str | None = None,
+    description: str | None = None,
 ) -> dict[str, Any]:
     return {
         "slug": slug,
@@ -296,6 +383,9 @@ def _goal(
         "measure": measure,
         "start_on": start_on.isoformat(),
         "due_on": due_on.isoformat(),
+        "horizon": horizon,
+        "parent": parent,
+        "description": description,
         "status": "active",
         "achieved_at": None,
     }

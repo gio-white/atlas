@@ -222,6 +222,7 @@ def _goal_table(reports: list[GoalProgressReport]) -> Table | None:
         return None
     table = Table(box=None, pad_edge=False, expand=True)
     table.add_column("Goal")
+    table.add_column("Horizon", no_wrap=True)
     table.add_column("Progress", no_wrap=True)
     table.add_column("Pace", no_wrap=True)
     table.add_column("Due", no_wrap=True)
@@ -229,6 +230,7 @@ def _goal_table(reports: list[GoalProgressReport]) -> Table | None:
     for report in reports:
         table.add_row(
             report.slug,
+            str(report.horizon),
             format_pct(report.fraction),
             str(report.pace),
             str(report.due_on),

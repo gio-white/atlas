@@ -6,6 +6,7 @@ from atlas.domain import (
     Aggregation,
     Comparator,
     Direction,
+    GoalHorizon,
     GoalKind,
     GoalStatus,
     Measure,
@@ -168,6 +169,9 @@ class GoalCreate(BaseModel):
     baseline_value: float | None = None
     measure: Measure | None = None
     milestones: list[MilestoneCreate] | None = None
+    horizon: GoalHorizon | None = None
+    parent: str | None = None
+    description: str | None = None
 
 
 class GoalOut(BaseModel):
@@ -183,6 +187,9 @@ class GoalOut(BaseModel):
     measure: Measure | None
     start_on: date
     due_on: date
+    horizon: GoalHorizon
+    parent: str | None
+    description: str | None
     status: GoalStatus
     achieved_at: datetime | None
 
@@ -194,6 +201,9 @@ class GoalUpdate(BaseModel):
     due_on: date | None = None
     target_value: float | None = None
     status: GoalStatus | None = None
+    horizon: GoalHorizon | None = None
+    parent: str | None = None
+    description: str | None = None
 
 
 class MilestoneOut(BaseModel):
@@ -241,6 +251,9 @@ class GoalProgressOut(BaseModel):
     start_on: date
     due_on: date
     as_of: date
+    horizon: GoalHorizon
+    parent: str | None
+    description: str | None
 
 
 class LoggedEntryOut(BaseModel):
@@ -317,6 +330,49 @@ class HomeWeekOut(BaseModel):
     tasks_delta: float | None
     series_updates: list[float]
     series_slips: list[float]
+
+
+class GoalBoardColumnOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    horizon: GoalHorizon
+    on_track: int
+    total: int
+    fraction: float | None
+    goals: list[GoalProgressOut]
+
+
+class GoalBoardTaskOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    bucket: TaskBucket
+    due_on: date | None
+    due_at: datetime | None
+    priority: TaskPriority
+    done_at: datetime | None
+    created_at: datetime
+    goal: str | None
+
+
+class GoalBoardWeekOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    total: int
+    done: int
+    fraction: float | None
+    tasks: list[GoalBoardTaskOut]
+
+
+class GoalsBoardOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    as_of: date
+    long: GoalBoardColumnOut
+    medium: GoalBoardColumnOut
+    short: GoalBoardColumnOut
+    week: GoalBoardWeekOut
 
 
 class MetricSnapshotOut(BaseModel):
@@ -542,6 +598,7 @@ class TaskCreate(BaseModel):
     due_on: date | None = None
     due_at: datetime | None = None
     priority: TaskPriority = TaskPriority.NORMAL
+    goal: str | None = None
 
 
 class TaskUpdate(BaseModel):
@@ -553,6 +610,7 @@ class TaskUpdate(BaseModel):
     due_at: datetime | None = None
     priority: TaskPriority | None = None
     done: bool | None = None
+    goal: str | None = None
 
 
 class TaskOut(BaseModel):
@@ -564,6 +622,7 @@ class TaskOut(BaseModel):
     due_on: date | None
     due_at: datetime | None
     priority: TaskPriority
+    goal: str | None
     done_at: datetime | None
     created_at: datetime
 

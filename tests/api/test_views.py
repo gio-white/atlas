@@ -85,3 +85,38 @@ def test_home_week_view(client):
     assert body["series_slips"][1] == 1.0
     assert body["focus_minutes"] == 0
     assert body["tasks_done"] == 0
+
+
+def test_goals_board_view(client, seed_health):
+    client.post(
+        "/goals",
+        json={
+            "slug": "durable-health",
+            "area": "health",
+            "kind": "milestone",
+            "start_on": "2026-01-01",
+            "due_on": "2028-01-01",
+        },
+    )
+    client.post(
+        "/goals",
+        json={
+            "slug": "workout-week",
+            "area": "health",
+            "kind": "milestone",
+            "start_on": "2026-08-10",
+            "due_on": "2026-08-16",
+            "horizon": "short",
+        },
+    )
+    client.post(
+        "/tasks",
+        json={"title": "Pushups", "goal": "workout-week", "due_on": "2026-08-14"},
+    )
+    response = client.get("/views/goals", params={"as_of": "2026-08-14"})
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert [goal["slug"] for goal in body["long"]["goals"]] == ["durable-health"]
+    assert [goal["slug"] for goal in body["short"]["goals"]] == ["workout-week"]
+    assert body["week"]["total"] == 1
+    assert body["week"]["tasks"][0]["goal"] == "workout-week"

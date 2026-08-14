@@ -6,7 +6,8 @@ from atlas.db.models import Task
 from atlas.domain import Period, TaskBucket, TaskPriority, bucket_for
 from atlas.services.clock import resolve_today
 from atlas.services.errors import ValidationError
-from atlas.services.lookups import require_task
+from atlas.services.lookups import require_goal, require_task
+from atlas.services.slugs import normalize_slug
 
 _UNSET = object()
 
@@ -19,6 +20,7 @@ def create_task(
     due_on: date | None = None,
     due_at: datetime | None = None,
     priority: TaskPriority = TaskPriority.NORMAL,
+    goal_slug: str | None = None,
 ) -> Task:
     cleaned = title.strip()
     if not cleaned:
@@ -29,6 +31,7 @@ def create_task(
         due_on=due_on,
         due_at=due_at,
         priority=priority,
+        goal_id=_goal_id_for(session, goal_slug),
     )
     session.add(task)
     session.commit()
@@ -41,12 +44,16 @@ def list_tasks(
     *,
     bucket: TaskBucket | None = None,
     include_done: bool = False,
+    goal_slug: str | None = None,
 ) -> list[Task]:
     statement = select(Task).order_by(Task.id)
     if bucket is not None:
         statement = statement.where(Task.bucket == bucket)
     if not include_done:
         statement = statement.where(col(Task.done_at).is_(None))
+    if goal_slug is not None:
+        goal = require_goal(session, normalize_slug(goal_slug))
+        statement = statement.where(Task.goal_id == goal.id)
     return list(session.exec(statement).all())
 
 
@@ -64,6 +71,7 @@ def update_task(
     due_at: datetime | None | object = _UNSET,
     priority: TaskPriority | None = None,
     done: bool | None = None,
+    goal_slug: str | None | object = _UNSET,
 ) -> Task:
     task = require_task(session, task_id)
     if title is not None:
@@ -89,6 +97,10 @@ def update_task(
         task.done_at = datetime.now(UTC)
     elif done is False:
         task.done_at = None
+    if goal_slug is not _UNSET:
+        task.goal_id = _goal_id_for(
+            session, goal_slug if isinstance(goal_slug, str) else None
+        )
     session.add(task)
     session.commit()
     session.refresh(task)
@@ -107,3 +119,9 @@ def tasks_done_in_week(session: Session, *, as_of: date | None = None) -> int:
         if week.start <= done_on <= min(week.end, as_of):
             count += 1
     return count
+
+
+def _goal_id_for(session: Session, goal_slug: str | None) -> int | None:
+    if goal_slug is None:
+        return None
+    return require_goal(session, normalize_slug(goal_slug)).id

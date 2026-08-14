@@ -20,6 +20,7 @@ from atlas.domain import (
     Aggregation,
     Comparator,
     Direction,
+    GoalHorizon,
     GoalKind,
     GoalStatus,
     Measure,
@@ -30,6 +31,8 @@ from atlas.domain import (
     TaskBucket,
     TaskPriority,
     ValueType,
+    infer_horizon,
+    parent_horizon_is_valid,
 )
 from atlas.services.errors import ValidationError
 from atlas.services.lookups import (
@@ -65,24 +68,24 @@ def export_all(session: Session) -> dict[str, Any]:
         "areas": [_export_area(area) for area in areas],
         "metrics": [_export_metric(metric, area_by_id) for metric in metrics],
         "habits": [_export_habit(habit, metric_by_id) for habit in habits],
-        "goals": [_export_goal(goal, area_by_id, metric_by_id) for goal in goals],
+        "goals": [_export_goal(goal, area_by_id, metric_by_id, goal_by_id) for goal in goals],
         "milestones": [_export_milestone(row, goal_by_id) for row in milestones],
         "screen_categories": [_export_screen_category(row) for row in screen_categories],
         "screen_apps": [
             _export_screen_app(row, category_by_id, metric_by_id) for row in screen_apps
         ],
         "screen_budgets": [_export_screen_budget(row) for row in screen_budgets],
-        "tasks": [_export_task(task) for task in tasks],
+        "tasks": [_export_task(task, goal_by_id) for task in tasks],
         "entries": [_export_entry(entry, metric_by_id) for entry in entries],
     }
 
 
 def import_all(session: Session, payload: dict[str, Any], *, replace: bool = False) -> None:
     version = payload.get("schema_version")
-    if version not in {1, 2, CURRENT_SCHEMA_VERSION}:
+    if version not in {1, 2, 3, CURRENT_SCHEMA_VERSION}:
         raise ValidationError(
             f"unsupported export schema_version {version!r}; "
-            f"expected 1, 2, or {CURRENT_SCHEMA_VERSION}"
+            f"expected 1, 2, 3, or {CURRENT_SCHEMA_VERSION}"
         )
     try:
         if replace:
@@ -98,6 +101,9 @@ def import_all(session: Session, payload: dict[str, Any], *, replace: bool = Fal
         session.flush()
         for raw in payload.get("goals", []):
             _import_goal(session, raw)
+        session.flush()
+        for raw in payload.get("goals", []):
+            _import_goal_parent(session, raw)
         session.flush()
         for raw in payload.get("milestones", []):
             _import_milestone(session, raw)
@@ -121,15 +127,19 @@ def import_all(session: Session, payload: dict[str, Any], *, replace: bool = Fal
 
 
 def _clear_user_data(session: Session) -> None:
+    for goal in session.exec(select(Goal)).all():
+        goal.parent_id = None
+        session.add(goal)
+    session.flush()
     for model in (
         Entry,
         Milestone,
         Habit,
+        Task,
         Goal,
         ScreenBudget,
         ScreenApp,
         ScreenCategory,
-        Task,
         Metric,
         Area,
     ):
@@ -178,6 +188,7 @@ def _export_goal(
     goal: Goal,
     area_by_id: dict[int | None, str],
     metric_by_id: dict[int | None, str],
+    goal_by_id: dict[int | None, str],
 ) -> dict[str, Any]:
     return {
         "slug": goal.slug,
@@ -191,6 +202,9 @@ def _export_goal(
         "measure": str(goal.measure) if goal.measure is not None else None,
         "start_on": goal.start_on.isoformat(),
         "due_on": goal.due_on.isoformat(),
+        "horizon": str(goal.horizon),
+        "parent": goal_by_id.get(goal.parent_id),
+        "description": goal.description,
         "status": str(goal.status),
         "achieved_at": _iso_dt(goal.achieved_at),
     }
@@ -344,8 +358,33 @@ def _import_goal(session: Session, raw: dict[str, Any]) -> None:
     existing.measure = Measure(measure) if measure else None
     existing.start_on = _parse_date(raw.get("start_on", existing.start_on.isoformat()))
     existing.due_on = _parse_date(raw.get("due_on", existing.due_on.isoformat()))
+    horizon = raw.get("horizon")
+    if horizon:
+        existing.horizon = GoalHorizon(horizon)
+    else:
+        existing.horizon = infer_horizon(existing.start_on, existing.due_on)
+    existing.description = raw.get("description")
     existing.status = GoalStatus(raw.get("status", existing.status))
     existing.achieved_at = _parse_datetime(raw.get("achieved_at"))
+
+
+def _import_goal_parent(session: Session, raw: dict[str, Any]) -> None:
+    slug = normalize_slug(_require(raw, "slug"))
+    goal = require_goal(session, slug)
+    parent_slug = raw.get("parent")
+    if not parent_slug:
+        goal.parent_id = None
+        return
+    parent = require_goal(session, normalize_slug(parent_slug))
+    child_horizon = GoalHorizon(goal.horizon)
+    parent_horizon = GoalHorizon(parent.horizon)
+    if not parent_horizon_is_valid(child_horizon, parent_horizon):
+        raise ValidationError(
+            f"goal {slug!r} cannot parent under {parent.slug!r}"
+        )
+    if parent.id == goal.id:
+        raise ValidationError("a goal cannot be its own parent")
+    goal.parent_id = parent.id
 
 
 def _import_milestone(session: Session, raw: dict[str, Any]) -> None:
@@ -427,13 +466,14 @@ def _import_screen_budget(session: Session, raw: dict[str, Any]) -> None:
     existing.active_to = _parse_date(active_to) if active_to else None
 
 
-def _export_task(task: Task) -> dict[str, Any]:
+def _export_task(task: Task, goal_by_id: dict[int | None, str]) -> dict[str, Any]:
     return {
         "title": task.title,
         "bucket": str(task.bucket),
         "due_on": task.due_on.isoformat() if task.due_on is not None else None,
         "due_at": _iso_dt(task.due_at),
         "priority": str(task.priority),
+        "goal": goal_by_id.get(task.goal_id),
         "done_at": _iso_dt(task.done_at),
         "created_at": _iso_dt(task.created_at),
     }
@@ -442,6 +482,8 @@ def _export_task(task: Task) -> dict[str, Any]:
 def _import_task(session: Session, raw: dict[str, Any]) -> None:
     created_at = _parse_datetime(raw.get("created_at")) or datetime.now(UTC)
     due_on = raw.get("due_on")
+    goal_slug = raw.get("goal")
+    goal_id = require_goal(session, normalize_slug(goal_slug)).id if goal_slug else None
     session.add(
         Task(
             title=_require(raw, "title"),
@@ -449,6 +491,7 @@ def _import_task(session: Session, raw: dict[str, Any]) -> None:
             due_on=_parse_date(due_on) if due_on else None,
             due_at=_parse_datetime(raw.get("due_at")),
             priority=TaskPriority(raw.get("priority", TaskPriority.NORMAL)),
+            goal_id=goal_id,
             done_at=_parse_datetime(raw.get("done_at")),
             created_at=created_at,
         )

@@ -1,7 +1,7 @@
 from datetime import date
 
 import pytest
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
@@ -17,6 +17,7 @@ from atlas.db import (
     ScreenApp,
     ScreenBudget,
     ScreenCategory,
+    create_engine_for,
     create_memory_engine,
     init_db,
     init_schema,
@@ -256,6 +257,68 @@ def test_goal_and_milestone_persist(session):
     stored = session.exec(select(Milestone).where(Milestone.goal_id == goal.id)).one()
     assert stored.name == "Hit 78kg"
     assert stored.done_at is None
+
+
+def test_init_schema_migrates_v3_goal_hierarchy_columns(tmp_path):
+    engine = create_engine_for(tmp_path / "v3.db")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE area ("
+                "id INTEGER PRIMARY KEY, slug VARCHAR UNIQUE, name VARCHAR, "
+                "description TEXT, archived_at DATETIME)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE goal ("
+                "id INTEGER PRIMARY KEY, area_id INTEGER NOT NULL, slug VARCHAR UNIQUE, "
+                "name VARCHAR, kind VARCHAR, metric_id INTEGER, target_value FLOAT, "
+                "comparator VARCHAR, baseline_value FLOAT, measure VARCHAR, "
+                "start_on DATE, due_on DATE, status VARCHAR, achieved_at DATETIME)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE task ("
+                "id INTEGER PRIMARY KEY, title VARCHAR, bucket VARCHAR, due_on DATE, "
+                "due_at DATETIME, priority VARCHAR, done_at DATETIME, created_at DATETIME)"
+            )
+        )
+        connection.execute(
+            text("CREATE TABLE schema_version (id INTEGER PRIMARY KEY, version INTEGER)")
+        )
+        connection.execute(text("INSERT INTO schema_version (id, version) VALUES (1, 3)"))
+        connection.execute(text("INSERT INTO area (id, slug, name) VALUES (1, 'health', 'Health')"))
+        connection.execute(
+            text(
+                "INSERT INTO goal (id, area_id, slug, name, kind, start_on, due_on, status) "
+                "VALUES (1, 1, 'year-goal', 'Year', 'milestone',"
+                " '2026-01-01', '2027-01-01', 'active')"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO goal (id, area_id, slug, name, kind, start_on, due_on, status) "
+                "VALUES (2, 1, 'week-goal', 'Week', 'milestone',"
+                " '2026-08-10', '2026-08-16', 'active')"
+            )
+        )
+    init_schema(engine)
+
+    goal_columns = {column["name"] for column in inspect(engine).get_columns("goal")}
+    task_columns = {column["name"] for column in inspect(engine).get_columns("task")}
+    assert {"horizon", "parent_id", "description"} <= goal_columns
+    assert "goal_id" in task_columns
+    with engine.connect() as connection:
+        horizons = {
+            row.slug: row.horizon
+            for row in connection.execute(text("SELECT slug, horizon FROM goal")).all()
+        }
+    assert horizons["year-goal"] == "long"
+    assert horizons["week-goal"] == "short"
+    with Session(engine) as session:
+        assert session.get(SchemaVersion, 1).version == CURRENT_SCHEMA_VERSION
 
 
 def _row_for(model, *, slug: str, area: Area, metric: Metric):

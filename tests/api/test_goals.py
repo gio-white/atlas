@@ -77,3 +77,40 @@ def test_list_goals_can_filter_by_area(client, seed_health):
     listed = client.get("/goals", params={"area": "health"})
     assert listed.status_code == 200
     assert [goal["slug"] for goal in listed.json()] == ["bodyweight-75"]
+
+
+def test_create_goal_with_parent_and_horizon(client, seed_health):
+    north = client.post(
+        "/goals",
+        json={
+            "slug": "durable-health",
+            "area": "health",
+            "kind": "milestone",
+            "start_on": "2026-01-01",
+            "due_on": "2028-01-01",
+            "horizon": "long",
+            "description": "Stay strong.",
+        },
+    )
+    assert north.status_code == 201, north.text
+    assert north.json()["horizon"] == "long"
+    child = client.post(
+        "/goals",
+        json={
+            "slug": "bodyweight-75",
+            "area": "health",
+            "kind": "metric_target",
+            "metric": "weight",
+            "target_value": 75,
+            "comparator": "at_most",
+            "measure": "latest_value",
+            "start_on": "2026-01-01",
+            "due_on": "2026-06-01",
+            "parent": "durable-health",
+        },
+    )
+    assert child.status_code == 201, child.text
+    assert child.json()["parent"] == "durable-health"
+    assert child.json()["horizon"] == "medium"
+    listed = client.get("/goals", params={"horizon": "medium"})
+    assert [goal["slug"] for goal in listed.json()] == ["bodyweight-75"]

@@ -14,3 +14,22 @@ def test_create_list_and_complete_task(client):
     assert patched.json()["done_at"] is not None
     assert client.get("/tasks").json() == []
     assert client.get("/tasks", params={"include_done": True}).json()[0]["id"] == task_id
+
+
+def test_create_task_linked_to_goal(client, seed_health):
+    goal = client.post(
+        "/goals",
+        json={
+            "slug": "workout-week",
+            "area": "health",
+            "kind": "milestone",
+            "start_on": "2026-08-10",
+            "due_on": "2026-08-16",
+        },
+    )
+    assert goal.status_code == 201
+    created = client.post("/tasks", json={"title": "Pushups", "goal": "workout-week"})
+    assert created.status_code == 201, created.text
+    assert created.json()["goal"] == "workout-week"
+    listed = client.get("/tasks", params={"goal": "workout-week"})
+    assert [task["title"] for task in listed.json()] == ["Pushups"]

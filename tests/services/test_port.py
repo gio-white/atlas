@@ -136,3 +136,22 @@ def test_import_accepts_schema_version_2(session):
         restored = export_all(other)
     assert restored["schema_version"] == CURRENT_SCHEMA_VERSION
     assert restored["tasks"] == []
+
+
+def test_import_accepts_schema_version_3(session):
+    payload = _populated(session)
+    payload["schema_version"] = 3
+    for goal in payload["goals"]:
+        goal.pop("horizon", None)
+        goal.pop("parent", None)
+        goal.pop("description", None)
+    for task in payload["tasks"]:
+        task.pop("goal", None)
+    engine = create_memory_engine()
+    init_schema(engine)
+    with make_session_factory(engine)() as other:
+        import_all(other, payload)
+        restored = export_all(other)
+    assert restored["schema_version"] == CURRENT_SCHEMA_VERSION
+    assert restored["goals"][0]["horizon"] in {"long", "medium", "short"}
+    assert restored["goals"][0]["parent"] is None

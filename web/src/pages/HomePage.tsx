@@ -57,10 +57,10 @@ export function HomePage() {
         getToday(asOf),
         listMetrics(),
         getScreenView(asOf).catch(() => null),
-        getUpdates(asOf),
-        getSlips(asOf),
-        listTasks({ include_done: true }),
-        getHomeWeek(asOf),
+        getUpdates(asOf).catch(() => null),
+        getSlips(asOf).catch(() => null),
+        listTasks({ include_done: true }).catch(() => []),
+        getHomeWeek(asOf).catch(() => null),
       ])
     setView(today)
     setMetrics(metricRows)

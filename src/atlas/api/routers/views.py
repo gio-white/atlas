@@ -3,8 +3,8 @@ from datetime import date
 from fastapi import APIRouter
 
 from atlas.api.deps import SessionDep
-from atlas.api.schemas import AreaViewOut, HomeWeekOut, TodayViewOut, WeekViewOut
-from atlas.services import area_view, home_week, today_view, week_view
+from atlas.api.schemas import AreaViewOut, GoalsBoardOut, HomeWeekOut, TodayViewOut, WeekViewOut
+from atlas.services import area_view, goals_board, home_week, today_view, week_view
 
 router = APIRouter(prefix="/views", tags=["views"])
 
@@ -22,6 +22,11 @@ def get_week(session: SessionDep, as_of: date | None = None) -> WeekViewOut:
 @router.get("/home", response_model=HomeWeekOut)
 def get_home(session: SessionDep, as_of: date | None = None) -> HomeWeekOut:
     return HomeWeekOut.model_validate(home_week(session, as_of=as_of))
+
+
+@router.get("/goals", response_model=GoalsBoardOut)
+def get_goals_board(session: SessionDep, as_of: date | None = None) -> GoalsBoardOut:
+    return GoalsBoardOut.model_validate(goals_board(session, as_of=as_of))
 
 
 @router.get("/areas/{slug}", response_model=AreaViewOut)
