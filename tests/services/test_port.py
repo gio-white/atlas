@@ -227,3 +227,15 @@ def test_import_accepts_schema_version_6(session):
         restored = export_all(other)
     assert restored["schema_version"] == CURRENT_SCHEMA_VERSION
     assert restored["goals"][0]["area"] is None
+
+
+def test_import_accepts_schema_version_7(session):
+    payload = _populated(session)
+    payload["schema_version"] = 7
+    engine = create_memory_engine()
+    init_schema(engine)
+    with make_session_factory(engine)() as other:
+        import_all(other, payload)
+        restored = export_all(other)
+    assert restored["schema_version"] == CURRENT_SCHEMA_VERSION
+    assert restored["entertainment_topics"] == payload.get("entertainment_topics", [])

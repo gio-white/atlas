@@ -4,6 +4,7 @@ import { Layout } from '@/components/Layout'
 import { LIFE_SECTIONS } from '@/lib/sections'
 import { AreaPage } from '@/pages/AreaPage'
 import { CatalogPage } from '@/pages/CatalogPage'
+import { EntertainmentPage } from '@/pages/EntertainmentPage'
 import { GoalPage } from '@/pages/GoalPage'
 import { GoalsPage } from '@/pages/GoalsPage'
 import { HabitPage } from '@/pages/HabitPage'
@@ -20,13 +21,14 @@ export default function App() {
         <Route element={<Layout />}>
           <Route index element={<HomePage />} />
           <Route path="week" element={<WeekPage />} />
-          {LIFE_SECTIONS.map((section) => (
+          {LIFE_SECTIONS.filter((section) => section.slug !== 'entertainment').map((section) => (
             <Route
               key={section.slug}
               path={section.slug}
               element={<SectionPage title={section.label} description={section.description} />}
             />
           ))}
+          <Route path="entertainment" element={<EntertainmentPage />} />
           <Route path="screen" element={<ScreenPage />} />
           <Route path="tasks" element={<PlaceholderPage title="Tasks" />} />
           <Route path="journal" element={<PlaceholderPage title="Journal" />} />

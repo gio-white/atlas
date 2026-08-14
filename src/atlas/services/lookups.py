@@ -4,6 +4,8 @@ from sqlmodel import Session, col, select
 
 from atlas.db.models import (
     Area,
+    EntertainmentTitle,
+    EntertainmentTopic,
     Entry,
     Goal,
     Habit,
@@ -83,6 +85,20 @@ def require_screen_session(session: Session, session_id: int) -> ScreenSession:
     return row
 
 
+def require_entertainment_topic(session: Session, slug: str) -> EntertainmentTopic:
+    row = session.exec(select(EntertainmentTopic).where(EntertainmentTopic.slug == slug)).first()
+    if row is None:
+        raise NotFoundError("entertainment_topic", slug)
+    return row
+
+
+def require_entertainment_title(session: Session, slug: str) -> EntertainmentTitle:
+    row = session.exec(select(EntertainmentTitle).where(EntertainmentTitle.slug == slug)).first()
+    if row is None:
+        raise NotFoundError("entertainment_title", slug)
+    return row
+
+
 def require_entry(session: Session, entry_id: int) -> Entry:
     row = session.get(Entry, entry_id)
     if row is None:
@@ -123,7 +139,9 @@ def ensure_unique_slug(
     | type[ScreenCategory]
     | type[ScreenApp]
     | type[ScreenBudget]
-    | type[ScreenDevice],
+    | type[ScreenDevice]
+    | type[EntertainmentTopic]
+    | type[EntertainmentTitle],
     slug: str,
 ) -> None:
     if session.exec(select(model).where(model.slug == slug)).first() is not None:

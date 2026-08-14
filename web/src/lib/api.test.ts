@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   API_UNREACHABLE,
   type ApiError,
+  getEntertainmentDashboard,
   getGoalsBoard,
   getScreenDashboard,
   getToday,
@@ -89,6 +90,38 @@ describe('request helpers', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/screen/dashboard?period=week&as_of=2026-08-14',
+      expect.any(Object),
+    )
+    vi.unstubAllGlobals()
+  })
+
+  it('getEntertainmentDashboard sends period and as_of', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        period: 'week',
+        as_of: '2026-08-14',
+        range_start: '2026-08-10',
+        range_end: '2026-08-14',
+        finished_in_range: 0,
+        started_in_range: 0,
+        queued: 0,
+        in_progress: 0,
+        done: 0,
+        dropped: 0,
+        by_kind: [],
+        by_topic: [],
+        recently_finished: [],
+        library: { queued: [], in_progress: [], done: [], dropped: [] },
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getEntertainmentDashboard('week', '2026-08-14')
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/entertainment/dashboard?period=week&as_of=2026-08-14',
       expect.any(Object),
     )
     vi.unstubAllGlobals()

@@ -5,10 +5,23 @@ from atlas.domain.buckets import (
     previous_bucket,
     ranges_intersect,
 )
+from atlas.domain.entertainment import (
+    LIBRARY_STATUSES,
+    RECENTLY_FINISHED_LIMIT,
+    EntertainmentDashboardMath,
+    EntertainmentKindCount,
+    EntertainmentLibrary,
+    EntertainmentTopicCount,
+    entertainment_dashboard_math,
+    finished_in_week,
+    last_finished,
+)
 from atlas.domain.enums import (
     Aggregation,
     Comparator,
     Direction,
+    EntertainmentKind,
+    EntertainmentStatus,
     GoalHorizon,
     GoalKind,
     GoalStatus,
@@ -42,6 +55,8 @@ from atlas.domain.horizons import (
 )
 from atlas.domain.models import (
     Bucket,
+    EntertainmentTitleView,
+    EntertainmentTopicRef,
     EntryView,
     GoalProgress,
     GoalSpec,
@@ -77,12 +92,22 @@ from atlas.domain.screen import (
 )
 
 __all__ = [
+    "LIBRARY_STATUSES",
     "PACE_TOLERANCE",
+    "RECENTLY_FINISHED_LIMIT",
     "Aggregation",
     "Bucket",
     "COLUMN_ON_TRACK_PACES",
     "Comparator",
     "Direction",
+    "EntertainmentDashboardMath",
+    "EntertainmentKind",
+    "EntertainmentKindCount",
+    "EntertainmentLibrary",
+    "EntertainmentStatus",
+    "EntertainmentTitleView",
+    "EntertainmentTopicCount",
+    "EntertainmentTopicRef",
     "EntryView",
     "GoalHorizon",
     "GoalKind",
@@ -119,8 +144,11 @@ __all__ = [
     "current_streak",
     "day_minutes",
     "direction_for_judgment",
+    "entertainment_dashboard_math",
+    "finished_in_week",
     "goal_progress",
     "infer_horizon",
+    "last_finished",
     "interval_minutes",
     "is_column_on_track",
     "is_satisfied",

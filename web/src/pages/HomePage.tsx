@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+  EntertainmentCard,
   GoalsCard,
   LifeSectionCard,
   QuickAddCard,
@@ -18,7 +19,9 @@ import { PageError, PageLoading } from '@/components/PageState'
 import {
   ApiError,
   createTask,
+  type EntertainmentView,
   type Goal,
+  getEntertainmentView,
   getHomeWeek,
   getScreenView,
   getSlips,
@@ -60,24 +63,35 @@ export function HomePage() {
   const [week, setWeek] = useState<HomeWeek | null>(null)
   const [tasks, setTasks] = useState<TaskItem[]>([])
   const [goals, setGoals] = useState<Goal[]>([])
+  const [entertainment, setEntertainment] = useState<EntertainmentView | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [journalOpen, setJournalOpen] = useState(false)
   const greeting = greetingForHour(new Date().getHours())
 
   const refresh = useCallback(async () => {
-    const [todayResult, metricRows, screen, updateStatus, slipWeek, taskRows, homeWeek, goalRows] =
-      await Promise.all([
-        getToday(asOf)
-          .then((data) => ({ data, error: null as string | null }))
-          .catch((caught: unknown) => ({ data: null, error: loadError(caught) })),
-        listMetrics().catch(() => []),
-        getScreenView(asOf).catch(() => null),
-        getUpdates(asOf).catch(() => null),
-        getSlips(asOf).catch(() => null),
-        listTasks({ include_done: true }).catch(() => []),
-        getHomeWeek(asOf).catch(() => null),
-        listGoals().catch(() => []),
-      ])
+    const [
+      todayResult,
+      metricRows,
+      screen,
+      updateStatus,
+      slipWeek,
+      taskRows,
+      homeWeek,
+      goalRows,
+      entertainmentView,
+    ] = await Promise.all([
+      getToday(asOf)
+        .then((data) => ({ data, error: null as string | null }))
+        .catch((caught: unknown) => ({ data: null, error: loadError(caught) })),
+      listMetrics().catch(() => []),
+      getScreenView(asOf).catch(() => null),
+      getUpdates(asOf).catch(() => null),
+      getSlips(asOf).catch(() => null),
+      listTasks({ include_done: true }).catch(() => []),
+      getHomeWeek(asOf).catch(() => null),
+      listGoals().catch(() => []),
+      getEntertainmentView(asOf).catch(() => null),
+    ])
     setError(todayResult.error)
     setView(todayResult.data ?? emptyToday(asOf))
     setMetrics(metricRows)
@@ -87,6 +101,7 @@ export function HomePage() {
     setTasks(taskRows)
     setWeek(homeWeek)
     setGoals(goalRows)
+    setEntertainment(entertainmentView)
   }, [asOf])
 
   useEffect(() => {
@@ -175,9 +190,13 @@ export function HomePage() {
         />
       </section>
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {LIFE_SECTIONS.map((section) => (
-          <LifeSectionCard key={section.slug} section={section} />
-        ))}
+        {LIFE_SECTIONS.map((section) =>
+          section.slug === 'entertainment' ? (
+            <EntertainmentCard key={section.slug} section={section} view={entertainment} />
+          ) : (
+            <LifeSectionCard key={section.slug} section={section} />
+          ),
+        )}
       </section>
       <JournalDialog open={journalOpen} onOpenChange={setJournalOpen} occurredOn={asOf} />
     </div>

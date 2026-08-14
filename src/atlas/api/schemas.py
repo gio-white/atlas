@@ -1,11 +1,13 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from atlas.domain import (
     Aggregation,
     Comparator,
     Direction,
+    EntertainmentKind,
+    EntertainmentStatus,
     GoalHorizon,
     GoalKind,
     GoalStatus,
@@ -799,3 +801,136 @@ class JournalDayOut(BaseModel):
     as_of: date
     text: str | None
     entry_id: int | None
+
+
+class EntertainmentTopicCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    slug: str
+    name: str | None = None
+
+
+class EntertainmentTopicUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = None
+
+
+class EntertainmentTopicOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    slug: str
+    name: str
+    archived_at: datetime | None
+
+
+class EntertainmentTopicRefOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    slug: str
+    name: str
+
+
+class EntertainmentTitleCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    slug: str
+    kind: EntertainmentKind
+    name: str | None = None
+    creator: str | None = None
+    recommended_by: str | None = None
+    status: EntertainmentStatus = EntertainmentStatus.QUEUED
+    started_on: date | None = None
+    finished_on: date | None = None
+    progress: str | None = None
+    note: str | None = None
+    topics: list[str] = Field(default_factory=list)
+    image_url: str | None = None
+
+
+class EntertainmentTitleUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = None
+    kind: EntertainmentKind | None = None
+    creator: str | None = None
+    recommended_by: str | None = None
+    status: EntertainmentStatus | None = None
+    started_on: date | None = None
+    finished_on: date | None = None
+    progress: str | None = None
+    note: str | None = None
+    topics: list[str] | None = None
+    image_url: str | None = None
+
+
+class EntertainmentTitleOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    slug: str
+    name: str
+    kind: EntertainmentKind
+    creator: str | None
+    recommended_by: str | None
+    status: EntertainmentStatus
+    started_on: date | None
+    finished_on: date | None
+    progress: str | None
+    note: str | None
+    topics: list[EntertainmentTopicRefOut]
+    image: str | None
+
+
+class EntertainmentKindCountOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    kind: EntertainmentKind
+    count: int
+    share: float
+
+
+class EntertainmentTopicCountOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    slug: str
+    name: str
+    count: int
+    share: float
+
+
+class EntertainmentLibraryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    queued: list[EntertainmentTitleOut]
+    in_progress: list[EntertainmentTitleOut]
+    done: list[EntertainmentTitleOut]
+    dropped: list[EntertainmentTitleOut]
+
+
+class EntertainmentViewOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    as_of: date
+    in_progress: int
+    finished_this_week: int
+    last_finished: EntertainmentTitleOut | None
+
+
+class EntertainmentDashboardOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    period: Period
+    as_of: date
+    range_start: date
+    range_end: date
+    finished_in_range: int
+    started_in_range: int
+    queued: int
+    in_progress: int
+    done: int
+    dropped: int
+    by_kind: list[EntertainmentKindCountOut]
+    by_topic: list[EntertainmentTopicCountOut]
+    recently_finished: list[EntertainmentTitleOut]
+    library: EntertainmentLibraryOut

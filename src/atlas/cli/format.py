@@ -53,7 +53,9 @@ def print_seeded(summary: SeedSummary) -> None:
         f"{summary.screen_categories} screen categories, "
         f"{summary.screen_apps} screen apps, "
         f"{summary.screen_devices} screen devices, "
-        f"{summary.screen_sessions} screen sessions"
+        f"{summary.screen_sessions} screen sessions, "
+        f"{summary.entertainment_topics} entertainment topics, "
+        f"{summary.entertainment_titles} entertainment titles"
     )
 
 

@@ -8,6 +8,8 @@ from sqlmodel import Session, select
 from atlas.db import (
     CURRENT_SCHEMA_VERSION,
     Area,
+    EntertainmentTitle,
+    EntertainmentTopic,
     Entry,
     Goal,
     Habit,
@@ -29,6 +31,8 @@ from atlas.domain import (
     Aggregation,
     Comparator,
     Direction,
+    EntertainmentKind,
+    EntertainmentStatus,
     GoalKind,
     GoalStatus,
     Measure,
@@ -179,6 +183,35 @@ def test_screen_slugs_are_unique(session):
             target_value=60.0,
             comparator=Comparator.AT_MOST,
             active_from=date(2026, 8, 1),
+        )
+    )
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_entertainment_slugs_are_unique(session):
+    session.add(EntertainmentTopic(slug="physics", name="Physics"))
+    session.commit()
+    session.add(EntertainmentTopic(slug="physics", name="Other"))
+    with pytest.raises(IntegrityError):
+        session.commit()
+    session.rollback()
+
+    session.add(
+        EntertainmentTitle(
+            slug="interstellar",
+            name="Interstellar",
+            kind=EntertainmentKind.FILM,
+            status=EntertainmentStatus.QUEUED,
+        )
+    )
+    session.commit()
+    session.add(
+        EntertainmentTitle(
+            slug="interstellar",
+            name="Other",
+            kind=EntertainmentKind.BOOK,
+            status=EntertainmentStatus.QUEUED,
         )
     )
     with pytest.raises(IntegrityError):

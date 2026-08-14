@@ -1,3 +1,4 @@
+import base64
 from datetime import UTC, date, datetime
 from typing import Any
 
@@ -6,6 +7,9 @@ from sqlmodel import Session, select
 from atlas.db import CURRENT_SCHEMA_VERSION
 from atlas.db.models import (
     Area,
+    EntertainmentTitle,
+    EntertainmentTitleTopic,
+    EntertainmentTopic,
     Entry,
     Goal,
     Habit,
@@ -22,6 +26,8 @@ from atlas.domain import (
     Aggregation,
     Comparator,
     Direction,
+    EntertainmentKind,
+    EntertainmentStatus,
     GoalHorizon,
     GoalKind,
     GoalStatus,
@@ -39,6 +45,7 @@ from atlas.domain import (
 from atlas.services.errors import ValidationError
 from atlas.services.lookups import (
     require_area,
+    require_entertainment_topic,
     require_goal,
     require_metric,
     require_screen_app,
@@ -61,6 +68,13 @@ def export_all(session: Session) -> dict[str, Any]:
     screen_budgets = list(session.exec(select(ScreenBudget).order_by(ScreenBudget.slug)).all())
     screen_devices = list(session.exec(select(ScreenDevice).order_by(ScreenDevice.slug)).all())
     screen_sessions = list(session.exec(select(ScreenSession).order_by(ScreenSession.id)).all())
+    entertainment_topics = list(
+        session.exec(select(EntertainmentTopic).order_by(EntertainmentTopic.slug)).all()
+    )
+    entertainment_titles = list(
+        session.exec(select(EntertainmentTitle).order_by(EntertainmentTitle.slug)).all()
+    )
+    entertainment_links = list(session.exec(select(EntertainmentTitleTopic)).all())
     tasks = list(session.exec(select(Task).order_by(Task.id)).all())
     entries = list(session.exec(select(Entry).order_by(Entry.occurred_on, Entry.id)).all())
 
@@ -70,6 +84,15 @@ def export_all(session: Session) -> dict[str, Any]:
     category_by_id = {category.id: category.slug for category in screen_categories}
     device_by_id = {device.id: device.slug for device in screen_devices}
     app_by_id = {app.id: app.slug for app in screen_apps}
+    topic_by_id = {topic.id: topic.slug for topic in entertainment_topics}
+    topics_by_title: dict[int | None, list[str]] = {}
+    for link in entertainment_links:
+        slug = topic_by_id.get(link.topic_id)
+        if slug is None:
+            continue
+        topics_by_title.setdefault(link.title_id, []).append(slug)
+    for slugs in topics_by_title.values():
+        slugs.sort()
 
     return {
         "schema_version": CURRENT_SCHEMA_VERSION,
@@ -86,6 +109,11 @@ def export_all(session: Session) -> dict[str, Any]:
         "screen_devices": [_export_screen_device(row) for row in screen_devices],
         "screen_sessions": [
             _export_screen_session(row, app_by_id, device_by_id) for row in screen_sessions
+        ],
+        "entertainment_topics": [_export_entertainment_topic(row) for row in entertainment_topics],
+        "entertainment_titles": [
+            _export_entertainment_title(row, topics_by_title.get(row.id, []))
+            for row in entertainment_titles
         ],
         "tasks": [_export_task(task, goal_by_id) for task in tasks],
         "entries": [_export_entry(entry, metric_by_id) for entry in entries],
@@ -147,6 +175,11 @@ def import_all(session: Session, payload: dict[str, Any], *, replace: bool = Fal
                 _import_screen_session(session, raw)
         else:
             _backfill_imported_sessions(session)
+        for raw in payload.get("entertainment_topics", []):
+            _import_entertainment_topic(session, raw)
+        session.flush()
+        for raw in payload.get("entertainment_titles", []):
+            _import_entertainment_title(session, raw)
         session.commit()
     except Exception:
         session.rollback()
@@ -159,6 +192,9 @@ def _clear_user_data(session: Session) -> None:
         session.add(goal)
     session.flush()
     for model in (
+        EntertainmentTitleTopic,
+        EntertainmentTitle,
+        EntertainmentTopic,
         ScreenSession,
         Entry,
         Milestone,
@@ -323,6 +359,109 @@ def _export_screen_session(
         "source": str(row.source),
         "created_at": _iso_dt(row.created_at),
     }
+
+
+def _export_entertainment_topic(topic: EntertainmentTopic) -> dict[str, Any]:
+    return {
+        "slug": topic.slug,
+        "name": topic.name,
+        "archived_at": _iso_dt(topic.archived_at),
+    }
+
+
+def _export_entertainment_title(title: EntertainmentTitle, topics: list[str]) -> dict[str, Any]:
+    return {
+        "slug": title.slug,
+        "name": title.name,
+        "kind": str(title.kind),
+        "creator": title.creator,
+        "recommended_by": title.recommended_by,
+        "status": str(title.status),
+        "started_on": title.started_on.isoformat() if title.started_on is not None else None,
+        "finished_on": title.finished_on.isoformat() if title.finished_on is not None else None,
+        "progress": title.progress,
+        "note": title.note,
+        "topics": topics,
+        "image_url": title.image_url,
+        "image_media_type": title.image_media_type if title.image_bytes else None,
+        "image_base64": (
+            base64.b64encode(title.image_bytes).decode("ascii") if title.image_bytes else None
+        ),
+        "archived_at": _iso_dt(title.archived_at),
+        "created_at": _iso_dt(title.created_at),
+    }
+
+
+def _import_entertainment_topic(session: Session, raw: dict[str, Any]) -> None:
+    slug = normalize_slug(_require(raw, "slug"))
+    existing = session.exec(
+        select(EntertainmentTopic).where(EntertainmentTopic.slug == slug)
+    ).first()
+    if existing is None:
+        existing = EntertainmentTopic(slug=slug, name=_require(raw, "name"))
+        session.add(existing)
+    existing.name = raw.get("name", existing.name)
+    existing.archived_at = _parse_datetime(raw.get("archived_at"))
+
+
+def _import_entertainment_title(session: Session, raw: dict[str, Any]) -> None:
+    slug = normalize_slug(_require(raw, "slug"))
+    existing = session.exec(
+        select(EntertainmentTitle).where(EntertainmentTitle.slug == slug)
+    ).first()
+    if existing is None:
+        existing = EntertainmentTitle(
+            slug=slug,
+            name=_require(raw, "name"),
+            kind=EntertainmentKind(_require(raw, "kind")),
+        )
+        session.add(existing)
+        session.flush()
+    existing.name = raw.get("name", existing.name)
+    existing.kind = EntertainmentKind(raw.get("kind", existing.kind))
+    existing.creator = raw.get("creator")
+    existing.recommended_by = raw.get("recommended_by")
+    existing.status = EntertainmentStatus(raw.get("status", existing.status))
+    started_on = raw.get("started_on")
+    existing.started_on = _parse_date(started_on) if started_on else None
+    finished_on = raw.get("finished_on")
+    existing.finished_on = _parse_date(finished_on) if finished_on else None
+    existing.progress = raw.get("progress")
+    existing.note = raw.get("note")
+    existing.archived_at = _parse_datetime(raw.get("archived_at"))
+    created_at = _parse_datetime(raw.get("created_at"))
+    if created_at is not None:
+        existing.created_at = created_at
+    image_base64 = raw.get("image_base64")
+    if image_base64:
+        existing.image_bytes = base64.b64decode(image_base64)
+        existing.image_media_type = raw.get("image_media_type") or "image/jpeg"
+        existing.image_url = None
+    else:
+        existing.image_bytes = None
+        existing.image_media_type = None
+        existing.image_url = raw.get("image_url")
+    session.flush()
+    _import_title_topics(session, existing, raw.get("topics") or [])
+
+
+def _import_title_topics(session: Session, title: EntertainmentTitle, slugs: list[Any]) -> None:
+    existing = list(
+        session.exec(
+            select(EntertainmentTitleTopic).where(EntertainmentTitleTopic.title_id == title.id)
+        ).all()
+    )
+    for link in existing:
+        session.delete(link)
+    session.flush()
+    seen: set[str] = set()
+    for raw_slug in slugs:
+        slug = normalize_slug(str(raw_slug))
+        if slug in seen:
+            continue
+        seen.add(slug)
+        topic = require_entertainment_topic(session, slug)
+        session.add(EntertainmentTitleTopic(title_id=title.id, topic_id=topic.id))
 
 
 def _import_area(session: Session, raw: dict[str, Any]) -> None:

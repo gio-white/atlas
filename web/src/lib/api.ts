@@ -434,6 +434,80 @@ export type JournalDay = {
   entry_id: number | null
 }
 
+export type EntertainmentKind = 'film' | 'series' | 'anime' | 'video' | 'podcast' | 'book'
+export type EntertainmentStatus = 'queued' | 'in_progress' | 'done' | 'dropped'
+
+export type EntertainmentTopic = {
+  id: number
+  slug: string
+  name: string
+  archived_at: string | null
+}
+
+export type EntertainmentTopicRef = {
+  slug: string
+  name: string
+}
+
+export type EntertainmentTitle = {
+  slug: string
+  name: string
+  kind: EntertainmentKind
+  creator: string | null
+  recommended_by: string | null
+  status: EntertainmentStatus
+  started_on: string | null
+  finished_on: string | null
+  progress: string | null
+  note: string | null
+  topics: EntertainmentTopicRef[]
+  image: string | null
+}
+
+export type EntertainmentKindCount = {
+  kind: EntertainmentKind
+  count: number
+  share: number
+}
+
+export type EntertainmentTopicCount = {
+  slug: string
+  name: string
+  count: number
+  share: number
+}
+
+export type EntertainmentLibrary = {
+  queued: EntertainmentTitle[]
+  in_progress: EntertainmentTitle[]
+  done: EntertainmentTitle[]
+  dropped: EntertainmentTitle[]
+}
+
+export type EntertainmentView = {
+  as_of: string
+  in_progress: number
+  finished_this_week: number
+  last_finished: EntertainmentTitle | null
+}
+
+export type EntertainmentDashboard = {
+  period: Period
+  as_of: string
+  range_start: string
+  range_end: string
+  finished_in_range: number
+  started_in_range: number
+  queued: number
+  in_progress: number
+  done: number
+  dropped: number
+  by_kind: EntertainmentKindCount[]
+  by_topic: EntertainmentTopicCount[]
+  recently_finished: EntertainmentTitle[]
+  library: EntertainmentLibrary
+}
+
 export type MetricSnapshot = {
   slug: string
   name: string
@@ -623,6 +697,105 @@ export function logScreenSession(body: {
   note?: string | null
 }): Promise<ScreenSessionRecord> {
   return request('/screen/sessions', { method: 'POST', body: JSON.stringify(body) })
+}
+
+export function getEntertainmentView(asOf?: string): Promise<EntertainmentView> {
+  return request(`/entertainment/view${queryString({ as_of: asOf })}`)
+}
+
+export function getEntertainmentDashboard(
+  period: Period,
+  asOf?: string,
+): Promise<EntertainmentDashboard> {
+  return request(`/entertainment/dashboard${queryString({ period, as_of: asOf })}`)
+}
+
+export function listEntertainmentTopics(includeArchived = false): Promise<EntertainmentTopic[]> {
+  return request(
+    `/entertainment/topics${queryString({ include_archived: includeArchived || undefined })}`,
+  )
+}
+
+export function createEntertainmentTopic(body: {
+  slug: string
+  name?: string | null
+}): Promise<EntertainmentTopic> {
+  return request('/entertainment/topics', { method: 'POST', body: JSON.stringify(body) })
+}
+
+export function listEntertainmentTitles(filters?: {
+  kind?: EntertainmentKind
+  status?: EntertainmentStatus
+  topic?: string
+}): Promise<EntertainmentTitle[]> {
+  return request(
+    `/entertainment/titles${queryString({
+      kind: filters?.kind,
+      status: filters?.status,
+      topic: filters?.topic,
+    })}`,
+  )
+}
+
+export function createEntertainmentTitle(body: {
+  slug: string
+  kind: EntertainmentKind
+  name?: string | null
+  creator?: string | null
+  recommended_by?: string | null
+  status?: EntertainmentStatus
+  started_on?: string | null
+  finished_on?: string | null
+  progress?: string | null
+  note?: string | null
+  topics?: string[]
+  image_url?: string | null
+}): Promise<EntertainmentTitle> {
+  return request('/entertainment/titles', { method: 'POST', body: JSON.stringify(body) })
+}
+
+export function updateEntertainmentTitle(
+  slug: string,
+  body: {
+    name?: string
+    kind?: EntertainmentKind
+    creator?: string | null
+    recommended_by?: string | null
+    status?: EntertainmentStatus
+    started_on?: string | null
+    finished_on?: string | null
+    progress?: string | null
+    note?: string | null
+    topics?: string[]
+    image_url?: string | null
+  },
+): Promise<EntertainmentTitle> {
+  return request(`/entertainment/titles/${encodeURIComponent(slug)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function uploadEntertainmentImage(
+  slug: string,
+  file: File,
+): Promise<EntertainmentTitle> {
+  const body = new FormData()
+  body.append('file', file)
+  let response: Response
+  try {
+    response = await fetch(`/entertainment/titles/${encodeURIComponent(slug)}/image`, {
+      method: 'PUT',
+      body,
+    })
+  } catch {
+    throw new ApiError(0, API_UNREACHABLE)
+  }
+  if (!response.ok) {
+    const payload: unknown = await response.json().catch(() => null)
+    throw new ApiError(response.status, errorDetail(payload, response.status, response.statusText))
+  }
+  return (await response.json()) as EntertainmentTitle
 }
 
 export function getUpdates(asOf?: string): Promise<UpdatesStatus> {
