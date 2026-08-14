@@ -1,6 +1,6 @@
+import { Badge } from '@/components/ui/badge'
 import type { PaceStatus } from '@/lib/api'
 import { formatPace } from '@/lib/format'
-import { Badge } from '@/components/ui/badge'
 
 const tone: Record<PaceStatus, 'good' | 'warn' | 'bad' | 'default' | 'accent'> = {
   achieved: 'good',

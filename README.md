@@ -77,17 +77,17 @@ UI development (Vite on port 5173, proxies API paths to `:8000`):
 
 ```bash
 uv run atlas serve
-cd web && npm install && npm run dev
+cd web && pnpm install && pnpm dev
 ```
 
-Open <http://127.0.0.1:5173>. After `npm run build`, `atlas serve` also serves `web/dist` on `:8000`.
+Open <http://127.0.0.1:5173>. After `cd web && pnpm build`, `atlas serve` also serves `web/dist` on `:8000`.
 
 ## Develop
 
 ```bash
 uv run ruff check
 uv run pytest
-cd web && npm test && npm run build
+cd web && pnpm lint && pnpm test && pnpm build
 ```
 
-Python gates (`ruff`, `pytest`) must pass before a commit. When `web/` changes, `npm test` and `npm run build` must pass too. See [docs/architecture.md](docs/architecture.md) for layering rules and how streaks, adherence, and goal progress are defined.
+Python gates (`ruff`, `pytest`) must pass before a commit. When `web/` changes, `pnpm lint`, `pnpm test`, and `pnpm build` must pass too. See [docs/architecture.md](docs/architecture.md) for layering rules and how streaks, adherence, and goal progress are defined.

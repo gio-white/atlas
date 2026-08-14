@@ -1,11 +1,10 @@
 import { type FormEvent, useMemo, useState } from 'react'
-
-import { ApiError, logEntry, type Metric, type ValueType } from '@/lib/api'
-import { parseLogValue } from '@/lib/value'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
+import { ApiError, logEntry, type Metric, type ValueType } from '@/lib/api'
+import { parseLogValue } from '@/lib/value'
 
 type LogFormProps = {
   metrics: Metric[]
@@ -30,7 +29,9 @@ export function LogForm({ metrics, occurredOn, initialMetric, onLogged }: LogFor
   )
 
   if (metrics.length === 0 || metric === undefined) {
-    return <p className="text-sm text-muted">No metrics yet. Define one in Catalog or via the CLI.</p>
+    return (
+      <p className="text-sm text-muted">No metrics yet. Define one in Catalog or via the CLI.</p>
+    )
   }
 
   async function onSubmit(event: FormEvent) {
@@ -51,7 +52,9 @@ export function LogForm({ metrics, occurredOn, initialMetric, onLogged }: LogFor
       setNote('')
       await onLogged()
     } catch (caught) {
-      setError(caught instanceof ApiError || caught instanceof Error ? caught.message : 'Could not log')
+      setError(
+        caught instanceof ApiError || caught instanceof Error ? caught.message : 'Could not log',
+      )
     } finally {
       setPending(false)
     }

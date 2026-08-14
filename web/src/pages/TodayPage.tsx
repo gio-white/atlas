@@ -1,8 +1,7 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-
-import { PaceBadge } from '@/components/PaceBadge'
 import { LogForm } from '@/components/LogForm'
+import { PaceBadge } from '@/components/PaceBadge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,10 +11,10 @@ import {
   amendEntry,
   deleteEntry,
   getToday,
-  listMetrics,
-  logEntry,
   type HabitStatus,
   type LoggedEntry,
+  listMetrics,
+  logEntry,
   type Metric,
   type TodayView,
 } from '@/lib/api'
@@ -30,26 +29,25 @@ export function TodayPage() {
   const [metrics, setMetrics] = useState<Metric[]>([])
   const [error, setError] = useState<string | null>(null)
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     const [today, metricRows] = await Promise.all([getToday(asOf), listMetrics()])
     setView(today)
     setMetrics(metricRows)
-  }
+  }, [asOf])
 
   useEffect(() => {
     let cancelled = false
     setError(null)
-    refresh()
-      .catch((caught: unknown) => {
-        if (!cancelled) {
-          setError(caught instanceof ApiError ? caught.message : 'Could not load today')
-          setView(null)
-        }
-      })
+    refresh().catch((caught: unknown) => {
+      if (!cancelled) {
+        setError(caught instanceof ApiError ? caught.message : 'Could not load today')
+        setView(null)
+      }
+    })
     return () => {
       cancelled = true
     }
-  }, [asOf])
+  }, [refresh])
 
   const metricBySlug = useMemo(
     () => Object.fromEntries(metrics.map((metric) => [metric.slug, metric])),
@@ -90,7 +88,9 @@ export function TodayPage() {
           <CardHeader>
             <div>
               <CardTitle>Log</CardTitle>
-              <CardDescription className="mt-1">One capture path. Counts for {asOf}.</CardDescription>
+              <CardDescription className="mt-1">
+                One capture path. Counts for {asOf}.
+              </CardDescription>
             </div>
           </CardHeader>
           <LogForm metrics={metrics} occurredOn={asOf} onLogged={refresh} />
@@ -183,9 +183,7 @@ function HabitCard({
             {formatComparator(habit.comparator)} {habit.target_value} · {habit.period}
           </p>
         </div>
-        <Badge tone={habit.satisfied ? 'good' : 'warn'}>
-          {habit.satisfied ? 'done' : 'open'}
-        </Badge>
+        <Badge tone={habit.satisfied ? 'good' : 'warn'}>{habit.satisfied ? 'done' : 'open'}</Badge>
       </CardHeader>
       <div className="flex items-end justify-between gap-3">
         <div>
@@ -216,9 +214,7 @@ function EntryRow({
   onChanged: () => Promise<void>
 }) {
   const [editing, setEditing] = useState(false)
-  const [raw, setRaw] = useState(
-    rawFromEntry(entry.value_num, entry.value_bool, entry.value_text),
-  )
+  const [raw, setRaw] = useState(rawFromEntry(entry.value_num, entry.value_bool, entry.value_text))
   const [note, setNote] = useState(entry.note ?? '')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -237,7 +233,9 @@ function EntryRow({
       setEditing(false)
       await onChanged()
     } catch (caught) {
-      setError(caught instanceof ApiError || caught instanceof Error ? caught.message : 'Could not save')
+      setError(
+        caught instanceof ApiError || caught instanceof Error ? caught.message : 'Could not save',
+      )
     } finally {
       setPending(false)
     }

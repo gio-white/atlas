@@ -4,7 +4,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { PaceBadge } from '@/components/PaceBadge'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { ApiError, getAreaView, type AreaView } from '@/lib/api'
+import { ApiError, type AreaView, getAreaView } from '@/lib/api'
 import { useAsOf } from '@/lib/asOf'
 import { formatComparator, formatPercent } from '@/lib/format'
 
@@ -90,7 +90,8 @@ export function AreaPage() {
                   </Badge>
                 </div>
                 <p className="mt-2 font-mono text-xs text-muted">
-                  {formatComparator(habit.comparator)} {habit.target_value} · streak {habit.current_streak}
+                  {formatComparator(habit.comparator)} {habit.target_value} · streak{' '}
+                  {habit.current_streak}
                 </p>
               </Link>
             ))}

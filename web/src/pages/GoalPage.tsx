@@ -1,15 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 import { PaceBadge } from '@/components/PaceBadge'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   ApiError,
+  type GoalDetail,
+  type GoalProgress,
   getGoal,
   getGoalProgress,
   toggleMilestone,
-  type GoalDetail,
-  type GoalProgress,
 } from '@/lib/api'
 import { useAsOf } from '@/lib/asOf'
 import { formatPercent } from '@/lib/format'
@@ -21,12 +21,12 @@ export function GoalPage() {
   const [detail, setDetail] = useState<GoalDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     if (slug === undefined) return
     const [progress, goal] = await Promise.all([getGoalProgress(slug, asOf), getGoal(slug)])
     setReport(progress)
     setDetail(goal)
-  }
+  }, [slug, asOf])
 
   useEffect(() => {
     let cancelled = false
@@ -41,7 +41,7 @@ export function GoalPage() {
     return () => {
       cancelled = true
     }
-  }, [slug, asOf])
+  }, [refresh])
 
   if (error !== null) return <p className="text-sm text-bad">{error}</p>
   if (report === null || detail === null) return <p className="text-sm text-muted">Loading…</p>

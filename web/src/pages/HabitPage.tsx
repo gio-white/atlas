@@ -45,7 +45,9 @@ export function HabitPage() {
             {status.period}
           </CardDescription>
         </div>
-        <Badge tone={status.satisfied ? 'good' : 'warn'}>{status.satisfied ? 'done' : 'open'}</Badge>
+        <Badge tone={status.satisfied ? 'good' : 'warn'}>
+          {status.satisfied ? 'done' : 'open'}
+        </Badge>
       </CardHeader>
       <dl className="grid gap-4 sm:grid-cols-3">
         <Stat label="Current streak" value={String(status.current_streak)} />

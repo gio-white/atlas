@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-
-import { WeekGrid } from '@/components/WeekGrid'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { WeekGrid } from '@/components/WeekGrid'
 import { ApiError, getWeek, type WeekView } from '@/lib/api'
 import { useAsOf } from '@/lib/asOf'
 

@@ -393,7 +393,11 @@ export function updateGoal(
   })
 }
 
-export function toggleMilestone(goalSlug: string, name: string, done?: boolean): Promise<Milestone> {
+export function toggleMilestone(
+  goalSlug: string,
+  name: string,
+  done?: boolean,
+): Promise<Milestone> {
   return request(
     `/goals/${encodeURIComponent(goalSlug)}/milestones/${encodeURIComponent(name)}/toggle${queryString({ done })}`,
     { method: 'POST' },

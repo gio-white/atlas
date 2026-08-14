@@ -18,7 +18,10 @@ export function WeekGrid({ view, search }: { view: WeekView; search: string }) {
           <tr>
             <th className="pb-2 pr-3 text-left font-medium text-muted">Habit</th>
             {headings.map((cell) => (
-              <th key={cell.day} className="px-1 pb-2 text-center font-mono text-xs font-medium text-muted">
+              <th
+                key={cell.day}
+                className="px-1 pb-2 text-center font-mono text-xs font-medium text-muted"
+              >
                 <div>{weekdayLabel(cell.day)}</div>
                 <div>{cell.day.slice(8)}</div>
               </th>

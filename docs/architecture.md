@@ -410,7 +410,7 @@ Implemented this cycle: app shell, typed `fetch` client, Today, Week, Area, Habi
 | `/goal/:slug`   | Goal detail, progress, pace, milestone toggles | implemented |
 | `/catalog`      | Create and edit areas, metrics, habits, goals | implemented |
 
-Dev: `cd web && npm run dev` on `:5173`; Vite proxies API prefixes to `127.0.0.1:8000`. Prod: `npm run build` then `atlas serve` serves API and `web/dist` together. Frontend tests: `cd web && npm test`. The UI gate is `npm run build`.
+Package manager is pnpm (`web/pnpm-lock.yaml`, `packageManager` in `web/package.json`). Biome is the only linter and formatter (`web/biome.json`). Never npm, yarn, ESLint, Prettier, or oxlint. Dev: `cd web && pnpm install && pnpm dev` on `:5173`; Vite proxies API prefixes to `127.0.0.1:8000`. Prod: `cd web && pnpm build` then `atlas serve` serves API and `web/dist` together. Frontend gates: `pnpm lint`, `pnpm test`, `pnpm build`.
 
 ## CLI
 
@@ -459,7 +459,9 @@ The API is served with `uv run atlas serve` or `uv run uvicorn atlas.api.app:app
 
 Python 3.12, managed entirely with `uv`. Every command goes through it: `uv add`, `uv sync`, `uv run pytest`, `uv run ruff check`. Never bare `pip`, `python`, `pytest`, or `ruff`.
 
-Dependencies are declared in `pyproject.toml` and pinned in `uv.lock`; `uv_build` is the build backend. Ruff and pytest are configured in the same `pyproject.toml`: ruff at line length 100 targeting `py312` with `E`, `F`, `I`, `UP`, `B`, `SIM`, and `TID` selected, pytest with `testpaths = ["tests"]` and `--strict-markers --strict-config`.
+The SPA in `web/` is managed entirely with pnpm and Biome. Every install and script goes through `pnpm`. Biome is the linter and the formatter; do not add ESLint, Prettier, or oxlint. Cursor enforces this in `.cursor/rules/frontend.mdc`.
+
+Dependencies are declared in `pyproject.toml` and pinned in `uv.lock`; `uv_build` is the build backend. Ruff and pytest are configured in the same `pyproject.toml`: ruff at line length 100 targeting `py312` with `E`, `F`, `I`, `UP`, `B`, `SIM`, and `TID` selected, pytest with `testpaths = ["tests"]` and `--strict-markers --strict-config`. Frontend dependencies are declared in `web/package.json` and pinned in `web/pnpm-lock.yaml`; Biome is configured in `web/biome.json` (2-space indent, line width 100, single quotes).
 
 Tests by layer:
 
@@ -472,7 +474,7 @@ Tests by layer:
 | `cli`      | Typer's runner where it adds value; prefer service tests |
 
 
-One todo, one commit. Each cycle implements a single todo, gets `uv run ruff check` and `uv run pytest` clean, updates this document, and lands one focused commit.
+One todo, one commit. Each cycle implements a single todo, gets `uv run ruff check` and `uv run pytest` clean (and `pnpm lint`, `pnpm test`, `pnpm build` when `web/` changes), updates this document, and lands one focused commit.
 
 ## Development log
 
@@ -496,4 +498,5 @@ Append-only, one entry per cycle. Newest last.
 - **2026-08-13 —** `web-week-area` — Week grid, area dashboard, habit status, goals list, and goal detail (progress/pace). Milestone toggles wait on the catalog API.
 - **2026-08-13 —** `api-catalog` — GET by slug, archive, PATCH for areas/metrics/habits/goals, goal detail with milestones, and milestone toggle on the HTTP API.
 - **2026-08-13 —** `web-catalog` — Catalog UI to create/edit/archive areas, metrics, habits, and goals. Goal detail toggles milestones through the API.
+- **2026-08-14 —** `web-tooling` — Frontend uses pnpm and Biome only. Replaced npm/oxlint with `pnpm-lock.yaml` and `web/biome.json`. Added `.cursor/rules/frontend.mdc` (and a pointer in `tooling.mdc`) so agents keep using pnpm and Biome.
 

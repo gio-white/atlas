@@ -7,3 +7,5 @@ __pycache__/
 *.db-journal
 web/node_modules/
 web/dist/
+web/package-lock.json
+web/yarn.lock

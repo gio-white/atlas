@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useSearchParams } from 'react-router-dom'
-
-import { listAreas, type Area } from '@/lib/api'
-import type { ShellContext } from '@/lib/asOf'
-import { todayIso } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
+import { type Area, listAreas } from '@/lib/api'
+import type { ShellContext } from '@/lib/asOf'
+import { todayIso } from '@/lib/utils'
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   [

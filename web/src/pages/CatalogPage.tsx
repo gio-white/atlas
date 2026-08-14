@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
@@ -6,31 +6,31 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import {
+  type Aggregation,
   ApiError,
+  type Area,
   archiveArea,
   archiveMetric,
+  type Comparator,
   createArea,
   createGoal,
   createHabit,
   createMetric,
-  listAreas,
-  listGoals,
-  listHabits,
-  listMetrics,
-  updateArea,
-  updateGoal,
-  updateHabit,
-  updateMetric,
-  type Aggregation,
-  type Area,
-  type Comparator,
   type Direction,
   type Goal,
   type GoalKind,
   type GoalStatus,
   type Habit,
+  listAreas,
+  listGoals,
+  listHabits,
+  listMetrics,
   type Metric,
   type Period,
+  updateArea,
+  updateGoal,
+  updateHabit,
+  updateMetric,
   type ValueType,
 } from '@/lib/api'
 import { isValidSlug } from '@/lib/slug'
@@ -58,7 +58,7 @@ export function CatalogPage() {
   const [goals, setGoals] = useState<Goal[]>([])
   const [error, setError] = useState<string | null>(null)
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     const [areaRows, metricRows, habitRows, goalRows] = await Promise.all([
       listAreas(),
       listMetrics(),
@@ -69,13 +69,13 @@ export function CatalogPage() {
     setMetrics(metricRows)
     setHabits(habitRows)
     setGoals(goalRows)
-  }
+  }, [])
 
   useEffect(() => {
     refresh().catch((caught: unknown) => {
       setError(caught instanceof ApiError ? caught.message : 'Could not load catalog')
     })
-  }, [])
+  }, [refresh])
 
   if (error !== null) return <p className="text-sm text-bad">{error}</p>
 
@@ -171,7 +171,11 @@ function EditableArea({ area, onChange }: { area: Area; onChange: () => Promise<
           type="button"
           size="sm"
           variant="ghost"
-          onClick={() => archiveArea(area.slug).then(onChange).catch((caught) => setError(messageOf(caught)))}
+          onClick={() =>
+            archiveArea(area.slug)
+              .then(onChange)
+              .catch((caught) => setError(messageOf(caught)))
+          }
         >
           Archive
         </Button>
@@ -232,7 +236,12 @@ function MetricSection({
       <Card>
         <form className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6" onSubmit={onCreate}>
           <Field label="Slug" value={slug} onChange={setSlug} required />
-          <SelectField label="Area" value={area} onChange={setArea} options={areas.map((item) => item.slug)} />
+          <SelectField
+            label="Area"
+            value={area}
+            onChange={setArea}
+            options={areas.map((item) => item.slug)}
+          />
           <SelectField
             label="Type"
             value={valueType}
@@ -302,7 +311,9 @@ function EditableMetric({ metric, onChange }: { metric: Metric; onChange: () => 
           size="sm"
           variant="ghost"
           onClick={() =>
-            archiveMetric(metric.slug).then(onChange).catch((caught) => setError(messageOf(caught)))
+            archiveMetric(metric.slug)
+              .then(onChange)
+              .catch((caught) => setError(messageOf(caught)))
           }
         >
           Archive
@@ -499,7 +510,12 @@ function GoalSection({
 
   async function onCreate(event: FormEvent) {
     event.preventDefault()
-    const resolved = slug || name.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-').replaceAll(/^-|-$/g, '')
+    const resolved =
+      slug ||
+      name
+        .toLowerCase()
+        .replaceAll(/[^a-z0-9]+/g, '-')
+        .replaceAll(/^-|-$/g, '')
     if (!isValidSlug(resolved)) {
       setError('slug must be lowercase letters, digits, and hyphens')
       return
@@ -543,7 +559,12 @@ function GoalSection({
         <form className="grid gap-3 sm:grid-cols-3" onSubmit={onCreate}>
           <Field label="Name" value={name} onChange={setName} required />
           <Field label="Slug (optional)" value={slug} onChange={setSlug} />
-          <SelectField label="Area" value={area} onChange={setArea} options={areas.map((item) => item.slug)} />
+          <SelectField
+            label="Area"
+            value={area}
+            onChange={setArea}
+            options={areas.map((item) => item.slug)}
+          />
           <SelectField
             label="Kind"
             value={kind}
@@ -570,9 +591,7 @@ function GoalSection({
               <SelectField
                 label="Measure"
                 value={measure}
-                onChange={(value) =>
-                  setMeasure(value as 'latest_value' | 'cumulative_since_start')
-                }
+                onChange={(value) => setMeasure(value as 'latest_value' | 'cumulative_since_start')}
                 options={['latest_value', 'cumulative_since_start']}
               />
             </>

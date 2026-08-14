@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { PaceBadge } from '@/components/PaceBadge'
-import { ApiError, getGoalProgress, listGoals, type GoalProgress } from '@/lib/api'
+import { ApiError, type GoalProgress, getGoalProgress, listGoals } from '@/lib/api'
 import { useAsOf } from '@/lib/asOf'
 import { formatPercent } from '@/lib/format'
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { ApiError, getToday, logEntry, queryString } from './api'
+import { type ApiError, getToday, logEntry, queryString } from './api'
 
 describe('queryString', () => {
   it('omits empty values and names as_of for the API', () => {
