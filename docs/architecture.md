@@ -26,6 +26,11 @@ flowchart TD
   Habit[Habit: recurring commitment] -->|measured by| Metric
   Goal -->|measured by| Metric
   Goal -->|has many| Milestone[Milestone: manual checkpoint]
+  ScreenCategory[ScreenCategory] -->|judgment| ScreenJudgment[useful waste or neutral]
+  ScreenApp[ScreenApp] -->|classified as| ScreenCategory
+  ScreenApp -->|backing| Metric
+  ScreenBudget[ScreenBudget] -->|caps| ScreenJudgment
+  ScreenBudget -->|or caps| ScreenCategory
 ```
 
 
@@ -68,7 +73,7 @@ The definition of a measurable thing. A metric says what a value means and how s
 
 `aggregation` is the field that makes one entry table serve everything: pushups sum across a day, bodyweight takes the last reading, mood averages.
 
-`duration` values are stored in minutes. `bool` values are stored in `value_bool` and count as `1.0` / `0.0` wherever arithmetic is needed.
+`duration` values are stored in minutes (including fractional minutes). `bool` values are stored in `value_bool` and count as `1.0` / `0.0` wherever arithmetic is needed.
 
 ### Entry
 
@@ -111,6 +116,58 @@ A recurring commitment over a metric: a schedule plus a target.
 
 
 `at_most` is not an afterthought: "no more than one coffee a day" and "at least three runs a week" are the same machinery with a different comparator.
+
+### ScreenCategory
+
+A named bucket for screen apps, such as entertainment or learning. The **judgment** (`useful | waste | neutral`) lives here, not on the app. Reclassifying entertainment from waste to useful moves every member app's minutes into a different judgment total on the next read.
+
+Screen taxonomy is a dedicated slice of Atlas. Creating the first category also creates the well-known area `screen` when it is missing. Each app gets a backing duration metric in that area so sessions stay ordinary entries.
+
+
+| Field         | Type            | Notes                                      |
+| ------------- | --------------- | ------------------------------------------ |
+| `id`          | int             | primary key                                |
+| `slug`        | str             | unique (`entertainment`)                   |
+| `name`        | str             |                                            |
+| `judgment`    | enum            | `useful \| waste \| neutral`               |
+| `archived_at` | datetime \| None | UTC                                       |
+
+
+### ScreenApp
+
+What you used: Instagram, YouTube, a code editor. One category. One backing duration metric (`sum`, unit `min`). `metric.direction` mirrors the category's current judgment (`useful` → `higher_is_better`, `waste` → `lower_is_better`, `neutral` → `neutral`). Changing a category's judgment updates member metrics. Grouping on the screen view always uses category → judgment, not a copy on the app.
+
+
+| Field         | Type            | Notes                                         |
+| ------------- | --------------- | --------------------------------------------- |
+| `id`          | int             | primary key                                   |
+| `slug`        | str             | unique (`instagram`); same slug as the metric |
+| `name`        | str             |                                               |
+| `category_id` | int             | FK to `ScreenCategory`                        |
+| `metric_id`   | int             | unique FK to `Metric`                         |
+| `archived_at` | datetime \| None | UTC                                          |
+
+
+### ScreenBudget
+
+A threshold over a **judgment** or a **category**, not over a single metric. "Keep waste under 90 minutes a day" is `target_kind=judgment`, `target_slug=waste`, `comparator=at_most`. An entertainment cap uses `target_kind=category`. App-level caps stay ordinary habits on the app's metric.
+
+`screen_view` merges entries from every member app and runs the existing streak / adherence functions over that list. Totals are never stored.
+
+
+| Field          | Type            | Notes                                      |
+| -------------- | --------------- | ------------------------------------------ |
+| `id`           | int             | primary key                                |
+| `slug`         | str             | unique                                     |
+| `name`         | str             | e.g. Waste cap                             |
+| `target_kind`  | enum            | `judgment \| category`                     |
+| `target_slug`  | str             | `waste` or `entertainment`                 |
+| `period`       | enum            | `day \| week \| month`                     |
+| `target_value` | float           | minutes                                    |
+| `comparator`   | enum            | `at_least \| at_most \| exactly`           |
+| `active_from`  | date            | inclusive                                  |
+| `active_to`    | date \| None    | inclusive; `None` means open-ended         |
+
 
 ### Goal
 
@@ -155,7 +212,7 @@ A manual checkpoint under a goal. Available to both goal kinds, so a `metric_tar
 
 ### Schema management
 
-Tables are created with `SQLModel.metadata.create_all`. A single-row `schema_version` table records the version the file was created with (`CURRENT_SCHEMA_VERSION = 1`). `atlas init` creates the parent directory if needed, opens the SQLite file at `ATLAS_DB`, runs `create_all`, and inserts that row when missing; it is safe to run twice. There is no Alembic in the MVP; a schema change ships as an explicit migration step documented in the development log.
+Tables are created with `SQLModel.metadata.create_all`. A single-row `schema_version` table records the version (`CURRENT_SCHEMA_VERSION = 2`). `atlas init` creates the parent directory if needed, opens the SQLite file at `ATLAS_DB`, runs `create_all`, and inserts that row when missing. If the row exists with a lower version, `init_schema` bumps it after `create_all` (additive tables only). It is safe to run twice. There is no Alembic in the MVP; a schema change ships as an explicit migration step documented in the development log. Schema 2 adds `screen_category`, `screen_app`, and `screen_budget`. Import accepts schema versions `1` and `2`; version 1 payloads have empty screen collections.
 
 ## Layering
 
@@ -187,8 +244,8 @@ The package lives at `src/atlas/` (src layout), so tests import the installed pa
 | Package             | Responsibility                                                                                                                                                                                             |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `atlas/settings.py` | Configuration resolved from the environment. Stdlib only, so every layer may import it.                                                                                                                    |
-| `atlas/domain/`     | Enums, value objects (`EntryView`, `HabitSpec`, `GoalSpec`, `MilestoneView`, `Bucket`, `GoalProgress`), and the calculation functions: period bucketing, rollups, `current_streak`, `longest_streak`, `adherence`, `goal_progress`, `pace_status`. Implemented. Pure — no I/O, no session, no wall clock. |
-| `atlas/db/`         | SQLModel tables (`Area`, `Metric`, `Entry`, `Habit`, `Goal`, `Milestone`, `SchemaVersion`), engine, session factory, schema creation. Implemented. Unique slugs; `Entry` indexed on `(metric_id, occurred_on)`. |
+| `atlas/domain/`     | Enums, value objects (`EntryView`, `HabitSpec`, `GoalSpec`, `MilestoneView`, `Bucket`, `GoalProgress`, `ScreenCategorySpec`, `ScreenAppSpec`, `ScreenBudgetSpec`), and the calculation functions: period bucketing, rollups, `current_streak`, `longest_streak`, `adherence`, `goal_progress`, `pace_status`, `screen_day_totals`, `member_apps`. Implemented. Pure — no I/O, no session, no wall clock. |
+| `atlas/db/`         | SQLModel tables (`Area`, `Metric`, `Entry`, `Habit`, `Goal`, `Milestone`, `ScreenCategory`, `ScreenApp`, `ScreenBudget`, `SchemaVersion`), engine, session factory, schema creation. Implemented. Unique slugs; `Entry` indexed on `(metric_id, occurred_on)`; `ScreenApp.metric_id` unique. |
 | `atlas/services/`   | Use cases, each taking an explicit `Session` as its first parameter. Loads rows, hands plain values to `domain`, writes results back. Implemented. |
 | `atlas/api/`        | FastAPI routers: parse, call a service, serialize. Dedicated request/response schemas only where the wire shape must differ from the table (slugs instead of integer FKs). Implemented. Session comes from a factory dependency; CORS allows the Vite dev origins (`http://127.0.0.1:5173`, `http://localhost:5173`). If `web/dist/index.html` exists, GET 404s fall back to that SPA without shadowing API routes. `uv run uvicorn atlas.api.app:app --reload`, `python -m atlas.api`, and `atlas serve` bind to `127.0.0.1` only. |
 | `atlas/cli/`        | Typer commands calling the same services in-process (no HTTP hop), Rich for output. Implemented. Session comes from the factory; commands never query tables. `log` resolves metric slugs by unique prefix, substring, or close match. `seed` loads the demo dataset through `seed_demo`. Review commands share one chrome: a header plus titled Rich panels. `today` and `area` split habits into Daily vs This period (two columns when the terminal is wide enough). Capture commands stay one-line confirmations. |
@@ -329,20 +386,27 @@ Failures raise `ServiceError` subclasses the API and CLI will map: `NotFoundErro
 | `log_entry` / `amend_entry` / `delete_entry` | Capture and correction. `log_entry` accepts a metric slug and a single `value`; a bool metric with no value stores `true`. Multiple entries per day remain allowed. Logging to an archived metric is rejected; amend and delete still work. |
 | `create_habit` / `list_habits` / `get_habit` / `update_habit` / `habit_status` | Habits. `weekdays` is valid only for `period = day`. Text metrics cannot be habit targets. `habit_status` returns current/longest streak, adherence from `active_from` to `as_of`, the current bucket's rollup, and whether that bucket is scheduled and satisfied. `update_habit` may change name, target, comparator, weekdays, and `active_to`. |
 | `create_goal` / `list_goals` / `get_goal` / `get_goal_detail` / `update_goal` / `goal_progress` / `toggle_milestone` | Goals. `metric_target` requires metric, target, comparator, and measure, and the metric must belong to the goal's area. `milestone` kind forbids those fields. Optional `MilestoneInput` values can be created with the goal. `get_goal_detail` includes milestones. `update_goal` may change name, `due_on`, `target_value`, and status (`active` / `paused` / `abandoned`; not `achieved`). `goal_progress` returns current/baseline/fraction/`target_met` plus `pace_status`. When the target is met and `status` is still `active`, the service sets `status = achieved` and stamps `achieved_at`; it does not reopen an achieved, paused, or abandoned goal. |
+| `create_screen_category` / `list_screen_categories` / `get_screen_category` / `update_screen_category` | Screen categories. First create also inserts area `screen` when missing. `update_screen_category` may change name and judgment; a judgment change updates member metrics' `direction`. |
+| `create_screen_app` / `list_screen_apps` / `get_screen_app` / `update_screen_app` | Screen apps. Create inserts a duration/`sum`/`min` metric in area `screen` with the same slug and a direction from the category judgment. `update_screen_app` may change name (synced onto the metric) and category (direction follows the new category). |
+| `create_screen_budget` / `list_screen_budgets` / `get_screen_budget` / `update_screen_budget` | Screen budgets targeting a judgment or a category. Judgment `target_slug` must be `useful`, `waste`, or `neutral`; category targets must name an existing category. |
+| `screen_view` | Review for `as_of`: minutes per app and category that day, judgment totals, today's sessions, and each budget's current rollup, satisfaction, streak, and adherence over merged member-app entries. |
 | `today_view` / `week_view` / `area_view` | Review. `today_view` is habits whose current bucket is scheduled, entries with `occurred_on = as_of`, and active goals with progress. `week_view` is the ISO week containing `as_of`, one cell per day per habit. `area_view` is one area's non-archived metrics (latest day's rollup), habits, and non-abandoned goals. |
-| `export_all` / `import_all` | Port. Export is a JSON-serializable dict keyed by slugs, not integer ids. Import upserts areas, metrics, habits, goals, and milestones by slug (milestones by goal slug + name) and always inserts entries. `replace=True` deletes user rows first. `schema_version` must equal `CURRENT_SCHEMA_VERSION` (1). |
+| `export_all` / `import_all` | Port. Export is a JSON-serializable dict keyed by slugs, not integer ids. Import upserts areas, metrics, habits, goals, milestones, screen categories, screen apps, and screen budgets by slug (milestones by goal slug + name) and always inserts entries. `replace=True` deletes user rows first. `schema_version` must be `1` or `CURRENT_SCHEMA_VERSION` (2). |
 | `seed_demo` | Demo dataset. Builds a payload in the export shape dated relative to `as_of` (default `Settings.today()`) and loads it through `import_all`. Four areas (health, career, finance, relationships), metrics covering every `value_type`, daily/weekly/monthly habits including `at_most` and a weekday mask, both goal kinds, and enough entries for `today_view` / `week_view` / goal progress to be non-empty. Refuses when areas already exist unless `replace=True`. Entries are sourced as `import`. |
 
 Export shape:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "areas": [{"slug": "health", "name": "Health", "description": null, "archived_at": null}],
   "metrics": [{"slug": "pushups", "area": "health", "name": "Pushups", "value_type": "count", "unit": "reps", "aggregation": "sum", "direction": "higher_is_better", "archived_at": null}],
   "habits": [{"slug": "pushups-daily", "metric": "pushups", "name": "Pushups Daily", "period": "day", "target_value": 1.0, "comparator": "at_least", "weekdays": null, "active_from": "2026-08-01", "active_to": null}],
   "goals": [{"slug": "bodyweight-75", "area": "health", "name": "Bodyweight 75kg", "kind": "metric_target", "metric": "weight", "target_value": 75.0, "comparator": "at_most", "baseline_value": null, "measure": "latest_value", "start_on": "2026-01-01", "due_on": "2026-12-01", "status": "active", "achieved_at": null}],
   "milestones": [{"goal": "bodyweight-75", "name": "Hit 78kg", "due_on": null, "done_at": null}],
+  "screen_categories": [{"slug": "entertainment", "name": "Entertainment", "judgment": "waste", "archived_at": null}],
+  "screen_apps": [{"slug": "instagram", "name": "Instagram", "category": "entertainment", "metric": "instagram", "archived_at": null}],
+  "screen_budgets": [{"slug": "waste-cap", "name": "Waste cap", "target_kind": "judgment", "target_slug": "waste", "period": "day", "target_value": 90.0, "comparator": "at_most", "active_from": "2026-08-01", "active_to": null}],
   "entries": [{"metric": "pushups", "occurred_on": "2026-08-10", "occurred_at": null, "value_num": 40.0, "value_bool": null, "value_text": null, "note": "post-travel", "source": "cli", "created_at": "2026-08-10T12:00:00+00:00"}]
 }
 ```
@@ -355,7 +419,7 @@ Status is `implemented` only when the endpoint is merged with tests. Everything 
 
 Routers parse the request, call a service, and serialize. Create/list bodies use slugs (`area`, `metric`) rather than integer foreign keys; entries are addressed by integer `id`. `POST /entries` sets `source` to `api`. Service failures map to HTTP status: `NotFoundError` → 404, `AlreadyExistsError` → 409, `ValidationError` → 400. Pydantic request-shape errors remain 422.
 
-Optional filters the services already support are query parameters: `area` on metrics and goals, `metric` on habits, `status` on goals, `include_archived` on areas and metrics, `as_of` on status/progress/views, and `replace` on import.
+Optional filters the services already support are query parameters: `area` on metrics and goals, `metric` on habits, `status` on goals, `include_archived` on areas, metrics, and screen categories/apps, `as_of` on status/progress/views including `/screen/view`, and `replace` on import.
 
 
 | Method   | Path                     | Purpose                                       | Status      |
@@ -387,6 +451,19 @@ Optional filters the services already support are query parameters: `area` on me
 | `GET`    | `/views/today`           | What is due today and what is logged          | implemented |
 | `GET`    | `/views/week`            | The current week across habits                | implemented |
 | `GET`    | `/views/areas/{slug}`    | One area's metrics, habits, and goals         | implemented |
+| `GET`    | `/screen/view`           | Screen totals, sessions, and budget status    | implemented |
+| `GET`    | `/screen/categories`     | List screen categories                        | implemented |
+| `POST`   | `/screen/categories`     | Create a screen category                      | implemented |
+| `GET`    | `/screen/categories/{slug}` | Get one screen category                    | implemented |
+| `PATCH`  | `/screen/categories/{slug}` | Update name and judgment                   | implemented |
+| `GET`    | `/screen/apps`           | List screen apps                              | implemented |
+| `POST`   | `/screen/apps`           | Create a screen app and backing metric        | implemented |
+| `GET`    | `/screen/apps/{slug}`    | Get one screen app                            | implemented |
+| `PATCH`  | `/screen/apps/{slug}`    | Update name and category                      | implemented |
+| `GET`    | `/screen/budgets`        | List screen budgets                           | implemented |
+| `POST`   | `/screen/budgets`        | Create a screen budget                        | implemented |
+| `GET`    | `/screen/budgets/{slug}` | Get one screen budget                         | implemented |
+| `PATCH`  | `/screen/budgets/{slug}` | Update name, target, value, comparator, `active_to` | implemented |
 | `GET`    | `/export`                | Full JSON export                              | implemented |
 | `POST`   | `/import`                | Full JSON import                              | implemented |
 
@@ -503,4 +580,5 @@ Append-only, one entry per cycle. Newest last.
 - **2026-08-14 —** `web-tooling` — Frontend uses pnpm and Biome only. Replaced npm/oxlint with `pnpm-lock.yaml` and `web/biome.json`. Added `.cursor/rules/frontend.mdc` (and a pointer in `tooling.mdc`) so agents keep using pnpm and Biome.
 - **2026-08-14 —** `web-ui-ux` — Restyled the SPA with UI UX Pro Max Soft UI Evolution: cream canvas, amber streaks, green CTAs, Lora/Raleway, sticky nav with Lucide icons, progress bars, skeleton loading, and empty states that point at Catalog.
 - **2026-08-14 —** `web-dark-mode` — Light/dark themes via semantic CSS tokens and a sticky header sun/moon toggle. Preference is stored as `atlas-theme` and applied in `index.html` before paint; first visit follows the OS color scheme.
+- **2026-08-14 —** `screen-model` — Screen taxonomy: `ScreenCategory` (judgment useful/waste/neutral), `ScreenApp` (backing duration metric), `ScreenBudget` (judgment or category cap). Schema version 2. `screen_view` sums minutes on read and reuses streak/adherence over merged entries. HTTP routes under `/screen`. Sessions remain `POST /entries`. Import still accepts schema 1.
 

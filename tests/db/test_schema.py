@@ -14,6 +14,9 @@ from atlas.db import (
     Metric,
     Milestone,
     SchemaVersion,
+    ScreenApp,
+    ScreenBudget,
+    ScreenCategory,
     create_memory_engine,
     init_db,
     init_schema,
@@ -27,6 +30,7 @@ from atlas.domain import (
     GoalStatus,
     Measure,
     Period,
+    ScreenJudgment,
     Source,
     ValueType,
 )
@@ -109,6 +113,71 @@ def test_slug_is_unique(session, model):
     session.commit()
     session.add(_row_for(model, slug="dup", area=area, metric=metric))
 
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_screen_slugs_are_unique(session):
+    category = ScreenCategory(
+        slug="entertainment",
+        name="Entertainment",
+        judgment=ScreenJudgment.WASTE,
+    )
+    session.add(category)
+    session.commit()
+    session.add(ScreenCategory(slug="entertainment", name="Other", judgment=ScreenJudgment.NEUTRAL))
+    with pytest.raises(IntegrityError):
+        session.commit()
+    session.rollback()
+
+    area = _area(session, slug="screen")
+    metric = _metric(session, area, slug="instagram")
+    session.add(
+        ScreenApp(
+            slug="instagram",
+            name="Instagram",
+            category_id=category.id,
+            metric_id=metric.id,
+        )
+    )
+    session.commit()
+    session.add(
+        ScreenApp(
+            slug="instagram",
+            name="Again",
+            category_id=category.id,
+            metric_id=metric.id,
+        )
+    )
+    with pytest.raises(IntegrityError):
+        session.commit()
+    session.rollback()
+
+    session.add(
+        ScreenBudget(
+            slug="waste-cap",
+            name="Waste cap",
+            target_kind="judgment",
+            target_slug="waste",
+            period=Period.DAY,
+            target_value=90.0,
+            comparator=Comparator.AT_MOST,
+            active_from=date(2026, 8, 1),
+        )
+    )
+    session.commit()
+    session.add(
+        ScreenBudget(
+            slug="waste-cap",
+            name="Again",
+            target_kind="judgment",
+            target_slug="waste",
+            period=Period.DAY,
+            target_value=60.0,
+            comparator=Comparator.AT_MOST,
+            active_from=date(2026, 8, 1),
+        )
+    )
     with pytest.raises(IntegrityError):
         session.commit()
 

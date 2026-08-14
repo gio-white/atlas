@@ -15,6 +15,7 @@ from atlas.api.routers import (
     habits_router,
     metrics_router,
     port_router,
+    screen_router,
     views_router,
 )
 from atlas.api.spa import VITE_ORIGINS, mount_spa, resolve_spa_dir
@@ -52,6 +53,7 @@ def create_app(
     app.include_router(habits_router)
     app.include_router(goals_router)
     app.include_router(views_router)
+    app.include_router(screen_router)
     app.include_router(port_router)
     if spa_dir is not None:
         mount_spa(app, spa_dir)

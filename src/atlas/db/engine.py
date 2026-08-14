@@ -8,7 +8,7 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from atlas.db.models import SchemaVersion
 
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
 
 
 def create_engine_for(db_path: Path) -> Engine:
@@ -42,9 +42,13 @@ def make_session_factory(engine: Engine) -> Callable[[], Session]:
 def init_schema(engine: Engine) -> None:
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
-        if session.get(SchemaVersion, 1) is None:
+        row = session.get(SchemaVersion, 1)
+        if row is None:
             session.add(SchemaVersion(id=1, version=CURRENT_SCHEMA_VERSION))
-            session.commit()
+        elif row.version < CURRENT_SCHEMA_VERSION:
+            row.version = CURRENT_SCHEMA_VERSION
+            session.add(row)
+        session.commit()
 
 
 def init_db(db_path: Path) -> Engine:

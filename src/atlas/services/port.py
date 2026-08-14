@@ -4,7 +4,17 @@ from typing import Any
 from sqlmodel import Session, select
 
 from atlas.db import CURRENT_SCHEMA_VERSION
-from atlas.db.models import Area, Entry, Goal, Habit, Metric, Milestone
+from atlas.db.models import (
+    Area,
+    Entry,
+    Goal,
+    Habit,
+    Metric,
+    Milestone,
+    ScreenApp,
+    ScreenBudget,
+    ScreenCategory,
+)
 from atlas.domain import (
     Aggregation,
     Comparator,
@@ -13,11 +23,18 @@ from atlas.domain import (
     GoalStatus,
     Measure,
     Period,
+    ScreenBudgetTargetKind,
+    ScreenJudgment,
     Source,
     ValueType,
 )
 from atlas.services.errors import ValidationError
-from atlas.services.lookups import require_area, require_goal, require_metric
+from atlas.services.lookups import (
+    require_area,
+    require_goal,
+    require_metric,
+    require_screen_category,
+)
 from atlas.services.slugs import normalize_slug
 
 
@@ -27,11 +44,17 @@ def export_all(session: Session) -> dict[str, Any]:
     habits = list(session.exec(select(Habit).order_by(Habit.slug)).all())
     goals = list(session.exec(select(Goal).order_by(Goal.slug)).all())
     milestones = list(session.exec(select(Milestone).order_by(Milestone.id)).all())
+    screen_categories = list(
+        session.exec(select(ScreenCategory).order_by(ScreenCategory.slug)).all()
+    )
+    screen_apps = list(session.exec(select(ScreenApp).order_by(ScreenApp.slug)).all())
+    screen_budgets = list(session.exec(select(ScreenBudget).order_by(ScreenBudget.slug)).all())
     entries = list(session.exec(select(Entry).order_by(Entry.occurred_on, Entry.id)).all())
 
     area_by_id = {area.id: area.slug for area in areas}
     metric_by_id = {metric.id: metric.slug for metric in metrics}
     goal_by_id = {goal.id: goal.slug for goal in goals}
+    category_by_id = {category.id: category.slug for category in screen_categories}
 
     return {
         "schema_version": CURRENT_SCHEMA_VERSION,
@@ -40,15 +63,20 @@ def export_all(session: Session) -> dict[str, Any]:
         "habits": [_export_habit(habit, metric_by_id) for habit in habits],
         "goals": [_export_goal(goal, area_by_id, metric_by_id) for goal in goals],
         "milestones": [_export_milestone(row, goal_by_id) for row in milestones],
+        "screen_categories": [_export_screen_category(row) for row in screen_categories],
+        "screen_apps": [
+            _export_screen_app(row, category_by_id, metric_by_id) for row in screen_apps
+        ],
+        "screen_budgets": [_export_screen_budget(row) for row in screen_budgets],
         "entries": [_export_entry(entry, metric_by_id) for entry in entries],
     }
 
 
 def import_all(session: Session, payload: dict[str, Any], *, replace: bool = False) -> None:
     version = payload.get("schema_version")
-    if version != CURRENT_SCHEMA_VERSION:
+    if version not in {1, CURRENT_SCHEMA_VERSION}:
         raise ValidationError(
-            f"unsupported export schema_version {version!r}; expected {CURRENT_SCHEMA_VERSION}"
+            f"unsupported export schema_version {version!r}; expected 1 or {CURRENT_SCHEMA_VERSION}"
         )
     try:
         if replace:
@@ -67,6 +95,15 @@ def import_all(session: Session, payload: dict[str, Any], *, replace: bool = Fal
         session.flush()
         for raw in payload.get("milestones", []):
             _import_milestone(session, raw)
+        session.flush()
+        for raw in payload.get("screen_categories", []):
+            _import_screen_category(session, raw)
+        session.flush()
+        for raw in payload.get("screen_apps", []):
+            _import_screen_app(session, raw)
+        session.flush()
+        for raw in payload.get("screen_budgets", []):
+            _import_screen_budget(session, raw)
         for raw in payload.get("entries", []):
             _import_entry(session, raw)
         session.commit()
@@ -76,7 +113,17 @@ def import_all(session: Session, payload: dict[str, Any], *, replace: bool = Fal
 
 
 def _clear_user_data(session: Session) -> None:
-    for model in (Entry, Milestone, Habit, Goal, Metric, Area):
+    for model in (
+        Entry,
+        Milestone,
+        Habit,
+        Goal,
+        ScreenBudget,
+        ScreenApp,
+        ScreenCategory,
+        Metric,
+        Area,
+    ):
         for row in session.exec(select(model)).all():
             session.delete(row)
     session.flush()
@@ -160,6 +207,43 @@ def _export_entry(entry: Entry, metric_by_id: dict[int | None, str]) -> dict[str
         "note": entry.note,
         "source": str(entry.source),
         "created_at": _iso_dt(entry.created_at),
+    }
+
+
+def _export_screen_category(category: ScreenCategory) -> dict[str, Any]:
+    return {
+        "slug": category.slug,
+        "name": category.name,
+        "judgment": str(category.judgment),
+        "archived_at": _iso_dt(category.archived_at),
+    }
+
+
+def _export_screen_app(
+    app: ScreenApp,
+    category_by_id: dict[int | None, str],
+    metric_by_id: dict[int | None, str],
+) -> dict[str, Any]:
+    return {
+        "slug": app.slug,
+        "name": app.name,
+        "category": category_by_id[app.category_id],
+        "metric": metric_by_id[app.metric_id],
+        "archived_at": _iso_dt(app.archived_at),
+    }
+
+
+def _export_screen_budget(budget: ScreenBudget) -> dict[str, Any]:
+    return {
+        "slug": budget.slug,
+        "name": budget.name,
+        "target_kind": str(budget.target_kind),
+        "target_slug": budget.target_slug,
+        "period": str(budget.period),
+        "target_value": budget.target_value,
+        "comparator": str(budget.comparator),
+        "active_from": budget.active_from.isoformat(),
+        "active_to": budget.active_to.isoformat() if budget.active_to is not None else None,
     }
 
 
@@ -272,6 +356,66 @@ def _import_milestone(session: Session, raw: dict[str, Any]) -> None:
         session.add(existing)
     existing.due_on = _parse_date(due_on) if due_on else None
     existing.done_at = _parse_datetime(raw.get("done_at"))
+
+
+def _import_screen_category(session: Session, raw: dict[str, Any]) -> None:
+    slug = normalize_slug(_require(raw, "slug"))
+    existing = session.exec(select(ScreenCategory).where(ScreenCategory.slug == slug)).first()
+    if existing is None:
+        existing = ScreenCategory(
+            slug=slug,
+            name=_require(raw, "name"),
+            judgment=ScreenJudgment(_require(raw, "judgment")),
+        )
+        session.add(existing)
+    existing.name = raw.get("name", existing.name)
+    existing.judgment = ScreenJudgment(raw.get("judgment", existing.judgment))
+    existing.archived_at = _parse_datetime(raw.get("archived_at"))
+
+
+def _import_screen_app(session: Session, raw: dict[str, Any]) -> None:
+    slug = normalize_slug(_require(raw, "slug"))
+    category = require_screen_category(session, normalize_slug(_require(raw, "category")))
+    metric = require_metric(session, normalize_slug(_require(raw, "metric")))
+    existing = session.exec(select(ScreenApp).where(ScreenApp.slug == slug)).first()
+    if existing is None:
+        existing = ScreenApp(
+            slug=slug,
+            name=_require(raw, "name"),
+            category_id=category.id,
+            metric_id=metric.id,
+        )
+        session.add(existing)
+    existing.name = raw.get("name", existing.name)
+    existing.category_id = category.id
+    existing.metric_id = metric.id
+    existing.archived_at = _parse_datetime(raw.get("archived_at"))
+
+
+def _import_screen_budget(session: Session, raw: dict[str, Any]) -> None:
+    slug = normalize_slug(_require(raw, "slug"))
+    existing = session.exec(select(ScreenBudget).where(ScreenBudget.slug == slug)).first()
+    if existing is None:
+        existing = ScreenBudget(
+            slug=slug,
+            name=_require(raw, "name"),
+            target_kind=ScreenBudgetTargetKind(_require(raw, "target_kind")),
+            target_slug=_require(raw, "target_slug"),
+            period=Period(_require(raw, "period")),
+            target_value=float(_require(raw, "target_value")),
+            comparator=Comparator(_require(raw, "comparator")),
+            active_from=_parse_date(_require(raw, "active_from")),
+        )
+        session.add(existing)
+    existing.name = raw.get("name", existing.name)
+    existing.target_kind = ScreenBudgetTargetKind(raw.get("target_kind", existing.target_kind))
+    existing.target_slug = raw.get("target_slug", existing.target_slug)
+    existing.period = Period(raw.get("period", existing.period))
+    existing.target_value = float(raw.get("target_value", existing.target_value))
+    existing.comparator = Comparator(raw.get("comparator", existing.comparator))
+    existing.active_from = _parse_date(raw.get("active_from", existing.active_from.isoformat()))
+    active_to = raw.get("active_to")
+    existing.active_to = _parse_date(active_to) if active_to else None
 
 
 def _import_entry(session: Session, raw: dict[str, Any]) -> None:

@@ -11,6 +11,8 @@ from atlas.domain import (
     Measure,
     PaceStatus,
     Period,
+    ScreenBudgetTargetKind,
+    ScreenJudgment,
     Source,
     ValueType,
 )
@@ -314,3 +316,160 @@ class AreaViewOut(BaseModel):
     metrics: list[MetricSnapshotOut]
     habits: list[HabitStatusOut]
     goals: list[GoalProgressOut]
+
+
+class ScreenCategoryCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    slug: str
+    judgment: ScreenJudgment
+    name: str | None = None
+
+
+class ScreenCategoryUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = None
+    judgment: ScreenJudgment | None = None
+
+
+class ScreenCategoryOut(BaseModel):
+    id: int
+    slug: str
+    name: str
+    judgment: ScreenJudgment
+    archived_at: datetime | None
+
+
+class ScreenAppCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    slug: str
+    category: str
+    name: str | None = None
+
+
+class ScreenAppUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = None
+    category: str | None = None
+
+
+class ScreenAppOut(BaseModel):
+    id: int
+    slug: str
+    name: str
+    category: str
+    metric: str
+    archived_at: datetime | None
+
+
+class ScreenBudgetCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    slug: str
+    target_kind: ScreenBudgetTargetKind
+    target_slug: str
+    period: Period
+    target_value: float
+    comparator: Comparator
+    name: str | None = None
+    active_from: date | None = None
+    active_to: date | None = None
+
+
+class ScreenBudgetUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = None
+    target_kind: ScreenBudgetTargetKind | None = None
+    target_slug: str | None = None
+    target_value: float | None = None
+    comparator: Comparator | None = None
+    active_to: date | None = None
+
+
+class ScreenBudgetOut(BaseModel):
+    id: int
+    slug: str
+    name: str
+    target_kind: ScreenBudgetTargetKind
+    target_slug: str
+    period: Period
+    target_value: float
+    comparator: Comparator
+    active_from: date
+    active_to: date | None
+
+
+class ScreenAppRowOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    slug: str
+    name: str
+    category: str
+    metric: str
+    minutes: float | None
+    archived_at: datetime | None
+
+
+class ScreenCategoryRowOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    slug: str
+    name: str
+    judgment: ScreenJudgment
+    minutes: float | None
+    apps: list[ScreenAppRowOut]
+    archived_at: datetime | None
+
+
+class ScreenJudgmentTotalsOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    useful: float | None
+    waste: float | None
+    neutral: float | None
+    total: float | None
+
+
+class ScreenSessionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    app: str
+    category: str
+    metric: str
+    occurred_on: date
+    minutes: float | None
+    note: str | None
+
+
+class ScreenBudgetStatusOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    slug: str
+    name: str
+    target_kind: ScreenBudgetTargetKind
+    target_slug: str
+    period: Period
+    target_value: float
+    comparator: Comparator
+    current_value: float | None
+    satisfied: bool
+    scheduled: bool
+    current_streak: int
+    longest_streak: int
+    adherence: float | None
+    as_of: date
+
+
+class ScreenViewOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    as_of: date
+    categories: list[ScreenCategoryRowOut]
+    judgments: ScreenJudgmentTotalsOut
+    sessions: list[ScreenSessionOut]
+    budgets: list[ScreenBudgetStatusOut]

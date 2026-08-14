@@ -2,7 +2,17 @@ from typing import Any
 
 from sqlmodel import Session
 
-from atlas.api.schemas import EntryOut, GoalDetailOut, GoalOut, HabitOut, MetricOut, MilestoneOut
+from atlas.api.schemas import (
+    EntryOut,
+    GoalDetailOut,
+    GoalOut,
+    HabitOut,
+    MetricOut,
+    MilestoneOut,
+    ScreenAppOut,
+    ScreenBudgetOut,
+    ScreenCategoryOut,
+)
 from atlas.domain import (
     Aggregation,
     Comparator,
@@ -11,10 +21,12 @@ from atlas.domain import (
     GoalStatus,
     Measure,
     Period,
+    ScreenBudgetTargetKind,
+    ScreenJudgment,
     Source,
     ValueType,
 )
-from atlas.services import list_areas, list_metrics
+from atlas.services import list_areas, list_metrics, list_screen_categories
 
 
 def area_slug_by_id(session: Session) -> dict[int, str]:
@@ -138,4 +150,52 @@ def goal_detail_out(session: Session, detail: Any) -> GoalDetailOut:
     return GoalDetailOut(
         **base.model_dump(),
         milestones=[milestone_out(item) for item in detail.milestones],
+    )
+
+
+def screen_category_out(category: Any) -> ScreenCategoryOut:
+    return ScreenCategoryOut(
+        id=category.id,
+        slug=category.slug,
+        name=category.name,
+        judgment=ScreenJudgment(category.judgment),
+        archived_at=category.archived_at,
+    )
+
+
+def screen_app_out(app: Any, category_slug: str, metric_slug: str) -> ScreenAppOut:
+    return ScreenAppOut(
+        id=app.id,
+        slug=app.slug,
+        name=app.name,
+        category=category_slug,
+        metric=metric_slug,
+        archived_at=app.archived_at,
+    )
+
+
+def screen_apps_out(session: Session, apps: list[Any]) -> list[ScreenAppOut]:
+    categories = {
+        category.id: category.slug
+        for category in list_screen_categories(session, include_archived=True)
+        if category.id is not None
+    }
+    metrics = metric_slug_by_id(session)
+    return [
+        screen_app_out(app, categories[app.category_id], metrics[app.metric_id]) for app in apps
+    ]
+
+
+def screen_budget_out(budget: Any) -> ScreenBudgetOut:
+    return ScreenBudgetOut(
+        id=budget.id,
+        slug=budget.slug,
+        name=budget.name,
+        target_kind=ScreenBudgetTargetKind(budget.target_kind),
+        target_slug=budget.target_slug,
+        period=Period(budget.period),
+        target_value=budget.target_value,
+        comparator=Comparator(budget.comparator),
+        active_from=budget.active_from,
+        active_to=budget.active_to,
     )

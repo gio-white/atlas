@@ -4,6 +4,7 @@ from atlas.api.routers.goals import router as goals_router
 from atlas.api.routers.habits import router as habits_router
 from atlas.api.routers.metrics import router as metrics_router
 from atlas.api.routers.port import router as port_router
+from atlas.api.routers.screen import router as screen_router
 from atlas.api.routers.views import router as views_router
 
 __all__ = [
@@ -13,5 +14,6 @@ __all__ = [
     "habits_router",
     "metrics_router",
     "port_router",
+    "screen_router",
     "views_router",
 ]

@@ -1,7 +1,15 @@
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 
-from atlas.domain.enums import Aggregation, Comparator, GoalKind, Measure, Period
+from atlas.domain.enums import (
+    Aggregation,
+    Comparator,
+    GoalKind,
+    Measure,
+    Period,
+    ScreenBudgetTargetKind,
+    ScreenJudgment,
+)
 
 _MIN = datetime.min.replace(tzinfo=UTC)
 
@@ -92,6 +100,40 @@ class GoalProgress:
     baseline: float | None
     fraction: float | None
     target_met: bool
+
+
+@dataclass(frozen=True, slots=True)
+class ScreenCategorySpec:
+    slug: str
+    judgment: ScreenJudgment
+
+
+@dataclass(frozen=True, slots=True)
+class ScreenAppSpec:
+    slug: str
+    category_slug: str
+    metric_slug: str
+
+
+@dataclass(frozen=True, slots=True)
+class ScreenBudgetSpec:
+    target_kind: ScreenBudgetTargetKind
+    target_slug: str
+    period: Period
+    target_value: float
+    comparator: Comparator
+    active_from: date
+    active_to: date | None = None
+
+    def as_habit(self) -> HabitSpec:
+        return HabitSpec(
+            period=self.period,
+            target_value=self.target_value,
+            comparator=self.comparator,
+            aggregation=Aggregation.SUM,
+            active_from=self.active_from,
+            active_to=self.active_to,
+        )
 
 
 def _as_aware(value: datetime | None) -> datetime:

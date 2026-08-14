@@ -2,7 +2,17 @@ from collections.abc import Sequence
 
 from sqlmodel import Session, col, select
 
-from atlas.db.models import Area, Entry, Goal, Habit, Metric, Milestone
+from atlas.db.models import (
+    Area,
+    Entry,
+    Goal,
+    Habit,
+    Metric,
+    Milestone,
+    ScreenApp,
+    ScreenBudget,
+    ScreenCategory,
+)
 from atlas.domain import Period
 from atlas.services.errors import AlreadyExistsError, NotFoundError, ValidationError
 
@@ -35,6 +45,27 @@ def require_goal(session: Session, slug: str) -> Goal:
     return row
 
 
+def require_screen_category(session: Session, slug: str) -> ScreenCategory:
+    row = session.exec(select(ScreenCategory).where(ScreenCategory.slug == slug)).first()
+    if row is None:
+        raise NotFoundError("screen_category", slug)
+    return row
+
+
+def require_screen_app(session: Session, slug: str) -> ScreenApp:
+    row = session.exec(select(ScreenApp).where(ScreenApp.slug == slug)).first()
+    if row is None:
+        raise NotFoundError("screen_app", slug)
+    return row
+
+
+def require_screen_budget(session: Session, slug: str) -> ScreenBudget:
+    row = session.exec(select(ScreenBudget).where(ScreenBudget.slug == slug)).first()
+    if row is None:
+        raise NotFoundError("screen_budget", slug)
+    return row
+
+
 def require_entry(session: Session, entry_id: int) -> Entry:
     row = session.get(Entry, entry_id)
     if row is None:
@@ -60,7 +91,15 @@ def require_active_metric(session: Session, slug: str) -> Metric:
 
 
 def ensure_unique_slug(
-    session: Session, model: type[Area] | type[Metric] | type[Habit] | type[Goal], slug: str
+    session: Session,
+    model: type[Area]
+    | type[Metric]
+    | type[Habit]
+    | type[Goal]
+    | type[ScreenCategory]
+    | type[ScreenApp]
+    | type[ScreenBudget],
+    slug: str,
 ) -> None:
     if session.exec(select(model).where(model.slug == slug)).first() is not None:
         raise AlreadyExistsError(model.__tablename__, slug)

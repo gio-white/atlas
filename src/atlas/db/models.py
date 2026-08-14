@@ -11,6 +11,8 @@ from atlas.domain import (
     GoalStatus,
     Measure,
     Period,
+    ScreenBudgetTargetKind,
+    ScreenJudgment,
     Source,
     ValueType,
 )
@@ -98,6 +100,42 @@ class Milestone(SQLModel, table=True):
     name: str
     due_on: date | None = None
     done_at: datetime | None = None
+
+
+class ScreenCategory(SQLModel, table=True):
+    __tablename__ = "screen_category"
+
+    id: int | None = Field(default=None, primary_key=True)
+    slug: str = Field(unique=True, index=True)
+    name: str
+    judgment: ScreenJudgment
+    archived_at: datetime | None = None
+
+
+class ScreenApp(SQLModel, table=True):
+    __tablename__ = "screen_app"
+
+    id: int | None = Field(default=None, primary_key=True)
+    slug: str = Field(unique=True, index=True)
+    name: str
+    category_id: int = Field(foreign_key="screen_category.id")
+    metric_id: int = Field(foreign_key="metric.id", unique=True)
+    archived_at: datetime | None = None
+
+
+class ScreenBudget(SQLModel, table=True):
+    __tablename__ = "screen_budget"
+
+    id: int | None = Field(default=None, primary_key=True)
+    slug: str = Field(unique=True, index=True)
+    name: str
+    target_kind: ScreenBudgetTargetKind
+    target_slug: str
+    period: Period
+    target_value: float
+    comparator: Comparator
+    active_from: date
+    active_to: date | None = None
 
 
 class SchemaVersion(SQLModel, table=True):

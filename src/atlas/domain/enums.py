@@ -66,3 +66,14 @@ class PaceStatus(StrEnum):
     AHEAD = "ahead"
     ON_TRACK = "on_track"
     BEHIND = "behind"
+
+
+class ScreenJudgment(StrEnum):
+    USEFUL = "useful"
+    WASTE = "waste"
+    NEUTRAL = "neutral"
+
+
+class ScreenBudgetTargetKind(StrEnum):
+    JUDGMENT = "judgment"
+    CATEGORY = "category"

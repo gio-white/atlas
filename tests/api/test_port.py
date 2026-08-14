@@ -1,3 +1,6 @@
+from atlas.db import CURRENT_SCHEMA_VERSION
+
+
 def test_export_and_import_round_trip(client, seed_health):
     client.post(
         "/habits",
@@ -19,7 +22,7 @@ def test_export_and_import_round_trip(client, seed_health):
     exported = client.get("/export")
     assert exported.status_code == 200
     payload = exported.json()
-    assert payload["schema_version"] == 1
+    assert payload["schema_version"] == CURRENT_SCHEMA_VERSION
     assert [area["slug"] for area in payload["areas"]] == ["health"]
     assert {metric["slug"] for metric in payload["metrics"]} == {
         "meditated",
@@ -36,4 +39,7 @@ def test_export_and_import_round_trip(client, seed_health):
     assert restored["areas"] == payload["areas"]
     assert restored["metrics"] == payload["metrics"]
     assert restored["habits"] == payload["habits"]
+    assert restored["screen_categories"] == []
+    assert restored["screen_apps"] == []
+    assert restored["screen_budgets"] == []
     assert len(restored["entries"]) == len(payload["entries"])

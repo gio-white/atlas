@@ -25,13 +25,16 @@ def test_export_and_import_round_trip(runner, tmp_path):
 
     exported = invoke(runner, ["export"])
     payload = json.loads(exported.output)
-    assert payload["schema_version"] == 1
+    assert payload["schema_version"] == 2
     assert [area["slug"] for area in payload["areas"]] == ["health"]
     assert {metric["slug"] for metric in payload["metrics"]} == {
         "meditated",
         "pushups",
         "weight",
     }
+    assert payload["screen_categories"] == []
+    assert payload["screen_apps"] == []
+    assert payload["screen_budgets"] == []
     assert payload["entries"][0]["source"] == "cli"
 
     path = tmp_path / "atlas.json"
