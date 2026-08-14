@@ -8,6 +8,9 @@ from atlas.db.engine import (
 )
 from atlas.db.models import (
     Area,
+    EntertainmentTitle,
+    EntertainmentTitleTopic,
+    EntertainmentTopic,
     Entry,
     Goal,
     Habit,
@@ -25,6 +28,9 @@ from atlas.db.models import (
 __all__ = [
     "CURRENT_SCHEMA_VERSION",
     "Area",
+    "EntertainmentTitle",
+    "EntertainmentTitleTopic",
+    "EntertainmentTopic",
     "Entry",
     "Goal",
     "Habit",

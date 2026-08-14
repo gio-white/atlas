@@ -4,6 +4,8 @@ from datetime import UTC, date, datetime
 from atlas.domain.enums import (
     Aggregation,
     Comparator,
+    EntertainmentKind,
+    EntertainmentStatus,
     GoalKind,
     Measure,
     Period,
@@ -165,6 +167,28 @@ class ScreenBudgetSpec:
             active_from=self.active_from,
             active_to=self.active_to,
         )
+
+
+@dataclass(frozen=True, slots=True)
+class EntertainmentTopicRef:
+    slug: str
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
+class EntertainmentTitleView:
+    slug: str
+    name: str
+    kind: EntertainmentKind
+    status: EntertainmentStatus
+    creator: str | None = None
+    recommended_by: str | None = None
+    started_on: date | None = None
+    finished_on: date | None = None
+    progress: str | None = None
+    note: str | None = None
+    topics: tuple[EntertainmentTopicRef, ...] = ()
+    image: str | None = None
 
 
 def _as_aware(value: datetime | None) -> datetime:

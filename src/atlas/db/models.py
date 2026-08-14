@@ -1,12 +1,14 @@
 from datetime import UTC, date, datetime
 
-from sqlalchemy import JSON, Column, Index
+from sqlalchemy import JSON, Column, Index, LargeBinary
 from sqlmodel import Field, SQLModel
 
 from atlas.domain import (
     Aggregation,
     Comparator,
     Direction,
+    EntertainmentKind,
+    EntertainmentStatus,
     GoalHorizon,
     GoalKind,
     GoalStatus,
@@ -182,6 +184,43 @@ class Task(SQLModel, table=True):
     goal_id: int | None = Field(default=None, foreign_key="goal.id")
     done_at: datetime | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class EntertainmentTopic(SQLModel, table=True):
+    __tablename__ = "entertainment_topic"
+
+    id: int | None = Field(default=None, primary_key=True)
+    slug: str = Field(unique=True, index=True)
+    name: str
+    archived_at: datetime | None = None
+
+
+class EntertainmentTitle(SQLModel, table=True):
+    __tablename__ = "entertainment_title"
+
+    id: int | None = Field(default=None, primary_key=True)
+    slug: str = Field(unique=True, index=True)
+    name: str
+    kind: EntertainmentKind
+    creator: str | None = None
+    recommended_by: str | None = None
+    status: EntertainmentStatus = EntertainmentStatus.QUEUED
+    started_on: date | None = None
+    finished_on: date | None = None
+    progress: str | None = None
+    note: str | None = None
+    image_url: str | None = None
+    image_bytes: bytes | None = Field(default=None, sa_column=Column(LargeBinary, nullable=True))
+    image_media_type: str | None = None
+    archived_at: datetime | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class EntertainmentTitleTopic(SQLModel, table=True):
+    __tablename__ = "entertainment_title_topic"
+
+    title_id: int = Field(foreign_key="entertainment_title.id", primary_key=True)
+    topic_id: int = Field(foreign_key="entertainment_topic.id", primary_key=True)
 
 
 class SchemaVersion(SQLModel, table=True):

@@ -42,4 +42,6 @@ def test_export_and_import_round_trip(client, seed_health):
     assert restored["screen_categories"] == []
     assert restored["screen_apps"] == []
     assert restored["screen_budgets"] == []
+    assert restored["entertainment_topics"] == []
+    assert restored["entertainment_titles"] == []
     assert len(restored["entries"]) == len(payload["entries"])

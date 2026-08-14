@@ -29,6 +29,8 @@ class SeedSummary:
     screen_apps: int
     screen_devices: int
     screen_sessions: int
+    entertainment_topics: int
+    entertainment_titles: int
 
 
 def seed_demo(
@@ -55,6 +57,8 @@ def seed_demo(
         screen_apps=len(payload["screen_apps"]),
         screen_devices=len(payload["screen_devices"]),
         screen_sessions=len(payload["screen_sessions"]),
+        entertainment_topics=len(payload["entertainment_topics"]),
+        entertainment_titles=len(payload["entertainment_titles"]),
     )
 
 
@@ -73,6 +77,8 @@ def demo_payload(as_of: date) -> dict[str, Any]:
         "screen_devices": _screen_devices(),
         "screen_budgets": _screen_budgets(start),
         "screen_sessions": _screen_sessions(start, as_of),
+        "entertainment_topics": _entertainment_topics(),
+        "entertainment_titles": _entertainment_titles(as_of),
         "entries": _entries(start, as_of),
     }
 
@@ -374,6 +380,130 @@ def _tasks(as_of: date) -> list[dict[str, Any]]:
             "created_at": noon.isoformat(),
         },
     ]
+
+
+def _entertainment_topics() -> list[dict[str, Any]]:
+    return [
+        {"slug": "programming", "name": "Programming", "archived_at": None},
+        {"slug": "physics", "name": "Physics", "archived_at": None},
+        {"slug": "finance", "name": "Finance", "archived_at": None},
+        {"slug": "math", "name": "Math", "archived_at": None},
+    ]
+
+
+def _entertainment_titles(as_of: date) -> list[dict[str, Any]]:
+    return [
+        _entertainment_title(
+            "atomic-habits",
+            "Atomic Habits",
+            "book",
+            creator="James Clear",
+            status="done",
+            topics=["finance"],
+            finished_on=as_of - timedelta(days=10),
+            started_on=as_of - timedelta(days=24),
+        ),
+        _entertainment_title(
+            "the-office",
+            "The Office",
+            "series",
+            creator="Greg Daniels",
+            status="in_progress",
+            progress="S3E4",
+            started_on=as_of - timedelta(days=20),
+        ),
+        _entertainment_title(
+            "interstellar",
+            "Interstellar",
+            "film",
+            creator="Christopher Nolan",
+            recommended_by="Alex",
+            status="done",
+            topics=["physics"],
+            finished_on=as_of - timedelta(days=3),
+            started_on=as_of - timedelta(days=3),
+        ),
+        _entertainment_title(
+            "lex-fridman-109",
+            "Lex Fridman #109",
+            "podcast",
+            creator="Lex Fridman",
+            status="done",
+            topics=["programming"],
+            finished_on=as_of - timedelta(days=1),
+        ),
+        _entertainment_title(
+            "three-body",
+            "The Three-Body Problem",
+            "book",
+            creator="Liu Cixin",
+            recommended_by="Sam",
+            status="queued",
+            topics=["physics"],
+        ),
+        _entertainment_title(
+            "neon-genesis",
+            "Neon Genesis Evangelion",
+            "anime",
+            creator="Hideaki Anno",
+            status="dropped",
+            started_on=as_of - timedelta(days=15),
+            progress="S1E6",
+        ),
+        _entertainment_title(
+            "3blue1brown-linear",
+            "Essence of Linear Algebra",
+            "video",
+            creator="3Blue1Brown",
+            status="done",
+            topics=["math"],
+            finished_on=as_of - timedelta(days=5),
+        ),
+        _entertainment_title(
+            "rich-dad",
+            "Rich Dad Poor Dad",
+            "book",
+            creator="Robert Kiyosaki",
+            status="queued",
+            topics=["finance"],
+        ),
+    ]
+
+
+def _entertainment_title(
+    slug: str,
+    name: str,
+    kind: str,
+    *,
+    creator: str | None = None,
+    recommended_by: str | None = None,
+    status: str = "queued",
+    topics: list[str] | None = None,
+    started_on: date | None = None,
+    finished_on: date | None = None,
+    progress: str | None = None,
+    note: str | None = None,
+) -> dict[str, Any]:
+    created = finished_on or started_on or date(2026, 8, 1)
+    created_at = datetime(created.year, created.month, created.day, 12, 0, tzinfo=UTC)
+    return {
+        "slug": slug,
+        "name": name,
+        "kind": kind,
+        "creator": creator,
+        "recommended_by": recommended_by,
+        "status": status,
+        "started_on": started_on.isoformat() if started_on else None,
+        "finished_on": finished_on.isoformat() if finished_on else None,
+        "progress": progress,
+        "note": note,
+        "topics": topics or [],
+        "image_url": None,
+        "image_media_type": None,
+        "image_base64": None,
+        "archived_at": None,
+        "created_at": created_at.isoformat(),
+    }
 
 
 def _screen_categories() -> list[dict[str, Any]]:

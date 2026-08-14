@@ -35,6 +35,9 @@ flowchart TD
   ScreenSession -->|optional| ScreenDevice[ScreenDevice]
   ScreenBudget[ScreenBudget] -->|caps| ScreenJudgment
   ScreenBudget -->|or caps| ScreenCategory
+  EntertainmentTopic[EntertainmentTopic]
+  EntertainmentTitle[EntertainmentTitle]
+  EntertainmentTopic -->|M2M tags| EntertainmentTitle
 ```
 
 
@@ -275,9 +278,56 @@ A one-off work-queue item, not an observation. Completing a task stamps `done_at
 
 Completing a task never changes goal progress. A task may point at any horizon; the goals board weekly column uses linked tasks for this ISO week.
 
+### EntertainmentTopic
+
+A user-defined subject tag on entertainment titles: finance, programming, physics, math. Not a fixed enum. Entertainment is a dedicated catalog of works you have seen or want to see. It does not dual-write entries and does not share tables with screen time. The screen category slug `entertainment` remains an app-minutes bucket.
+
+| Field         | Type             | Notes                |
+| ------------- | ---------------- | -------------------- |
+| `id`          | int              | primary key          |
+| `slug`        | str              | unique (`physics`)   |
+| `name`        | str              |                      |
+| `archived_at` | datetime \| None | UTC; never deleted   |
+
+
+### EntertainmentTitle
+
+One work in the library: a film, series, anime, video, podcast, or book. Status is user-asserted. Minutes belong on Screen Time, not here.
+
+| Field            | Type             | Notes                                                                 |
+| ---------------- | ---------------- | --------------------------------------------------------------------- |
+| `id`             | int              | primary key                                                           |
+| `slug`           | str              | unique (`interstellar`)                                               |
+| `name`           | str              | display title                                                         |
+| `kind`           | enum             | `film \| series \| anime \| video \| podcast \| book`                 |
+| `creator`        | str \| None      | author, director, host, channel                                       |
+| `recommended_by` | str \| None      | free text                                                             |
+| `status`         | enum             | `queued \| in_progress \| done \| dropped`                            |
+| `started_on`     | date \| None     | local; stamped to today when first moved to `in_progress` if unset    |
+| `finished_on`    | date \| None     | local; stamped to today when marked `done` if unset                   |
+| `progress`       | str \| None      | bookmark (`S2E5`, `ch. 12`), not time                                 |
+| `note`           | str \| None      |                                                                       |
+| `image_url`      | str \| None      | remote poster URL                                                     |
+| `image_bytes`    | bytes \| None    | uploaded poster in SQLite; mutually exclusive with `image_url`        |
+| `image_media_type` | str \| None    | `image/jpeg`, `image/png`, `image/webp`, or `image/gif`               |
+| `archived_at`    | datetime \| None | UTC                                                                   |
+| `created_at`     | datetime         | UTC                                                                   |
+
+An image is optional. Setting a remote URL clears the blob; uploading a file (≤2 MiB) clears the URL. On the wire, titles expose a single `image` field: the remote URL, `/entertainment/titles/{slug}/image` when a blob exists, or `null`.
+
+### EntertainmentTitleTopic
+
+Many-to-many link. Unique `(title_id, topic_id)`.
+
+| Field      | Type | Notes                          |
+| ---------- | ---- | ------------------------------ |
+| `title_id` | int  | PK, FK to `EntertainmentTitle` |
+| `topic_id` | int  | PK, FK to `EntertainmentTopic` |
+
+
 ### Schema management
 
-Tables are created with `SQLModel.metadata.create_all`. A single-row `schema_version` table records the version (`CURRENT_SCHEMA_VERSION = 6`). `atlas init` creates the parent directory if needed, opens the SQLite file at `ATLAS_DB`, runs `create_all`, and inserts that row when missing. If the row exists with a lower version, `init_schema` runs an explicit migrate then bumps the version. It is safe to run twice. There is no Alembic in the MVP; a schema change ships as an explicit migration step documented in the development log. Schema 2 adds `screen_category`, `screen_app`, and `screen_budget`. Schema 3 adds `task`. Schema 4 adds `Goal.horizon`, `Goal.parent_id`, `Goal.description`, and `Task.goal_id` (ALTER on existing files, then a one-time horizon backfill from the date window). Schema 5 adds `screen_device` and `screen_session`, then backfills duration-only sessions from existing entries on screen-app metrics. Schema 6 makes `Goal.area_id` nullable (table rebuild on existing SQLite files). Import accepts schema versions `1` through `6`; older payloads have empty screen, task, device, and/or session collections, and missing `horizon` is inferred from `due_on - start_on`. Missing goal `area` is null. Schema 5 payloads that include `screen_sessions` skip importing backing entries for screen-app metrics (sessions dual-write those entries). Payloads without that key backfill sessions from screen-app entries.
+Tables are created with `SQLModel.metadata.create_all`. A single-row `schema_version` table records the version (`CURRENT_SCHEMA_VERSION = 7`). `atlas init` creates the parent directory if needed, opens the SQLite file at `ATLAS_DB`, runs `create_all`, and inserts that row when missing. If the row exists with a lower version, `init_schema` runs an explicit migrate then bumps the version. It is safe to run twice. There is no Alembic in the MVP; a schema change ships as an explicit migration step documented in the development log. Schema 2 adds `screen_category`, `screen_app`, and `screen_budget`. Schema 3 adds `task`. Schema 4 adds `Goal.horizon`, `Goal.parent_id`, `Goal.description`, and `Task.goal_id` (ALTER on existing files, then a one-time horizon backfill from the date window). Schema 5 adds `screen_device` and `screen_session`, then backfills duration-only sessions from existing entries on screen-app metrics. Schema 6 makes `Goal.area_id` nullable (table rebuild on existing SQLite files). Schema 7 adds `entertainment_topic`, `entertainment_title`, and `entertainment_title_topic` (`create_all` on existing files). Import accepts schema versions `1` through `7`; older payloads have empty screen, task, device, session, and/or entertainment collections, and missing `horizon` is inferred from `due_on - start_on`. Missing goal `area` is null. Schema 5 payloads that include `screen_sessions` skip importing backing entries for screen-app metrics (sessions dual-write those entries). Payloads without that key backfill sessions from screen-app entries.
 
 ## Layering
 
@@ -309,8 +359,8 @@ The package lives at `src/atlas/` (src layout), so tests import the installed pa
 | Package             | Responsibility                                                                                                                                                                                             |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `atlas/settings.py` | Configuration resolved from the environment. Stdlib only, so every layer may import it.                                                                                                                    |
-| `atlas/domain/`     | Enums, value objects (`EntryView`, `HabitSpec`, `GoalSpec`, `MilestoneView`, `Bucket`, `GoalProgress`, `ScreenCategorySpec`, `ScreenAppSpec`, `ScreenBudgetSpec`, `ScreenSessionSpec`, `ScreenSessionView`), and the calculation functions: period bucketing, rollups, `current_streak`, `longest_streak`, `adherence`, `goal_progress`, `pace_status`, `infer_horizon`, `parent_horizon_is_valid`, `screen_day_totals`, `member_apps`, `resolve_screen_session`, `clip_interval_hours`, `screen_dashboard_math`. Implemented. Pure — no I/O, no session, no wall clock. |
-| `atlas/db/`         | SQLModel tables (`Area`, `Metric`, `Entry`, `Habit`, `Goal`, `Milestone`, `ScreenCategory`, `ScreenApp`, `ScreenBudget`, `ScreenDevice`, `ScreenSession`, `SchemaVersion`), engine, session factory, schema creation. Implemented. Unique slugs; `Entry` indexed on `(metric_id, occurred_on)`; `ScreenSession` indexed on `(app_id, occurred_on)`; `ScreenApp.metric_id` unique. |
+| `atlas/domain/`     | Enums, value objects (`EntryView`, `HabitSpec`, `GoalSpec`, `MilestoneView`, `Bucket`, `GoalProgress`, `ScreenCategorySpec`, `ScreenAppSpec`, `ScreenBudgetSpec`, `ScreenSessionSpec`, `ScreenSessionView`, `EntertainmentTitleView`, `EntertainmentTopicRef`), and the calculation functions: period bucketing, rollups, `current_streak`, `longest_streak`, `adherence`, `goal_progress`, `pace_status`, `infer_horizon`, `parent_horizon_is_valid`, `screen_day_totals`, `member_apps`, `resolve_screen_session`, `clip_interval_hours`, `screen_dashboard_math`, `entertainment_dashboard_math`. Implemented. Pure — no I/O, no session, no wall clock. |
+| `atlas/db/`         | SQLModel tables (`Area`, `Metric`, `Entry`, `Habit`, `Goal`, `Milestone`, `ScreenCategory`, `ScreenApp`, `ScreenBudget`, `ScreenDevice`, `ScreenSession`, `EntertainmentTopic`, `EntertainmentTitle`, `EntertainmentTitleTopic`, `SchemaVersion`), engine, session factory, schema creation. Implemented. Unique slugs; `Entry` indexed on `(metric_id, occurred_on)`; `ScreenSession` indexed on `(app_id, occurred_on)`; `ScreenApp.metric_id` unique. |
 | `atlas/services/`   | Use cases, each taking an explicit `Session` as its first parameter. Loads rows, hands plain values to `domain`, writes results back. Implemented. |
 | `atlas/api/`        | FastAPI routers: parse, call a service, serialize. Dedicated request/response schemas only where the wire shape must differ from the table (slugs instead of integer FKs). Implemented. Session comes from a factory dependency; CORS allows the Vite dev origins (`http://127.0.0.1:5173`, `http://localhost:5173`). If `web/dist/index.html` exists, GET 404s fall back to that SPA without shadowing API routes. `uv run uvicorn atlas.api.app:app --reload`, `python -m atlas.api`, and `atlas serve` bind to `127.0.0.1` only. |
 | `atlas/cli/`        | Typer commands calling the same services in-process (no HTTP hop). Implemented. Session comes from the factory; commands never query tables. Capture and define commands print one-line confirmations (Rich markup). `log` resolves metric slugs by unique prefix, substring, or close match. `seed` loads the demo dataset through `seed_demo`. There is no CLI review UI; today / week / area / habit / goals dashboards live in the SPA. |
@@ -327,7 +377,7 @@ The first of these is machine-enforced. Ruff's `flake8-tidy-imports` bans `atlas
 
 ## Derived computations
 
-Nothing in this section is stored. Every definition below is a pure function of stored facts (entries, or screen sessions) plus configuration and an explicit `as_of` date, so results are reproducible and testable without a database.
+Nothing in this section is stored. Every definition below is a pure function of stored facts (entries, screen sessions, or entertainment titles) plus configuration and an explicit `as_of` date, so results are reproducible and testable without a database.
 
 ### Period bucketing
 
@@ -440,6 +490,19 @@ The `0.05` tolerance keeps a goal from flickering between `ahead` and `behind` o
 
 Parent progress is never a rollup of children. The goals board column “on track” count is view-level: among non-paused, non-abandoned goals in that horizon, pace in `{on_track, ahead, achieved}` over the column total.
 
+### Entertainment dashboard
+
+`entertainment_dashboard_math` is a pure function of `EntertainmentTitleView` rows, `as_of`, and `period` (no wall clock, no image bytes). The current range is `bucket_for(as_of, period)` clipped so an in-progress week or month ends at `as_of`. Period mix uses `finished_on`. Library columns are the current catalog.
+
+- **Finished in range** — titles with `finished_on` in the clipped period.
+- **Started in range** — titles with `started_on` in range.
+- **Queued / in progress / done / dropped** — current library snapshot counts.
+- **By kind / by topic** — counts of titles finished in range, with share of that finished set.
+- **Recently finished** — latest `finished_on` on or before `as_of` (up to 8).
+- **Library** — titles grouped by status.
+
+`entertainment_view` (Home) reports in-progress count, finished this ISO week, and the last finished title.
+
 ### Screen dashboard
 
 `screen_dashboard_math` is a pure function of `ScreenSessionView` rows, `as_of`, `period`, and an explicit timezone (no wall clock). Interval sessions are the source of truth for when minutes happened: hour buckets and local-day attribution **clip** `started_at`–`ended_at` into each local hour and day in `ATLAS_TZ` (a 23:30–00:45 session contributes 30m to hour 23 on day D and 45m to hour 0 on day D+1). Duration-only sessions add `minutes` on `occurred_on` and are omitted from the heatmap, late-night share, and sequences.
@@ -478,6 +541,11 @@ Failures raise `ServiceError` subclasses the API and CLI will map: `NotFoundErro
 | `create_screen_budget` / `list_screen_budgets` / `get_screen_budget` / `update_screen_budget` | Screen budgets targeting a judgment or a category. Judgment `target_slug` must be `useful`, `waste`, or `neutral`; category targets must name an existing category. |
 | `create_screen_device` / `list_screen_devices` / `get_screen_device` / `update_screen_device` | Screen devices. `update_screen_device` may change name. `archived_at` is honored on list (`include_archived`) and import; there is no archive endpoint. |
 | `log_screen_session` / `list_screen_sessions` / `get_screen_session` / `update_screen_session` / `delete_screen_session` | Screen sessions. Provide `started_at`+`ended_at` or `minutes`. Interval minutes are derived; a client `minutes` must match within `0.01`. Dual-writes a backing entry. Amend/delete keep the pair in sync. |
+| `create_entertainment_topic` / `list_entertainment_topics` / `get_entertainment_topic` / `update_entertainment_topic` | Subject tags. `archived_at` is honored on list (`include_archived`) and import; there is no archive endpoint. |
+| `create_entertainment_title` / `list_entertainment_titles` / `get_entertainment_title` / `update_entertainment_title` | Library titles. `list` can filter by `kind`, `status`, and `topic`. Marking `in_progress` stamps `started_on`; marking `done` stamps `finished_on`. Image URL and upload are mutually exclusive. |
+| `set_title_image` / `clear_title_image` / `get_title_image` | Upload (jpeg/png/webp/gif, ≤2 MiB), clear, or read the blob. |
+| `entertainment_view` | Home widget: in-progress count, finished this ISO week, last finished title. |
+| `entertainment_dashboard` | Period dashboard from titles: finished/started in range, library columns, kind/topic mix, recently finished. |
 | `screen_view` | Review for `as_of`: minutes per app and category that day from sessions (interval-clipped), judgment totals, today's sessions, and each budget's current rollup, satisfaction, streak, and adherence over merged member-app session minutes. |
 | `screen_dashboard` | Period dashboard (`day` / `week` / `month`) from sessions: totals, score, apps, categories, devices, daily and comparison series, hour heatmap, 8-week trend, insights/prescriptions, and budgets. |
 | `today_view` / `week_view` / `area_view` / `home_week` / `goals_board` | Review. `today_view` is habits whose current bucket is scheduled, entries with `occurred_on = as_of`, and active goals with progress. `week_view` is the ISO week containing `as_of`, one cell per day per habit. `area_view` is one area's non-archived metrics (latest day's rollup), habits, and non-abandoned goals **tagged** with that area. `home_week` is the Home Weekly Overview: check-in days, slip totals, screen-app minutes, and tasks completed this ISO week vs last, plus 7-day update and slip series. `goals_board` is the north-star board: three horizon columns plus this week's linked tasks. |
@@ -485,14 +553,14 @@ Failures raise `ServiceError` subclasses the API and CLI will map: `NotFoundErro
 | `log_slip` / `slips_week` | Slip count. Ensures metric `slip`, logs `1`, and returns this-week vs last-week totals plus a 7-day series. |
 | `log_journal` / `journal_day` | Journal text. Ensures metric `journal`, logs a non-empty string, and returns the latest text for `as_of`. |
 | `create_task` / `list_tasks` / `update_task` / `tasks_done_in_week` | Task queue. Optional `goal` slug links a task to a goal. `list_tasks` can filter by bucket and goal. `update_task(done=True)` stamps `done_at`. `tasks_done_in_week` counts completions in the ISO week of `as_of`. |
-| `export_all` / `import_all` | Port. Export is a JSON-serializable dict keyed by slugs, not integer ids (tasks, entries, and screen sessions use integer ids on import insert). Import upserts areas, metrics, habits, goals, milestones, screen categories, screen apps, screen budgets, and screen devices by slug (milestones by goal slug + name), inserts tasks, entries, and screen sessions. Goal parents are applied in a second pass so payload order does not matter. `replace=True` deletes user rows first (sessions before entries, tasks before goals). `schema_version` must be `1` through `CURRENT_SCHEMA_VERSION` (6). Missing `horizon` is inferred from the date window. Missing goal `area` is null. |
-| `seed_demo` | Demo dataset. Builds a payload in the export shape dated relative to `as_of` (default `Settings.today()`) and loads it through `import_all`. Five areas (health, career, finance, relationships, screen), metrics covering every `value_type`, daily/weekly/monthly habits including `at_most` and a weekday mask, both goal kinds in a long→medium→short tree, linked weekly tasks, screen taxonomy (entertainment / social / productivity / learning), devices, a waste cap, and ~28 days of mostly interval sessions (midnight crossings, a YouTube→Instagram evening chain, plus a few duration-only rows) so `today_view` / `week_view` / goal progress / `screen_dashboard` are non-empty. `SeedSummary` counts areas, metrics, habits, goals, milestones, entries, tasks, screen categories, apps, devices, and sessions. Refuses when areas already exist unless `replace=True`. Entries and sessions are sourced as `import`. |
+| `export_all` / `import_all` | Port. Export is a JSON-serializable dict keyed by slugs, not integer ids (tasks, entries, and screen sessions use integer ids on import insert). Import upserts areas, metrics, habits, goals, milestones, screen categories, screen apps, screen budgets, screen devices, entertainment topics, and entertainment titles by slug (milestones by goal slug + name), inserts tasks, entries, and screen sessions. Goal parents are applied in a second pass so payload order does not matter. `replace=True` deletes user rows first (entertainment links before titles before topics; sessions before entries, tasks before goals). `schema_version` must be `1` through `CURRENT_SCHEMA_VERSION` (7). Missing `horizon` is inferred from the date window. Missing goal `area` is null. |
+| `seed_demo` | Demo dataset. Builds a payload in the export shape dated relative to `as_of` (default `Settings.today()`) and loads it through `import_all`. Five areas (health, career, finance, relationships, screen), metrics covering every `value_type`, daily/weekly/monthly habits including `at_most` and a weekday mask, both goal kinds in a long→medium→short tree, linked weekly tasks, screen taxonomy (entertainment / social / productivity / learning), devices, a waste cap, ~28 days of mostly interval sessions, and an entertainment library (topics plus films/series/books/podcasts/videos/anime in mixed statuses) so `today_view` / `week_view` / goal progress / `screen_dashboard` / `entertainment_dashboard` are non-empty. `SeedSummary` counts areas, metrics, habits, goals, milestones, entries, tasks, screen categories, apps, devices, sessions, entertainment topics, and titles. Refuses when areas already exist unless `replace=True`. Entries and sessions are sourced as `import`. |
 
 Export shape:
 
 ```json
 {
-  "schema_version": 6,
+  "schema_version": 7,
   "areas": [{"slug": "health", "name": "Health", "description": null, "archived_at": null}],
   "metrics": [{"slug": "pushups", "area": "health", "name": "Pushups", "value_type": "count", "unit": "reps", "aggregation": "sum", "direction": "higher_is_better", "archived_at": null}],
   "habits": [{"slug": "pushups-daily", "metric": "pushups", "name": "Pushups Daily", "period": "day", "target_value": 1.0, "comparator": "at_least", "weekdays": null, "active_from": "2026-08-01", "active_to": null}],
@@ -503,6 +571,8 @@ Export shape:
   "screen_budgets": [{"slug": "waste-cap", "name": "Waste cap", "target_kind": "judgment", "target_slug": "waste", "period": "day", "target_value": 90.0, "comparator": "at_most", "active_from": "2026-08-01", "active_to": null}],
   "screen_devices": [{"slug": "iphone", "name": "iPhone", "archived_at": null}],
   "screen_sessions": [{"app": "instagram", "device": "iphone", "started_at": "2026-08-14T18:00:00+00:00", "ended_at": "2026-08-14T18:30:00+00:00", "minutes": 30.0, "occurred_on": "2026-08-14", "note": null, "source": "cli", "created_at": "2026-08-14T18:30:00+00:00"}],
+  "entertainment_topics": [{"slug": "physics", "name": "Physics", "archived_at": null}],
+  "entertainment_titles": [{"slug": "interstellar", "name": "Interstellar", "kind": "film", "creator": "Christopher Nolan", "recommended_by": "Alex", "status": "done", "started_on": "2026-08-11", "finished_on": "2026-08-12", "progress": null, "note": null, "topics": ["physics"], "image_url": null, "image_media_type": null, "image_base64": null, "archived_at": null, "created_at": "2026-08-12T12:00:00+00:00"}],
   "tasks": [{"title": "Family time", "bucket": "today", "due_on": "2026-08-14", "due_at": null, "priority": "normal", "goal": "workout-this-week", "done_at": null, "created_at": "2026-08-14T12:00:00+00:00"}],
   "entries": [{"metric": "pushups", "occurred_on": "2026-08-10", "occurred_at": null, "value_num": 40.0, "value_bool": null, "value_text": null, "note": "post-travel", "source": "cli", "created_at": "2026-08-10T12:00:00+00:00"}]
 }
@@ -516,7 +586,7 @@ Status is `implemented` only when the endpoint is merged with tests. Everything 
 
 Routers parse the request, call a service, and serialize. Create/list bodies use slugs (`area`, `metric`) rather than integer foreign keys; entries are addressed by integer `id`. `POST /entries` sets `source` to `api`. Service failures map to HTTP status: `NotFoundError` → 404, `AlreadyExistsError` → 409, `ValidationError` → 400. Pydantic request-shape errors remain 422.
 
-Optional filters the services already support are query parameters: `area` on metrics and goals, `metric` on habits, `status` and `horizon` and `parent` on goals, `goal` on tasks, `include_archived` on areas, metrics, and screen categories/apps/devices, `as_of` on status/progress/views including `/screen/view`, `/screen/dashboard`, `/views/home`, and `/views/goals`, `period` on `/screen/dashboard`, and `replace` on import.
+Optional filters the services already support are query parameters: `area` on metrics and goals, `metric` on habits, `status` and `horizon` and `parent` on goals, `goal` on tasks, `include_archived` on areas, metrics, screen categories/apps/devices, and entertainment topics/titles, `kind` / `status` / `topic` on entertainment titles, `as_of` on status/progress/views including `/screen/view`, `/screen/dashboard`, `/entertainment/view`, `/entertainment/dashboard`, `/views/home`, and `/views/goals`, `period` on `/screen/dashboard` and `/entertainment/dashboard`, and `replace` on import.
 
 
 | Method   | Path                     | Purpose                                       | Status      |
@@ -582,6 +652,19 @@ Optional filters the services already support are query parameters: `area` on me
 | `PATCH`  | `/tasks/{id}`            | Update title, bucket, due, priority, `done`, or `goal`  | implemented |
 | `GET`    | `/journal`               | Today's journal text (creates life catalog if missing)  | implemented |
 | `POST`   | `/journal`               | Log a text entry on the `journal` metric                | implemented |
+| `GET`    | `/entertainment/view`    | In-progress count, finished this week, last finished    | implemented |
+| `GET`    | `/entertainment/dashboard` | Period library dashboard (`period`, `as_of`)          | implemented |
+| `GET`    | `/entertainment/topics`  | List subject tags                                       | implemented |
+| `POST`   | `/entertainment/topics`  | Create a subject tag                                    | implemented |
+| `GET`    | `/entertainment/topics/{slug}` | Get one subject tag                               | implemented |
+| `PATCH`  | `/entertainment/topics/{slug}` | Update name                                       | implemented |
+| `GET`    | `/entertainment/titles`  | List titles (`kind`, `status`, `topic`)                 | implemented |
+| `POST`   | `/entertainment/titles`  | Add a work to the library                               | implemented |
+| `GET`    | `/entertainment/titles/{slug}` | Get one title                                     | implemented |
+| `PATCH`  | `/entertainment/titles/{slug}` | Update fields, status, topics, or image URL       | implemented |
+| `PUT`    | `/entertainment/titles/{slug}/image` | Upload a poster blob                    | implemented |
+| `DELETE` | `/entertainment/titles/{slug}/image` | Clear URL and blob                      | implemented |
+| `GET`    | `/entertainment/titles/{slug}/image` | Serve the uploaded poster               | implemented |
 | `GET`    | `/export`                | Full JSON export                              | implemented |
 | `POST`   | `/import`                | Full JSON import                              | implemented |
 
@@ -592,9 +675,9 @@ There is no authentication. The app binds to localhost only (`127.0.0.1`). CORS 
 
 The UI is a React SPA in `web/` (Vite, TypeScript, Tailwind, shadcn-style primitives). It is the only frontend. It consumes the HTTP API only. FastAPI does not render HTML templates. When `web/dist` is present, GET 404s that are not API routes return `index.html`.
 
-Implemented this cycle: night app shell (sidebar + top bar), typed `fetch` client, Home dashboard, Week, Area, Habit, Goals, Catalog, Screen Time, and milestone toggles on goal detail. `/goal` is the four-column north-star board from `GET /views/goals` (long / medium / short plus this week's linked tasks). Goal detail shows parent, children, and linked tasks. Catalog and the create dialog accept optional area (None), horizon, parent, and description; the Home task form can link an optional goal. Catalog slugs link to `/area/:slug`, `/habit/:slug`, and `/goal/:slug`, preserving `?on=`. `/screen` is the period dashboard from `GET /screen/dashboard` (day / week / month, custom SVG charts, interval or duration capture). The SPA does not recompute streaks, score, or heatmaps.
+Implemented this cycle: night app shell (sidebar + top bar), typed `fetch` client, Home dashboard, Week, Area, Habit, Goals, Catalog, Screen Time, Entertainment, and milestone toggles on goal detail. `/goal` is the four-column north-star board from `GET /views/goals` (long / medium / short plus this week's linked tasks). Goal detail shows parent, children, and linked tasks. Catalog and the create dialog accept optional area (None), horizon, parent, and description; the Home task form can link an optional goal. Catalog slugs link to `/area/:slug`, `/habit/:slug`, and `/goal/:slug`, preserving `?on=`. `/screen` is the period dashboard from `GET /screen/dashboard` (day / week / month, custom SVG charts, interval or duration capture). `/entertainment` is the library board from `GET /entertainment/dashboard` (status columns, poster cards, kind/topic mix, capture). The SPA does not recompute streaks, score, heatmaps, or library counts.
 
-Visual system is a night dashboard shell: near-black navy canvas, raised cards, Inter body, category accents (update purple, slip orange, screen blue, goal green, quick yellow, sleep indigo, health rose, adventure teal, entertainment fuchsia). Light mode keeps a cream canvas so Catalog and review pages stay readable. Theme is stored as `atlas-theme` and applied in `index.html` before paint; first visit follows `prefers-color-scheme`. Display name is local-only (`atlas-display-name`, default Alex). Capture is a dialog wrapping the existing log form (`POST /entries`), plus typed Quick Add for update, slip, task, goal, and journal. Status uses green / amber / red in both modes. Empty states include a Catalog action; loading uses skeletons; errors use `role="alert"`. Home widgets read live views first: Today's Focus and Goals from `/views/today`, Screen Time from `/screen/view` (with a View all link to `/screen`), Updates/Slips/Tasks/Journal from their endpoints, Weekly Overview from `/views/home`. If `/views/today` fails, Home still paints that dashboard with an error banner instead of going blank. Sleep, Health, Adventure, and Entertainment are empty section shells below the live widgets (and in the sidebar) until those domain cycles land. Review pages (Catalog, Area, Habit, Goal, Screen, Goals, life sections) link back to Home. The quote on Home is static copy.
+Visual system is a night dashboard shell: near-black navy canvas, raised cards, Inter body, category accents (update purple, slip orange, screen blue, goal green, quick yellow, sleep indigo, health rose, adventure teal, entertainment fuchsia). Light mode keeps a cream canvas so Catalog and review pages stay readable. Theme is stored as `atlas-theme` and applied in `index.html` before paint; first visit follows `prefers-color-scheme`. Display name is local-only (`atlas-display-name`, default Alex). Capture is a dialog wrapping the existing log form (`POST /entries`), plus typed Quick Add for update, slip, task, goal, and journal. Status uses green / amber / red in both modes. Empty states include a Catalog action; loading uses skeletons; errors use `role="alert"`. Home widgets read live views first: Today's Focus and Goals from `/views/today`, Screen Time from `/screen/view` (with a View all link to `/screen`), Updates/Slips/Tasks/Journal from their endpoints, Weekly Overview from `/views/home`, Entertainment from `/entertainment/view`. If `/views/today` fails, Home still paints that dashboard with an error banner instead of going blank. Sleep, Health, and Adventure are empty section shells below the live widgets (and in the sidebar) until those domain cycles land. Review pages (Catalog, Area, Habit, Goal, Screen, Goals, Entertainment, life sections) link back to Home. The quote on Home is static copy.
 
 
 | Path            | Page                                      | Status      |
@@ -604,7 +687,7 @@ Visual system is a night dashboard shell: near-black navy canvas, raised cards, 
 | `/sleep`          | Empty Sleep section until the sleep domain cycle | implemented |
 | `/health`         | Empty Health section until the health domain cycle | implemented |
 | `/adventure`      | Empty Adventure section until the adventure domain cycle | implemented |
-| `/entertainment`  | Empty Entertainment section until the entertainment domain cycle | implemented |
+| `/entertainment`  | Library board: status columns, posters, kind/topic mix, capture | implemented |
 | `/screen`         | Period dashboard: totals, score, charts, heatmap, insights, capture | implemented |
 | `/tasks`          | Placeholder dedicated page; Home widget and API are live | implemented |
 | `/journal`        | Placeholder dedicated page; Home widget, Quick Add dialog, and API are live | implemented |
@@ -614,17 +697,17 @@ Visual system is a night dashboard shell: near-black navy canvas, raised cards, 
 | `/goal/:slug`   | Goal detail: parent, children, linked tasks, progress, pace, milestone toggles (linked from Catalog) | implemented |
 | `/catalog`      | Create and edit areas, metrics, habits, goals (goal area is optional); slugs link to review pages | implemented |
 
-Package manager is pnpm (`web/pnpm-lock.yaml`, `packageManager` in `web/package.json`). Biome is the only linter and formatter (`web/biome.json`). Never npm, yarn, ESLint, Prettier, or oxlint. Dev: `cd web && pnpm install && pnpm dev` on `:5173`; Vite proxies API prefixes to `127.0.0.1:8000`. Document navigations (`Accept: text/html` or `Sec-Fetch-Dest: document`) to overlapping paths (`/screen`, `/tasks`, `/journal`) still get the SPA. If the API is down, the proxy returns JSON `{detail}` instead of an HTML 502, and review pages keep their chrome with that message. Prod: `cd web && pnpm build` then `atlas serve` serves API and `web/dist` together. Frontend gates: `pnpm lint`, `pnpm test`, `pnpm build`.
+Package manager is pnpm (`web/pnpm-lock.yaml`, `packageManager` in `web/package.json`). Biome is the only linter and formatter (`web/biome.json`). Never npm, yarn, ESLint, Prettier, or oxlint. Dev: `cd web && pnpm install && pnpm dev` on `:5173`; Vite proxies API prefixes to `127.0.0.1:8000`. Document navigations (`Accept: text/html` or `Sec-Fetch-Dest: document`) to overlapping paths (`/screen`, `/tasks`, `/journal`, `/entertainment`) still get the SPA. If the API is down, the proxy returns JSON `{detail}` instead of an HTML 502, and review pages keep their chrome with that message. Prod: `cd web && pnpm build` then `atlas serve` serves API and `web/dist` together. Frontend gates: `pnpm lint`, `pnpm test`, `pnpm build`.
 
 ## CLI
 
-The CLI is capture, catalog definition, and admin — not a frontend. Review (today, week, area, habit, goals, screen) lives in the web SPA. Capture is one line; define, correct, and port take a few keystrokes. Confirmations are one line.
+The CLI is capture, catalog definition, and admin — not a frontend. Review (today, week, area, habit, goals, screen, entertainment) lives in the web SPA. Capture is one line; define, correct, and port take a few keystrokes. Confirmations are one line.
 
 
 | Command                                        | Purpose                                                                                                                            | Status      |
 | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------- |
 | `atlas init`                                   | Create the SQLite file and schema at `ATLAS_DB`                                                                                    | implemented |
-| `atlas seed`                                   | Load a demo dataset dated relative to today (or `--on`). Refuses if the database already has areas unless `--replace`. Prints counts of areas, metrics, habits, goals, entries, tasks, and screen taxonomy/sessions. | implemented |
+| `atlas seed`                                   | Load a demo dataset dated relative to today (or `--on`). Refuses if the database already has areas unless `--replace`. Prints counts of areas, metrics, habits, goals, entries, tasks, screen taxonomy/sessions, and entertainment topics/titles. | implemented |
 | `atlas log <metric> [value]`                   | Capture, the hot path: `atlas log pushups 40`, `atlas log meditated`, `atlas log weight 78.4 --on 2026-08-10 --note "post-travel"`. Metric slugs accept a unique prefix (`push` → `pushups`). | implemented |
 | `atlas area add <slug>`                        | Define an area                                                                                                                     | implemented |
 | `atlas metric add <slug> --area --type --agg`  | Define a metric                                                                                                                    | implemented |
@@ -637,6 +720,9 @@ The CLI is capture, catalog definition, and admin — not a frontend. Review (to
 | `atlas task add <title>`                       | Add a one-off task. `--bucket today\|upcoming\|someday`, `--priority`, `--due`, `--goal`. | implemented |
 | `atlas task done <id>`                         | Stamp `done_at` on a task. | implemented |
 | `atlas screen log <app> [minutes]`             | Record a screen session. Duration: `atlas screen log instagram 30 --on 2026-08-14`. Interval: `atlas screen log instagram --from 2026-08-14T20:00:00+00:00 --to 2026-08-14T20:30:00+00:00`. `--device` / `--note`. | implemented |
+| `atlas entertainment topic add <slug>`         | Define a subject tag. `--name`. | implemented |
+| `atlas entertainment add <name> --kind`        | Add a work. `--slug`, `--creator`, `--recommended-by`, `--topic` (repeatable), `--status`, `--progress`, `--note`, `--image-url` or `--image`. | implemented |
+| `atlas entertainment status <slug> --status`   | Set `queued`, `in_progress`, `done`, or `dropped`. | implemented |
 | `atlas journal <text>`                         | Log a journal entry on the well-known `journal` metric. `--on`. | implemented |
 | `atlas export`                                 | Write a JSON export to stdout                                                                                                      | implemented |
 | `atlas import <file>`                          | Load a JSON export. `--replace` clears user rows first.                                                                            | implemented |
@@ -729,4 +815,5 @@ Append-only, one entry per cycle. Newest last.
 - **2026-08-15 —** `consistency-audit` — Catalog slugs link to `/area/:slug`, `/habit/:slug`, and `/goal/:slug`. `SeedSummary` / `atlas seed` print tasks and screen counts. OpenAPI path lock covers the full HTTP table; import tests cover schema 5–6. Screen `archived_at` is list/import only (no archive endpoint). `/tasks` and `/journal` stay placeholder pages; Home widgets remain the UI.
 - **2026-08-15 —** `home-visible` — Home keeps the live widget grid on screen when `/views/today` fails (banner instead of a blank page), puts those widgets above the empty life-section shells, and review pages link back to `/`.
 - **2026-08-15 —** `proxy-pages` — Vite document requests to `/screen`, `/tasks`, and `/journal` stay on the SPA; a down API returns JSON instead of HTML 502 Bad Gateway. Screen, Goals, Catalog, Week, Area, Habit, and Goal keep page chrome with that message.
+- **2026-08-15 —** `entertainment-library` — Schema 7: isolated entertainment catalog (`EntertainmentTopic`, `EntertainmentTitle`, M2M tags). Status, creator, recommended-by, dates, optional poster (URL or ≤2 MiB blob). No dual-write to entries; minutes stay on Screen Time. `GET /entertainment/dashboard` and `/view`, `atlas entertainment add` / `status`, SPA library board with poster cards. Import accepts schema 1–7.
 

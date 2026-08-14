@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import {
   ApiError,
+  type EntertainmentView,
   type Goal,
   type HabitStatus,
   type HomeWeek,
@@ -72,6 +73,58 @@ export function LifeSectionCard({ section }: { section: LifeSection }) {
         )}
       >
         Open
+      </Link>
+    </Card>
+  )
+}
+
+export function EntertainmentCard({
+  section,
+  view,
+}: {
+  section: LifeSection
+  view: EntertainmentView | null
+}) {
+  const last = view?.last_finished
+  return (
+    <Card className="flex flex-col">
+      <CardHeader>
+        <div>
+          <CardTitle className="text-base">{section.label}</CardTitle>
+          <CardDescription>{section.description}</CardDescription>
+        </div>
+        <Clapperboard className="size-4 text-entertainment" aria-hidden />
+      </CardHeader>
+      {view === null ? (
+        <p className="text-sm text-muted">Nothing here yet.</p>
+      ) : (
+        <>
+          <p className="text-3xl font-semibold tracking-tight">{view.in_progress}</p>
+          <p className="mt-1 text-sm text-muted">
+            In progress · {view.finished_this_week} finished this week
+          </p>
+          {last ? (
+            <div className="mt-3 flex items-center gap-3">
+              {last.image ? (
+                <img src={last.image} alt="" className="size-10 rounded-lg object-cover" />
+              ) : (
+                <span className="flex size-10 items-center justify-center rounded-lg bg-entertainment/20 text-entertainment">
+                  <Clapperboard className="size-4" aria-hidden />
+                </span>
+              )}
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{last.name}</p>
+                <p className="text-xs text-muted">Last finished</p>
+              </div>
+            </div>
+          ) : null}
+        </>
+      )}
+      <Link
+        to={section.path}
+        className="mt-auto pt-3 text-xs font-medium text-entertainment hover:underline"
+      >
+        View all
       </Link>
     </Card>
   )

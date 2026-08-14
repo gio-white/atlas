@@ -19,6 +19,7 @@ const apiPrefixes = [
   '/slips',
   '/tasks',
   '/journal',
+  '/entertainment',
   '/export',
   '/import',
 ]

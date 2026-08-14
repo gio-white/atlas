@@ -36,6 +36,8 @@ def test_export_and_import_round_trip(runner, tmp_path):
     assert payload["screen_categories"] == []
     assert payload["screen_apps"] == []
     assert payload["screen_budgets"] == []
+    assert payload["entertainment_topics"] == []
+    assert payload["entertainment_titles"] == []
     assert payload["entries"][0]["source"] == "cli"
 
     path = tmp_path / "atlas.json"

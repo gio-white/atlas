@@ -3,6 +3,9 @@ from typing import Any
 from sqlmodel import Session
 
 from atlas.api.schemas import (
+    EntertainmentTitleOut,
+    EntertainmentTopicOut,
+    EntertainmentTopicRefOut,
     EntryOut,
     GoalDetailOut,
     GoalOut,
@@ -39,6 +42,7 @@ from atlas.services import (
     list_screen_apps,
     list_screen_categories,
     list_screen_devices,
+    title_view_for,
 )
 
 
@@ -301,3 +305,35 @@ def screen_session_records_out(session: Session, rows: list[Any]) -> list[Screen
         )
         for row in rows
     ]
+
+
+def entertainment_topic_out(topic: Any) -> EntertainmentTopicOut:
+    return EntertainmentTopicOut(
+        id=topic.id,
+        slug=topic.slug,
+        name=topic.name,
+        archived_at=topic.archived_at,
+    )
+
+
+def entertainment_title_out(view: Any) -> EntertainmentTitleOut:
+    return EntertainmentTitleOut(
+        slug=view.slug,
+        name=view.name,
+        kind=view.kind,
+        creator=view.creator,
+        recommended_by=view.recommended_by,
+        status=view.status,
+        started_on=view.started_on,
+        finished_on=view.finished_on,
+        progress=view.progress,
+        note=view.note,
+        topics=[
+            EntertainmentTopicRefOut(slug=topic.slug, name=topic.name) for topic in view.topics
+        ],
+        image=view.image,
+    )
+
+
+def entertainment_title_out_for(session: Session, title: Any) -> EntertainmentTitleOut:
+    return entertainment_title_out(title_view_for(session, title))

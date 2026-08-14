@@ -110,3 +110,19 @@ class TaskPriority(StrEnum):
     HIGH = "high"
     NORMAL = "normal"
     LOW = "low"
+
+
+class EntertainmentKind(StrEnum):
+    FILM = "film"
+    SERIES = "series"
+    ANIME = "anime"
+    VIDEO = "video"
+    PODCAST = "podcast"
+    BOOK = "book"
+
+
+class EntertainmentStatus(StrEnum):
+    QUEUED = "queued"
+    IN_PROGRESS = "in_progress"
+    DONE = "done"
+    DROPPED = "dropped"

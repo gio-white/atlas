@@ -41,6 +41,13 @@ IMPLEMENTED_PATHS = frozenset(
         "/tasks",
         "/tasks/{task_id}",
         "/journal",
+        "/entertainment/view",
+        "/entertainment/dashboard",
+        "/entertainment/topics",
+        "/entertainment/topics/{slug}",
+        "/entertainment/titles",
+        "/entertainment/titles/{slug}",
+        "/entertainment/titles/{slug}/image",
         "/export",
         "/import",
     }

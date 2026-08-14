@@ -31,6 +31,8 @@ from atlas.db import init_db
 from atlas.domain import (
     Aggregation,
     Direction,
+    EntertainmentKind,
+    EntertainmentStatus,
     GoalHorizon,
     GoalKind,
     Period,
@@ -41,6 +43,8 @@ from atlas.domain import (
 from atlas.services import (
     amend_entry,
     create_area,
+    create_entertainment_title,
+    create_entertainment_topic,
     create_goal,
     create_habit,
     create_metric,
@@ -56,6 +60,8 @@ from atlas.services import (
     log_slip,
     log_update,
     seed_demo,
+    set_title_image,
+    update_entertainment_title,
     update_task,
 )
 from atlas.settings import load_settings
@@ -68,6 +74,14 @@ goal_app = typer.Typer(no_args_is_help=True, add_completion=False, help="Define 
 entry_app = typer.Typer(no_args_is_help=True, add_completion=False, help="Amend or delete entries.")
 task_app = typer.Typer(no_args_is_help=True, add_completion=False, help="Capture one-off tasks.")
 screen_app = typer.Typer(no_args_is_help=True, add_completion=False, help="Log screen sessions.")
+entertainment_app = typer.Typer(
+    no_args_is_help=True,
+    add_completion=False,
+    help="Track films, series, books, and other works.",
+)
+entertainment_topic_app = typer.Typer(
+    no_args_is_help=True, add_completion=False, help="Define subject tags."
+)
 
 app.add_typer(area_app, name="area")
 app.add_typer(metric_app, name="metric")
@@ -76,6 +90,8 @@ app.add_typer(goal_app, name="goal")
 app.add_typer(entry_app, name="entry")
 app.add_typer(task_app, name="task")
 app.add_typer(screen_app, name="screen")
+app.add_typer(entertainment_app, name="entertainment")
+entertainment_app.add_typer(entertainment_topic_app, name="topic")
 
 
 @app.callback()
@@ -366,6 +382,65 @@ def screen_log(
             note=note,
         )
         print_screen_logged(app_slug, row)
+
+
+@entertainment_topic_app.command("add")
+def entertainment_topic_add(
+    slug: Annotated[str, typer.Argument()],
+    name: Annotated[str | None, typer.Option("--name")] = None,
+) -> None:
+    """Define a subject tag such as finance or programming."""
+    with cli_session() as session:
+        topic = create_entertainment_topic(session, slug, name=name)
+        print_created("entertainment topic", topic.slug)
+
+
+@entertainment_app.command("add")
+def entertainment_add(
+    name: Annotated[str, typer.Argument()],
+    kind: Annotated[EntertainmentKind, typer.Option("--kind")],
+    slug: Annotated[str | None, typer.Option("--slug")] = None,
+    creator: Annotated[str | None, typer.Option("--creator")] = None,
+    recommended_by: Annotated[str | None, typer.Option("--recommended-by")] = None,
+    topic: Annotated[list[str] | None, typer.Option("--topic")] = None,
+    status: Annotated[EntertainmentStatus, typer.Option("--status")] = EntertainmentStatus.QUEUED,
+    image_url: Annotated[str | None, typer.Option("--image-url")] = None,
+    image: Annotated[Path | None, typer.Option("--image")] = None,
+    progress: Annotated[str | None, typer.Option("--progress")] = None,
+    note: Annotated[str | None, typer.Option("--note")] = None,
+) -> None:
+    """Add a work to the entertainment library."""
+    if image is not None and image_url:
+        fail("pass either --image or --image-url, not both")
+    with cli_session() as session:
+        title = create_entertainment_title(
+            session,
+            slug or slugify(name),
+            kind=kind,
+            name=name,
+            creator=creator,
+            recommended_by=recommended_by,
+            status=status,
+            progress=progress,
+            note=note,
+            topics=topic or [],
+            image_url=image_url,
+        )
+        if image is not None:
+            data = image.read_bytes()
+            set_title_image(session, title.slug, data, filename=image.name)
+        print_created("entertainment title", title.slug)
+
+
+@entertainment_app.command("status")
+def entertainment_status(
+    slug: Annotated[str, typer.Argument()],
+    status: Annotated[EntertainmentStatus, typer.Option("--status")],
+) -> None:
+    """Update the status of a tracked work."""
+    with cli_session() as session:
+        title = update_entertainment_title(session, slug, status=status)
+        typer.echo(f"entertainment {title.slug} is {title.status}")
 
 
 @app.command("export")

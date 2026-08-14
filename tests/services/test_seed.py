@@ -29,6 +29,8 @@ def test_seed_demo_loads_the_demo_dataset(session):
     assert summary.screen_apps == 6
     assert summary.screen_devices == 2
     assert summary.screen_sessions >= 28
+    assert summary.entertainment_topics == 4
+    assert summary.entertainment_titles == 8
 
     payload = export_all(session)
     assert payload["schema_version"] == CURRENT_SCHEMA_VERSION
@@ -88,6 +90,21 @@ def test_seed_demo_loads_the_demo_dataset(session):
     assert {row["slug"] for row in payload["screen_devices"]} == {"iphone", "macbook"}
     assert payload["screen_budgets"][0]["target_slug"] == "waste"
     assert len(payload["screen_sessions"]) >= 28
+    assert {row["slug"] for row in payload["entertainment_topics"]} == {
+        "finance",
+        "math",
+        "physics",
+        "programming",
+    }
+    assert len(payload["entertainment_titles"]) == 8
+    assert {row["kind"] for row in payload["entertainment_titles"]} >= {
+        "book",
+        "film",
+        "series",
+        "anime",
+        "video",
+        "podcast",
+    }
     interval = [row for row in payload["screen_sessions"] if row["started_at"]]
     duration_only = [row for row in payload["screen_sessions"] if row["started_at"] is None]
     assert len(interval) > len(duration_only)

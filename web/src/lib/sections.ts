@@ -21,7 +21,7 @@ export const LIFE_SECTIONS = [
     slug: 'entertainment',
     path: '/entertainment',
     label: 'Entertainment',
-    description: 'Shows, games, and leisure.',
+    description: 'What you have seen: films, series, books, and more.',
   },
 ] as const
 
