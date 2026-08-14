@@ -1,32 +1,49 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 
 import { PaceBadge } from '@/components/PaceBadge'
 import { PageError, PageLoading, ProgressBar } from '@/components/PageState'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   ApiError,
+  type Goal,
   type GoalDetail,
   type GoalProgress,
   getGoal,
   getGoalProgress,
+  listGoals,
+  listTasks,
+  type TaskItem,
   toggleMilestone,
+  updateTask,
 } from '@/lib/api'
 import { useAsOf } from '@/lib/asOf'
 import { formatPercent } from '@/lib/format'
+import { HORIZON_META } from '@/lib/horizons'
 
 export function GoalPage() {
   const { slug } = useParams()
   const asOf = useAsOf()
+  const [params] = useSearchParams()
+  const search = params.toString()
   const [report, setReport] = useState<GoalProgress | null>(null)
   const [detail, setDetail] = useState<GoalDetail | null>(null)
+  const [children, setChildren] = useState<Goal[]>([])
+  const [tasks, setTasks] = useState<TaskItem[]>([])
   const [error, setError] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     if (slug === undefined) return
-    const [progress, goal] = await Promise.all([getGoalProgress(slug, asOf), getGoal(slug)])
+    const [progress, goal, childRows, taskRows] = await Promise.all([
+      getGoalProgress(slug, asOf),
+      getGoal(slug),
+      listGoals({ parent: slug }),
+      listTasks({ goal: slug, include_done: true }),
+    ])
     setReport(progress)
     setDetail(goal)
+    setChildren(childRows)
+    setTasks(taskRows)
   }, [slug, asOf])
 
   useEffect(() => {
@@ -52,10 +69,27 @@ export function GoalPage() {
       <Card>
         <CardHeader>
           <div>
+            <p className="font-mono text-xs text-muted">
+              {HORIZON_META[report.horizon].label}
+              {report.parent !== null ? (
+                <>
+                  {' '}
+                  · parent{' '}
+                  <Link className="underline" to={{ pathname: `/goal/${report.parent}`, search }}>
+                    {report.parent}
+                  </Link>
+                </>
+              ) : null}
+            </p>
             <CardTitle>{report.name}</CardTitle>
-            <CardDescription className="mt-1 font-mono">
-              {report.kind}
-              {report.metric_slug !== null ? ` · ${report.metric_slug}` : ''} · due {report.due_on}
+            <CardDescription className="mt-1">
+              {report.description ?? (
+                <span className="font-mono">
+                  {report.kind}
+                  {report.metric_slug !== null ? ` · ${report.metric_slug}` : ''} · due{' '}
+                  {report.due_on}
+                </span>
+              )}
             </CardDescription>
           </div>
           <PaceBadge pace={report.pace} />
@@ -121,6 +155,56 @@ export function GoalPage() {
                   {milestone.due_on !== null && (
                     <span className="font-mono text-xs text-muted">{milestone.due_on}</span>
                   )}
+                </label>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+      {children.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Next horizon</CardTitle>
+          </CardHeader>
+          <ul className="flex flex-col gap-2">
+            {children.map((child) => (
+              <li key={child.slug}>
+                <Link
+                  to={{ pathname: `/goal/${child.slug}`, search }}
+                  className="flex min-h-11 items-center justify-between rounded-xl px-2 text-sm hover:bg-raised"
+                >
+                  <span>{child.name}</span>
+                  <span className="font-mono text-xs text-muted">{child.horizon}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+      {tasks.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Linked tasks</CardTitle>
+          </CardHeader>
+          <ul className="flex flex-col gap-2">
+            {tasks.map((task) => (
+              <li key={task.id}>
+                <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-accent"
+                    checked={task.done_at !== null}
+                    onChange={() => {
+                      updateTask(task.id, { done: task.done_at === null })
+                        .then(refresh)
+                        .catch((caught: unknown) => {
+                          setError(caught instanceof ApiError ? caught.message : 'Could not update')
+                        })
+                    }}
+                  />
+                  <span className={task.done_at !== null ? 'text-muted line-through' : undefined}>
+                    {task.title}
+                  </span>
                 </label>
               </li>
             ))}

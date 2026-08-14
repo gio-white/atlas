@@ -17,12 +17,14 @@ import { PageError, PageLoading } from '@/components/PageState'
 import {
   ApiError,
   createTask,
+  type Goal,
   getHomeWeek,
   getScreenView,
   getSlips,
   getToday,
   getUpdates,
   type HomeWeek,
+  listGoals,
   listMetrics,
   listTasks,
   logSlip,
@@ -47,12 +49,13 @@ export function HomePage() {
   const [slips, setSlips] = useState<SlipsWeek | null>(null)
   const [week, setWeek] = useState<HomeWeek | null>(null)
   const [tasks, setTasks] = useState<TaskItem[]>([])
+  const [goals, setGoals] = useState<Goal[]>([])
   const [error, setError] = useState<string | null>(null)
   const [journalOpen, setJournalOpen] = useState(false)
   const greeting = greetingForHour(new Date().getHours())
 
   const refresh = useCallback(async () => {
-    const [today, metricRows, screen, updateStatus, slipWeek, taskRows, homeWeek] =
+    const [today, metricRows, screen, updateStatus, slipWeek, taskRows, homeWeek, goalRows] =
       await Promise.all([
         getToday(asOf),
         listMetrics(),
@@ -61,6 +64,7 @@ export function HomePage() {
         getSlips(asOf).catch(() => null),
         listTasks({ include_done: true }).catch(() => []),
         getHomeWeek(asOf).catch(() => null),
+        listGoals().catch(() => []),
       ])
     setView(today)
     setMetrics(metricRows)
@@ -69,6 +73,7 @@ export function HomePage() {
     setSlips(slipWeek)
     setTasks(taskRows)
     setWeek(homeWeek)
+    setGoals(goalRows)
   }, [asOf])
 
   useEffect(() => {
@@ -117,8 +122,9 @@ export function HomePage() {
         />
         <TasksCard
           tasks={tasks}
-          onAdd={async (title, bucket) => {
-            await createTask({ title, bucket })
+          goals={goals}
+          onAdd={async (title, bucket, goal) => {
+            await createTask({ title, bucket, goal })
             await refresh()
           }}
           onToggle={async (id, done) => {

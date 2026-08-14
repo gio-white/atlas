@@ -523,7 +523,7 @@ There is no authentication. The app binds to localhost only (`127.0.0.1`). CORS 
 
 The UI is a React SPA in `web/` (Vite, TypeScript, Tailwind, shadcn-style primitives). It consumes the HTTP API only. FastAPI does not render HTML templates. When `web/dist` is present, GET 404s that are not API routes return `index.html`.
 
-Implemented this cycle: night app shell (sidebar + top bar), typed `fetch` client, Home dashboard, Week, Area, Habit, Goals, Catalog, and milestone toggles on goal detail.
+Implemented this cycle: night app shell (sidebar + top bar), typed `fetch` client, Home dashboard, Week, Area, Habit, Goals, Catalog, and milestone toggles on goal detail. `/goal` is the four-column north-star board from `GET /views/goals` (long / medium / short plus this week's linked tasks). Goal detail shows parent, children, and linked tasks. Catalog and the create dialog accept horizon, parent, and description; the Home task form can link an optional goal.
 
 Visual system is a night dashboard shell: near-black navy canvas, raised cards, Inter body, category accents (update purple, slip orange, screen blue, goal green, quick yellow). Light mode keeps a cream canvas so Catalog and review pages stay readable. Theme is stored as `atlas-theme` and applied in `index.html` before paint; first visit follows `prefers-color-scheme`. Display name is local-only (`atlas-display-name`, default Alex). Capture is a dialog wrapping the existing log form (`POST /entries`), plus typed Quick Add for update, slip, task, goal, and journal. Status uses green / amber / red in both modes. Empty states include a Catalog action; loading uses skeletons; errors use `role="alert"`. Home widgets read live views: Today's Focus and Goals from `/views/today`, Screen Time from `/screen/view`, Updates/Slips/Tasks/Journal from their endpoints, Weekly Overview from `/views/home`. The quote on Home is static copy. Hourly screen bars wait on an hour-bucket API.
 
@@ -539,8 +539,8 @@ Visual system is a night dashboard shell: near-black navy canvas, raised cards, 
 | `/journal`      | Placeholder until the journal domain cycle | implemented |
 | `/area/:slug`   | Area dashboard                            | implemented |
 | `/habit/:slug`  | Habit streak and adherence                | implemented |
-| `/goal`         | Goals with progress and pace              | implemented |
-| `/goal/:slug`   | Goal detail, progress, pace, milestone toggles | implemented |
+| `/goal`         | Four-column north-star board (long / medium / short / this week's linked tasks) | implemented |
+| `/goal/:slug`   | Goal detail: parent, children, linked tasks, progress, pace, milestone toggles | implemented |
 | `/catalog`      | Create and edit areas, metrics, habits, goals | implemented |
 
 Package manager is pnpm (`web/pnpm-lock.yaml`, `packageManager` in `web/package.json`). Biome is the only linter and formatter (`web/biome.json`). Never npm, yarn, ESLint, Prettier, or oxlint. Dev: `cd web && pnpm install && pnpm dev` on `:5173`; Vite proxies API prefixes to `127.0.0.1:8000`. Prod: `cd web && pnpm build` then `atlas serve` serves API and `web/dist` together. Frontend gates: `pnpm lint`, `pnpm test`, `pnpm build`.
@@ -648,4 +648,5 @@ Append-only, one entry per cycle. Newest last.
 - **2026-08-14 —** `journal-domain` — Well-known `journal` text metric. `POST /journal` / `atlas journal` wrap `log_entry`; `GET /journal` returns the latest text for `as_of`. Quick Add Goal opens `/goal`; Quick Add Journal opens a capture dialog.
 - **2026-08-14 —** `home-wire` — Removed dashboard fixtures. Weekly Overview reads `GET /views/home` (check-in days, slips, screen minutes, tasks done, and 7-day series). Quick Add pills call the matching capture APIs or focus the Tasks input.
 - **2026-08-14 —** `goal-hierarchy` — Schema 4: `GoalHorizon` (`long` / `medium` / `short`), optional `parent_id` and `description` on goals, optional `goal_id` on tasks. Parent must be the previous horizon. Progress stays per-goal. `goals_board` / `GET /views/goals` groups columns and this week's linked tasks. Import still accepts schema 1–3 and infers missing horizon from the date window.
+- **2026-08-14 —** `web-goals-board` — `/goal` is the four-column north-star board from `GET /views/goals`. Goal detail shows parent, children, and linked tasks. Catalog and the create dialog take horizon, parent, and description; Home task create can link a goal.
 

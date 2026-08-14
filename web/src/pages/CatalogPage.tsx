@@ -19,6 +19,7 @@ import {
   createMetric,
   type Direction,
   type Goal,
+  type GoalHorizon,
   type GoalKind,
   type GoalStatus,
   type Habit,
@@ -34,6 +35,7 @@ import {
   updateMetric,
   type ValueType,
 } from '@/lib/api'
+import { HORIZONS, PARENT_HORIZON } from '@/lib/horizons'
 import { isValidSlug } from '@/lib/slug'
 import { todayIso } from '@/lib/utils'
 
@@ -523,6 +525,9 @@ function GoalSection({
   const [startOn, setStartOn] = useState(todayIso())
   const [dueOn, setDueOn] = useState(todayIso())
   const [milestones, setMilestones] = useState('')
+  const [horizon, setHorizon] = useState<GoalHorizon>('medium')
+  const [parent, setParent] = useState('')
+  const [description, setDescription] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -555,6 +560,9 @@ function GoalSection({
         target_value: kind === 'metric_target' ? Number(target) : null,
         comparator: kind === 'metric_target' ? comparator : null,
         measure: kind === 'metric_target' ? measure : null,
+        horizon,
+        parent: parent || null,
+        description: description || null,
         milestones:
           kind === 'milestone'
             ? milestones
@@ -568,6 +576,7 @@ function GoalSection({
       setName('')
       setTarget('')
       setMilestones('')
+      setDescription('')
       await onChange()
     } catch (caught) {
       setError(messageOf(caught))
@@ -595,6 +604,39 @@ function GoalSection({
           />
           <Field label="Start" value={startOn} onChange={setStartOn} type="date" />
           <Field label="Due" value={dueOn} onChange={setDueOn} type="date" />
+          <SelectField
+            label="Horizon"
+            value={horizon}
+            onChange={(value) => {
+              setHorizon(value as GoalHorizon)
+              setParent('')
+            }}
+            options={[...HORIZONS]}
+          />
+          {PARENT_HORIZON[horizon] !== null && (
+            <SelectField
+              label="Parent"
+              value={parent}
+              onChange={setParent}
+              options={[
+                '',
+                ...goals
+                  .filter((goal) => goal.horizon === PARENT_HORIZON[horizon])
+                  .map((goal) => goal.slug),
+              ]}
+              labels={{ '': 'None' }}
+              required={false}
+            />
+          )}
+          <div className="sm:col-span-3">
+            <Label htmlFor="goal-description">Description</Label>
+            <textarea
+              id="goal-description"
+              className="mt-1 min-h-16 w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+            />
+          </div>
           {kind === 'metric_target' ? (
             <>
               <SelectField
@@ -639,18 +681,36 @@ function GoalSection({
         )}
       </Card>
       {goals.map((goal) => (
-        <EditableGoal key={goal.slug} goal={goal} onChange={onChange} />
+        <EditableGoal key={goal.slug} goal={goal} goals={goals} onChange={onChange} />
       ))}
     </section>
   )
 }
 
-function EditableGoal({ goal, onChange }: { goal: Goal; onChange: () => Promise<void> }) {
+function EditableGoal({
+  goal,
+  goals,
+  onChange,
+}: {
+  goal: Goal
+  goals: Goal[]
+  onChange: () => Promise<void>
+}) {
   const [name, setName] = useState(goal.name)
   const [dueOn, setDueOn] = useState(goal.due_on)
   const [target, setTarget] = useState(goal.target_value === null ? '' : String(goal.target_value))
   const [status, setStatus] = useState(goal.status)
+  const [horizon, setHorizon] = useState(goal.horizon)
+  const [parent, setParent] = useState(goal.parent ?? '')
+  const [description, setDescription] = useState(goal.description ?? '')
   const [error, setError] = useState<string | null>(null)
+  const parentHorizon = PARENT_HORIZON[horizon]
+  const parentOptions =
+    parentHorizon === null
+      ? []
+      : goals
+          .filter((item) => item.slug !== goal.slug && item.horizon === parentHorizon)
+          .map((item) => item.slug)
 
   async function onSave(event: FormEvent) {
     event.preventDefault()
@@ -661,6 +721,9 @@ function EditableGoal({ goal, onChange }: { goal: Goal; onChange: () => Promise<
         due_on: dueOn,
         target_value: goal.kind === 'metric_target' && target !== '' ? Number(target) : undefined,
         status: status === 'achieved' ? undefined : (status as Exclude<GoalStatus, 'achieved'>),
+        horizon,
+        parent: parent || null,
+        description: description || null,
       })
       await onChange()
     } catch (caught) {
@@ -685,6 +748,35 @@ function EditableGoal({ goal, onChange }: { goal: Goal; onChange: () => Promise<
           onChange={(value) => setStatus(value as GoalStatus)}
           options={['active', 'paused', 'abandoned', 'achieved']}
         />
+        <SelectField
+          label="Horizon"
+          value={horizon}
+          onChange={(value) => {
+            const next = value as GoalHorizon
+            setHorizon(next)
+            setParent('')
+          }}
+          options={[...HORIZONS]}
+        />
+        {parentHorizon !== null && (
+          <SelectField
+            label="Parent"
+            value={parent}
+            onChange={setParent}
+            options={['', ...parentOptions]}
+            labels={{ '': 'None' }}
+            required={false}
+          />
+        )}
+        <div className="min-w-32 flex-1">
+          <Label htmlFor={`${goal.slug}-description`}>Description</Label>
+          <textarea
+            id={`${goal.slug}-description`}
+            className="mt-1 min-h-16 w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+          />
+        </div>
         <Button type="submit" size="sm">
           Save
         </Button>
@@ -731,20 +823,29 @@ function SelectField({
   value,
   onChange,
   options,
+  labels,
+  required = true,
 }: {
   label: string
   value: string
   onChange: (value: string) => void
   options: string[]
+  labels?: Record<string, string>
+  required?: boolean
 }) {
   const id = label.toLowerCase().replaceAll(' ', '-')
   return (
     <div className="flex min-w-32 flex-1 flex-col gap-1">
       <Label htmlFor={id}>{label}</Label>
-      <Select id={id} value={value} onChange={(event) => onChange(event.target.value)} required>
+      <Select
+        id={id}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        required={required}
+      >
         {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
+          <option key={option || 'none'} value={option}>
+            {labels?.[option] ?? option}
           </option>
         ))}
       </Select>

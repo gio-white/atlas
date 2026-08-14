@@ -4,6 +4,7 @@ export type Direction = 'higher_is_better' | 'lower_is_better' | 'neutral'
 export type Period = 'day' | 'week' | 'month'
 export type Comparator = 'at_least' | 'at_most' | 'exactly'
 export type GoalKind = 'metric_target' | 'milestone'
+export type GoalHorizon = 'long' | 'medium' | 'short'
 export type GoalStatus = 'active' | 'achieved' | 'paused' | 'abandoned'
 export type PaceStatus = 'achieved' | 'overdue' | 'no_data' | 'ahead' | 'on_track' | 'behind'
 export type Source = 'cli' | 'api' | 'import'
@@ -67,6 +68,9 @@ export type Goal = {
   measure: 'latest_value' | 'cumulative_since_start' | null
   start_on: string
   due_on: string
+  horizon: GoalHorizon
+  parent: string | null
+  description: string | null
   status: GoalStatus
   achieved_at: string | null
 }
@@ -110,6 +114,9 @@ export type GoalProgress = {
   start_on: string
   due_on: string
   as_of: string
+  horizon: GoalHorizon
+  parent: string | null
+  description: string | null
 }
 
 export type LoggedEntry = {
@@ -217,8 +224,32 @@ export type TaskItem = {
   due_on: string | null
   due_at: string | null
   priority: TaskPriority
+  goal: string | null
   done_at: string | null
   created_at: string
+}
+
+export type GoalBoardColumn = {
+  horizon: GoalHorizon
+  on_track: number
+  total: number
+  fraction: number | null
+  goals: GoalProgress[]
+}
+
+export type GoalBoardWeek = {
+  total: number
+  done: number
+  fraction: number | null
+  tasks: TaskItem[]
+}
+
+export type GoalsBoard = {
+  as_of: string
+  long: GoalBoardColumn
+  medium: GoalBoardColumn
+  short: GoalBoardColumn
+  week: GoalBoardWeek
 }
 
 export type JournalDay = {
@@ -311,8 +342,24 @@ export function listHabits(metric?: string): Promise<Habit[]> {
   return request(`/habits${queryString({ metric })}`)
 }
 
-export function listGoals(filters?: { area?: string; status?: GoalStatus }): Promise<Goal[]> {
-  return request(`/goals${queryString({ area: filters?.area, status: filters?.status })}`)
+export function listGoals(filters?: {
+  area?: string
+  status?: GoalStatus
+  horizon?: GoalHorizon
+  parent?: string
+}): Promise<Goal[]> {
+  return request(
+    `/goals${queryString({
+      area: filters?.area,
+      status: filters?.status,
+      horizon: filters?.horizon,
+      parent: filters?.parent,
+    })}`,
+  )
+}
+
+export function getGoalsBoard(asOf?: string): Promise<GoalsBoard> {
+  return request(`/views/goals${queryString({ as_of: asOf })}`)
 }
 
 export function getToday(asOf?: string): Promise<TodayView> {
@@ -356,9 +403,14 @@ export function logSlip(body?: {
 export function listTasks(filters?: {
   bucket?: TaskBucket
   include_done?: boolean
+  goal?: string
 }): Promise<TaskItem[]> {
   return request(
-    `/tasks${queryString({ bucket: filters?.bucket, include_done: filters?.include_done })}`,
+    `/tasks${queryString({
+      bucket: filters?.bucket,
+      include_done: filters?.include_done,
+      goal: filters?.goal,
+    })}`,
   )
 }
 
@@ -368,6 +420,7 @@ export function createTask(body: {
   due_on?: string | null
   due_at?: string | null
   priority?: TaskPriority
+  goal?: string | null
 }): Promise<TaskItem> {
   return request('/tasks', { method: 'POST', body: JSON.stringify(body) })
 }
@@ -381,6 +434,7 @@ export function updateTask(
     due_at: string | null
     priority: TaskPriority
     done: boolean
+    goal: string | null
   }>,
 ): Promise<TaskItem> {
   return request(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
@@ -512,6 +566,9 @@ export function createGoal(body: {
   baseline_value?: number | null
   measure?: 'latest_value' | 'cumulative_since_start' | null
   milestones?: { name: string; due_on?: string | null }[] | null
+  horizon?: GoalHorizon | null
+  parent?: string | null
+  description?: string | null
 }): Promise<Goal> {
   return request('/goals', { method: 'POST', body: JSON.stringify(body) })
 }
@@ -527,6 +584,9 @@ export function updateGoal(
     due_on?: string
     target_value?: number
     status?: Exclude<GoalStatus, 'achieved'>
+    horizon?: GoalHorizon
+    parent?: string | null
+    description?: string | null
   },
 ): Promise<Goal> {
   return request(`/goals/${encodeURIComponent(slug)}`, {

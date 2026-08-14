@@ -16,8 +16,10 @@ import { ProgressBar } from '@/components/PageState'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import {
   ApiError,
+  type Goal,
   type HabitStatus,
   type HomeWeek,
   logEntry,
@@ -242,15 +244,18 @@ const TASK_TABS: TaskBucket[] = ['today', 'upcoming', 'someday']
 
 export function TasksCard({
   tasks,
+  goals,
   onAdd,
   onToggle,
 }: {
   tasks: TaskItem[]
-  onAdd: (title: string, bucket: TaskBucket) => Promise<void>
+  goals: Goal[]
+  onAdd: (title: string, bucket: TaskBucket, goal: string | null) => Promise<void>
   onToggle: (id: number, done: boolean) => Promise<void>
 }) {
   const [tab, setTab] = useState<TaskBucket>('today')
   const [draft, setDraft] = useState('')
+  const [goal, setGoal] = useState('')
   const [pending, setPending] = useState(false)
   const items = tasks.filter((task) => task.bucket === tab)
   return (
@@ -295,19 +300,35 @@ export function TasksCard({
           const title = draft.trim()
           if (title === '') return
           setPending(true)
-          void onAdd(title, tab).finally(() => {
+          void onAdd(title, tab, goal || null).finally(() => {
             setDraft('')
             setPending(false)
           })
         }}
       >
-        <Input
-          id="home-task-title"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="Add a task"
-          aria-label="New task title"
-        />
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <Input
+            id="home-task-title"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="Add a task"
+            aria-label="New task title"
+          />
+          {goals.length > 0 && (
+            <Select
+              aria-label="Link to goal"
+              value={goal}
+              onChange={(event) => setGoal(event.target.value)}
+            >
+              <option value="">No goal</option>
+              {goals.map((item) => (
+                <option key={item.slug} value={item.slug}>
+                  {item.name}
+                </option>
+              ))}
+            </Select>
+          )}
+        </div>
         <Button type="submit" size="sm" disabled={pending || draft.trim() === ''}>
           <Plus className="size-4" aria-hidden />
           Add
@@ -343,6 +364,11 @@ function TaskRow({
       >
         {task.title}
       </span>
+      {task.goal !== null && (
+        <span className="truncate text-xs text-muted" title={task.goal}>
+          {task.goal}
+        </span>
+      )}
       {when !== null && <span className="text-xs text-muted">{when}</span>}
       {task.priority === 'high' && (
         <span className="rounded-full bg-bad/15 px-2 py-0.5 text-[10px] font-semibold text-bad">
