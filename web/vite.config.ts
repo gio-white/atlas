@@ -28,6 +28,6 @@ export default defineConfig({
     proxy: Object.fromEntries(apiPrefixes.map((prefix) => [prefix, API])),
   },
   test: {
-    environment: 'jsdom',
+    environment: 'node',
   },
 })

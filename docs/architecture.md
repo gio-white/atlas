@@ -399,6 +399,8 @@ The UI is a React SPA in `web/` (Vite, TypeScript, Tailwind, shadcn-style primit
 
 Implemented this cycle: app shell, typed `fetch` client, Today, Week, Area, Habit, Goals, Catalog, and milestone toggles on goal detail.
 
+Visual system follows UI UX Pro Max **Soft UI Evolution**: warm cream canvas (`#FFFBEB`) in light mode and slate navy (`#0F172A`) in dark mode, streak amber, habit/CTA green, Lora headings and Raleway body, soft card shadows, dense dashboard spacing. A sun/moon control in the sticky header toggles the theme; the choice is stored in `localStorage` (`atlas-theme`) and applied before paint to avoid a flash. First visit follows `prefers-color-scheme`. Status uses green / amber / red in both modes. Empty states include a Catalog action; loading uses skeletons; errors use `role="alert"`.
+
 
 | Path            | Page                                      | Status      |
 | --------------- | ----------------------------------------- | ----------- |
@@ -499,4 +501,6 @@ Append-only, one entry per cycle. Newest last.
 - **2026-08-13 —** `api-catalog` — GET by slug, archive, PATCH for areas/metrics/habits/goals, goal detail with milestones, and milestone toggle on the HTTP API.
 - **2026-08-13 —** `web-catalog` — Catalog UI to create/edit/archive areas, metrics, habits, and goals. Goal detail toggles milestones through the API.
 - **2026-08-14 —** `web-tooling` — Frontend uses pnpm and Biome only. Replaced npm/oxlint with `pnpm-lock.yaml` and `web/biome.json`. Added `.cursor/rules/frontend.mdc` (and a pointer in `tooling.mdc`) so agents keep using pnpm and Biome.
+- **2026-08-14 —** `web-ui-ux` — Restyled the SPA with UI UX Pro Max Soft UI Evolution: cream canvas, amber streaks, green CTAs, Lora/Raleway, sticky nav with Lucide icons, progress bars, skeleton loading, and empty states that point at Catalog.
+- **2026-08-14 —** `web-dark-mode` — Light/dark themes via semantic CSS tokens and a sticky header sun/moon toggle. Preference is stored as `atlas-theme` and applied in `index.html` before paint; first visit follows the OS color scheme.
 

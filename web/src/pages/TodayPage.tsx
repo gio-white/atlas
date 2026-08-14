@@ -2,6 +2,7 @@ import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react
 import { Link, useSearchParams } from 'react-router-dom'
 import { LogForm } from '@/components/LogForm'
 import { PaceBadge } from '@/components/PaceBadge'
+import { EmptyState, PageError, PageHeader, PageLoading, ProgressBar } from '@/components/PageState'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -55,20 +56,24 @@ export function TodayPage() {
   )
 
   if (error !== null) {
-    return <p className="text-sm text-bad">{error}</p>
+    return <PageError message={error} />
   }
   if (view === null) {
-    return <p className="text-sm text-muted">Loading…</p>
+    return <PageLoading />
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-      <div className="flex flex-col gap-6">
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="flex flex-col gap-5">
         <section className="flex flex-col gap-3">
-          <h1 className="font-serif text-2xl tracking-tight">Today</h1>
-          <p className="font-mono text-xs text-muted">{view.as_of}</p>
+          <PageHeader title="Today" kicker={view.as_of} />
           {view.habits.length === 0 ? (
-            <p className="text-sm text-muted">No habits scheduled.</p>
+            <EmptyState
+              title="No habits scheduled"
+              hint="Define a habit in Catalog, then come back to capture."
+              actionLabel="Open catalog"
+              actionTo="/catalog"
+            />
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               {view.habits.map((habit) => (
@@ -100,7 +105,7 @@ export function TodayPage() {
             <CardTitle>Logged</CardTitle>
           </CardHeader>
           {view.entries.length === 0 ? (
-            <p className="text-sm text-muted">Nothing logged yet.</p>
+            <p className="text-sm text-muted">Nothing logged yet. Use the form above.</p>
           ) : (
             <ul className="flex flex-col gap-3">
               {view.entries.map((entry) => (
@@ -116,21 +121,29 @@ export function TodayPage() {
         </Card>
       </div>
       <aside className="flex flex-col gap-3">
-        <h2 className="font-serif text-lg">Goals</h2>
+        <h2 className="font-serif text-lg font-medium tracking-tight">Goals</h2>
         {view.goals.length === 0 ? (
-          <p className="text-sm text-muted">No active goals.</p>
+          <EmptyState
+            title="No active goals"
+            hint="Set an outcome in Catalog."
+            actionLabel="Open catalog"
+            actionTo="/catalog"
+          />
         ) : (
           view.goals.map((goal) => (
             <Link
               key={goal.slug}
               to={{ pathname: `/goal/${goal.slug}`, search: params.toString() }}
-              className="rounded-xl border border-line bg-surface p-3 hover:bg-raised"
+              className="rounded-2xl border border-line bg-surface p-3 shadow-[var(--shadow-card)] motion-safe:transition-colors motion-safe:duration-200 hover:bg-raised"
             >
               <div className="flex items-start justify-between gap-2">
                 <p className="text-sm font-medium">{goal.name}</p>
                 <PaceBadge pace={goal.pace} />
               </div>
               <p className="mt-2 font-mono text-xs text-muted">{formatPercent(goal.fraction)}</p>
+              <div className="mt-2">
+                <ProgressBar value={goal.fraction} />
+              </div>
             </Link>
           ))
         )}
@@ -175,7 +188,7 @@ function HabitCard({
         <div>
           <Link
             to={{ pathname: `/habit/${habit.slug}`, search }}
-            className="font-serif text-lg hover:text-accent"
+            className="font-serif text-lg hover:text-warn"
           >
             {habit.name}
           </Link>
@@ -199,7 +212,11 @@ function HabitCard({
           </Button>
         )}
       </div>
-      {error !== null && <p className="mt-2 text-xs text-bad">{error}</p>}
+      {error !== null && (
+        <p className="mt-2 text-xs text-bad" role="alert">
+          {error}
+        </p>
+      )}
     </Card>
   )
 }
@@ -259,7 +276,11 @@ function EntryRow({
         <form className="flex flex-col gap-2" onSubmit={onSave}>
           <Input value={raw} onChange={(event) => setRaw(event.target.value)} aria-label="Value" />
           <Input value={note} onChange={(event) => setNote(event.target.value)} aria-label="Note" />
-          {error !== null && <p className="text-xs text-bad">{error}</p>}
+          {error !== null && (
+            <p className="text-xs text-bad" role="alert">
+              {error}
+            </p>
+          )}
           <div className="flex gap-2">
             <Button type="submit" size="sm" disabled={pending}>
               Save
@@ -283,7 +304,11 @@ function EntryRow({
           </span>
         </p>
         {entry.note !== null && <p className="text-xs text-muted">{entry.note}</p>}
-        {error !== null && <p className="text-xs text-bad">{error}</p>}
+        {error !== null && (
+          <p className="text-xs text-bad" role="alert">
+            {error}
+          </p>
+        )}
       </div>
       <div className="flex gap-1">
         <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(true)}>

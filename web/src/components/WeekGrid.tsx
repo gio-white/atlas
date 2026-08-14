@@ -1,3 +1,4 @@
+import { Check, Minus, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import type { WeekDayCell, WeekView } from '@/lib/api'
@@ -8,7 +9,11 @@ export function WeekGrid({ view, search }: { view: WeekView; search: string }) {
   const headings = view.habits[0]?.days ?? []
 
   if (view.habits.length === 0) {
-    return <p className="text-sm text-muted">No habits this week.</p>
+    return (
+      <p className="text-sm text-muted">
+        No habits this week. Add one in Catalog to see the grid fill in.
+      </p>
+    )
   }
 
   return (
@@ -34,7 +39,7 @@ export function WeekGrid({ view, search }: { view: WeekView; search: string }) {
               <td className="py-3 pr-3">
                 <Link
                   to={{ pathname: `/habit/${habit.slug}`, search }}
-                  className="font-medium hover:text-accent"
+                  className="font-medium hover:text-warn"
                 >
                   {habit.name}
                 </Link>
@@ -58,28 +63,38 @@ export function WeekGrid({ view, search }: { view: WeekView; search: string }) {
 
 function DayDot({ cell }: { cell: WeekDayCell }) {
   if (!cell.scheduled) {
-    return <span className="inline-block h-6 w-6 rounded-full bg-raised" title="off" />
+    return (
+      <span
+        className="inline-flex size-7 items-center justify-center rounded-full bg-raised text-muted"
+        title="off"
+      >
+        <Minus className="size-3.5" aria-hidden />
+        <span className="sr-only">off</span>
+      </span>
+    )
   }
   if (cell.satisfied === true) {
     return (
       <span
-        className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-good/20 font-mono text-xs text-good"
+        className="inline-flex size-7 items-center justify-center rounded-full bg-good/15 text-good"
         title={cell.value === null ? 'done' : String(cell.value)}
       >
-        ✓
+        <Check className="size-3.5" aria-hidden />
+        <span className="sr-only">{cell.value === null ? 'done' : String(cell.value)}</span>
       </span>
     )
   }
   if (cell.satisfied === false) {
     return (
-      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-bad/20 font-mono text-xs text-bad">
-        ×
+      <span className="inline-flex size-7 items-center justify-center rounded-full bg-bad/15 text-bad">
+        <X className="size-3.5" aria-hidden />
+        <span className="sr-only">missed</span>
       </span>
     )
   }
   return (
-    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-line text-muted">
-      ·
+    <span className="inline-flex size-7 items-center justify-center rounded-full border border-line text-muted">
+      <span className="sr-only">open</span>
     </span>
   )
 }

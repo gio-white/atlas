@@ -111,7 +111,11 @@ export function LogForm({ metrics, occurredOn, initialMetric, onLogged }: LogFor
           placeholder="optional"
         />
       </div>
-      {error !== null && <p className="text-sm text-bad">{error}</p>}
+      {error !== null && (
+        <p className="text-sm text-bad" role="alert">
+          {error}
+        </p>
+      )}
       <Button type="submit" disabled={pending}>
         {pending ? 'Logging…' : 'Log'}
       </Button>

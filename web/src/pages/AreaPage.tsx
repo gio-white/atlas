@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 
 import { PaceBadge } from '@/components/PaceBadge'
+import { EmptyState, PageError, PageHeader, PageLoading, ProgressBar } from '@/components/PageState'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ApiError, type AreaView, getAreaView } from '@/lib/api'
@@ -34,21 +35,23 @@ export function AreaPage() {
     }
   }, [slug, asOf])
 
-  if (error !== null) return <p className="text-sm text-bad">{error}</p>
-  if (view === null) return <p className="text-sm text-muted">Loading…</p>
+  if (error !== null) return <PageError message={error} />
+  if (view === null) return <PageLoading />
 
   const search = params.toString()
 
   return (
-    <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="font-serif text-2xl tracking-tight">{view.name}</h1>
-        {view.description !== null && <p className="mt-1 text-sm text-muted">{view.description}</p>}
-      </header>
+    <div className="flex flex-col gap-5">
+      <PageHeader title={view.name} description={view.description ?? undefined} />
       <section>
-        <h2 className="mb-3 font-serif text-lg">Metrics</h2>
+        <h2 className="mb-3 font-serif text-lg font-medium tracking-tight">Metrics</h2>
         {view.metrics.length === 0 ? (
-          <p className="text-sm text-muted">No metrics.</p>
+          <EmptyState
+            title="No metrics"
+            hint="Define what you measure in Catalog."
+            actionLabel="Open catalog"
+            actionTo="/catalog"
+          />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {view.metrics.map((metric) => (
@@ -72,16 +75,16 @@ export function AreaPage() {
         )}
       </section>
       <section>
-        <h2 className="mb-3 font-serif text-lg">Habits</h2>
+        <h2 className="mb-3 font-serif text-lg font-medium tracking-tight">Habits</h2>
         {view.habits.length === 0 ? (
-          <p className="text-sm text-muted">No habits.</p>
+          <EmptyState title="No habits" />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {view.habits.map((habit) => (
               <Link
                 key={habit.slug}
                 to={{ pathname: `/habit/${habit.slug}`, search }}
-                className="rounded-xl border border-line bg-surface p-4 hover:bg-raised"
+                className="rounded-2xl border border-line bg-surface p-4 shadow-[var(--shadow-card)] motion-safe:transition-colors motion-safe:duration-200 hover:bg-raised"
               >
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-medium">{habit.name}</p>
@@ -99,20 +102,23 @@ export function AreaPage() {
         )}
       </section>
       <section>
-        <h2 className="mb-3 font-serif text-lg">Goals</h2>
+        <h2 className="mb-3 font-serif text-lg font-medium tracking-tight">Goals</h2>
         {view.goals.length === 0 ? (
-          <p className="text-sm text-muted">No goals.</p>
+          <EmptyState title="No goals" />
         ) : (
           <div className="flex flex-col gap-3">
             {view.goals.map((goal) => (
               <Link
                 key={goal.slug}
                 to={{ pathname: `/goal/${goal.slug}`, search }}
-                className="flex items-center justify-between rounded-xl border border-line bg-surface p-4 hover:bg-raised"
+                className="flex items-center justify-between rounded-2xl border border-line bg-surface p-4 shadow-[var(--shadow-card)] motion-safe:transition-colors motion-safe:duration-200 hover:bg-raised"
               >
                 <div>
                   <p className="font-medium">{goal.name}</p>
                   <p className="font-mono text-xs text-muted">{formatPercent(goal.fraction)}</p>
+                  <div className="mt-2 w-40">
+                    <ProgressBar value={goal.fraction} />
+                  </div>
                 </div>
                 <PaceBadge pace={goal.pace} />
               </Link>

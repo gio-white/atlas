@@ -1,15 +1,16 @@
+import { CalendarDays, CalendarRange, Flag, Library, MapPinned } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useSearchParams } from 'react-router-dom'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { Input } from '@/components/ui/input'
-import { Separator } from '@/components/ui/separator'
 import { type Area, listAreas } from '@/lib/api'
 import type { ShellContext } from '@/lib/asOf'
 import { todayIso } from '@/lib/utils'
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   [
-    'rounded-md px-2.5 py-1.5 text-sm transition-colors',
-    isActive ? 'bg-raised text-ink' : 'text-muted hover:text-ink',
+    'inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium motion-safe:transition-colors motion-safe:duration-200',
+    isActive ? 'bg-raised text-ink shadow-sm' : 'text-muted hover:bg-raised/80 hover:text-ink',
   ].join(' ')
 
 export function Layout() {
@@ -38,54 +39,63 @@ export function Layout() {
     setSearchParams(next, { replace: true })
   }
 
+  const search = searchParams.toString()
+
   return (
-    <div className="mx-auto flex min-h-svh max-w-6xl flex-col px-4 py-6">
-      <header className="flex flex-wrap items-center gap-4">
-        <NavLink to="/" className="font-serif text-2xl tracking-tight text-ink">
-          Atlas
-        </NavLink>
-        <nav className="flex flex-wrap items-center gap-1">
-          <NavLink to={{ pathname: '/', search: searchParams.toString() }} end className={navClass}>
-            Today
-          </NavLink>
-          <NavLink to={{ pathname: '/week', search: searchParams.toString() }} className={navClass}>
-            Week
-          </NavLink>
-          <NavLink to={{ pathname: '/goal', search: searchParams.toString() }} className={navClass}>
-            Goals
-          </NavLink>
+    <div className="min-h-svh bg-canvas">
+      <header className="sticky top-0 z-20 border-b border-line bg-canvas/90 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3">
           <NavLink
-            to={{ pathname: '/catalog', search: searchParams.toString() }}
-            className={navClass}
+            to="/"
+            className="inline-flex items-center gap-2 font-serif text-xl font-medium tracking-tight text-ink"
           >
-            Catalog
+            <MapPinned className="size-5 text-warn" aria-hidden />
+            Atlas
           </NavLink>
-        </nav>
-        <div className="ml-auto flex flex-wrap items-center gap-3">
-          {areas.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {areas.map((area) => (
-                <NavLink
-                  key={area.slug}
-                  to={{ pathname: `/area/${area.slug}`, search: searchParams.toString() }}
-                  className={navClass}
-                >
-                  {area.name}
-                </NavLink>
-              ))}
-            </div>
-          )}
-          <Input
-            type="date"
-            aria-label="As of date"
-            className="w-auto font-mono text-xs"
-            value={asOf}
-            onChange={(event) => onDateChange(event.target.value)}
-          />
+          <nav className="flex flex-wrap items-center gap-1" aria-label="Primary">
+            <NavLink to={{ pathname: '/', search }} end className={navClass}>
+              <CalendarDays className="size-4" aria-hidden />
+              Today
+            </NavLink>
+            <NavLink to={{ pathname: '/week', search }} className={navClass}>
+              <CalendarRange className="size-4" aria-hidden />
+              Week
+            </NavLink>
+            <NavLink to={{ pathname: '/goal', search }} className={navClass}>
+              <Flag className="size-4" aria-hidden />
+              Goals
+            </NavLink>
+            <NavLink to={{ pathname: '/catalog', search }} className={navClass}>
+              <Library className="size-4" aria-hidden />
+              Catalog
+            </NavLink>
+          </nav>
+          <div className="ml-auto flex flex-wrap items-center gap-3">
+            {areas.length > 0 && (
+              <nav className="flex flex-wrap gap-1" aria-label="Areas">
+                {areas.map((area) => (
+                  <NavLink
+                    key={area.slug}
+                    to={{ pathname: `/area/${area.slug}`, search }}
+                    className={navClass}
+                  >
+                    {area.name}
+                  </NavLink>
+                ))}
+              </nav>
+            )}
+            <ThemeToggle />
+            <Input
+              type="date"
+              aria-label="As of date"
+              className="w-auto font-mono text-xs"
+              value={asOf}
+              onChange={(event) => onDateChange(event.target.value)}
+            />
+          </div>
         </div>
       </header>
-      <Separator className="my-6" />
-      <main className="flex-1">
+      <main className="mx-auto max-w-6xl px-4 py-5">
         <Outlet context={{ asOf } satisfies ShellContext} />
       </main>
     </div>

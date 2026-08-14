@@ -1,5 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
 
+import { PageError, PageHeader } from '@/components/PageState'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -77,14 +78,11 @@ export function CatalogPage() {
     })
   }, [refresh])
 
-  if (error !== null) return <p className="text-sm text-bad">{error}</p>
+  if (error !== null) return <PageError message={error} />
 
   return (
     <div className="flex flex-col gap-8">
-      <header>
-        <h1 className="font-serif text-2xl tracking-tight">Catalog</h1>
-        <p className="mt-1 text-sm text-muted">Define what you track. Capture stays on Today.</p>
-      </header>
+      <PageHeader title="Catalog" description="Define what you track. Capture stays on Today." />
       <AreaSection areas={areas} onChange={refresh} />
       <MetricSection areas={areas} metrics={metrics} onChange={refresh} />
       <HabitSection metrics={metrics} habits={habits} onChange={refresh} />
@@ -123,7 +121,7 @@ function AreaSection({ areas, onChange }: { areas: Area[]; onChange: () => Promi
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="font-serif text-lg">Areas</h2>
+      <h2 className="font-serif text-lg font-medium tracking-tight">Areas</h2>
       <Card>
         <form className="grid gap-3 sm:grid-cols-4" onSubmit={onCreate}>
           <Field label="Slug" value={slug} onChange={setSlug} required />
@@ -133,7 +131,11 @@ function AreaSection({ areas, onChange }: { areas: Area[]; onChange: () => Promi
             <Button type="submit">Add area</Button>
           </div>
         </form>
-        {error !== null && <p className="mt-2 text-sm text-bad">{error}</p>}
+        {error !== null && (
+          <p className="mt-2 text-sm text-bad" role="alert">
+            {error}
+          </p>
+        )}
       </Card>
       {areas.map((area) => (
         <EditableArea key={area.slug} area={area} onChange={onChange} />
@@ -180,7 +182,11 @@ function EditableArea({ area, onChange }: { area: Area; onChange: () => Promise<
           Archive
         </Button>
       </form>
-      {error !== null && <p className="mt-2 text-sm text-bad">{error}</p>}
+      {error !== null && (
+        <p className="mt-2 text-sm text-bad" role="alert">
+          {error}
+        </p>
+      )}
     </Card>
   )
 }
@@ -232,7 +238,7 @@ function MetricSection({
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="font-serif text-lg">Metrics</h2>
+      <h2 className="font-serif text-lg font-medium tracking-tight">Metrics</h2>
       <Card>
         <form className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6" onSubmit={onCreate}>
           <Field label="Slug" value={slug} onChange={setSlug} required />
@@ -265,7 +271,11 @@ function MetricSection({
             <Button type="submit">Add metric</Button>
           </div>
         </form>
-        {error !== null && <p className="mt-2 text-sm text-bad">{error}</p>}
+        {error !== null && (
+          <p className="mt-2 text-sm text-bad" role="alert">
+            {error}
+          </p>
+        )}
       </Card>
       {metrics.map((metric) => (
         <EditableMetric key={metric.slug} metric={metric} onChange={onChange} />
@@ -319,7 +329,11 @@ function EditableMetric({ metric, onChange }: { metric: Metric; onChange: () => 
           Archive
         </Button>
       </form>
-      {error !== null && <p className="mt-2 text-sm text-bad">{error}</p>}
+      {error !== null && (
+        <p className="mt-2 text-sm text-bad" role="alert">
+          {error}
+        </p>
+      )}
     </Card>
   )
 }
@@ -374,7 +388,7 @@ function HabitSection({
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="font-serif text-lg">Habits</h2>
+      <h2 className="font-serif text-lg font-medium tracking-tight">Habits</h2>
       <Card>
         <form className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6" onSubmit={onCreate}>
           <Field label="Slug (optional)" value={slug} onChange={setSlug} />
@@ -424,7 +438,11 @@ function HabitSection({
             </div>
           )}
         </form>
-        {error !== null && <p className="mt-2 text-sm text-bad">{error}</p>}
+        {error !== null && (
+          <p className="mt-2 text-sm text-bad" role="alert">
+            {error}
+          </p>
+        )}
       </Card>
       {habits.map((habit) => (
         <EditableHabit key={habit.slug} habit={habit} onChange={onChange} />
@@ -473,7 +491,11 @@ function EditableHabit({ habit, onChange }: { habit: Habit; onChange: () => Prom
           Save
         </Button>
       </form>
-      {error !== null && <p className="mt-2 text-sm text-bad">{error}</p>}
+      {error !== null && (
+        <p className="mt-2 text-sm text-bad" role="alert">
+          {error}
+        </p>
+      )}
     </Card>
   )
 }
@@ -554,7 +576,7 @@ function GoalSection({
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="font-serif text-lg">Goals</h2>
+      <h2 className="font-serif text-lg font-medium tracking-tight">Goals</h2>
       <Card>
         <form className="grid gap-3 sm:grid-cols-3" onSubmit={onCreate}>
           <Field label="Name" value={name} onChange={setName} required />
@@ -600,7 +622,7 @@ function GoalSection({
               <Label htmlFor="milestones">Milestones (one per line)</Label>
               <textarea
                 id="milestones"
-                className="mt-1 min-h-20 w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm"
+                className="mt-1 min-h-20 w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 value={milestones}
                 onChange={(event) => setMilestones(event.target.value)}
               />
@@ -610,7 +632,11 @@ function GoalSection({
             <Button type="submit">Add goal</Button>
           </div>
         </form>
-        {error !== null && <p className="mt-2 text-sm text-bad">{error}</p>}
+        {error !== null && (
+          <p className="mt-2 text-sm text-bad" role="alert">
+            {error}
+          </p>
+        )}
       </Card>
       {goals.map((goal) => (
         <EditableGoal key={goal.slug} goal={goal} onChange={onChange} />
@@ -663,7 +689,11 @@ function EditableGoal({ goal, onChange }: { goal: Goal; onChange: () => Promise<
           Save
         </Button>
       </form>
-      {error !== null && <p className="mt-2 text-sm text-bad">{error}</p>}
+      {error !== null && (
+        <p className="mt-2 text-sm text-bad" role="alert">
+          {error}
+        </p>
+      )}
     </Card>
   )
 }

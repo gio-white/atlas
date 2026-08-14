@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { EmptyState, PageError, PageLoading } from '@/components/PageState'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { WeekGrid } from '@/components/WeekGrid'
 import { ApiError, getWeek, type WeekView } from '@/lib/api'
@@ -29,8 +30,8 @@ export function WeekPage() {
     }
   }, [asOf])
 
-  if (error !== null) return <p className="text-sm text-bad">{error}</p>
-  if (view === null) return <p className="text-sm text-muted">Loading…</p>
+  if (error !== null) return <PageError message={error} />
+  if (view === null) return <PageLoading />
 
   return (
     <Card>
@@ -42,7 +43,16 @@ export function WeekPage() {
           </CardDescription>
         </div>
       </CardHeader>
-      <WeekGrid view={view} search={params.toString()} />
+      {view.habits.length === 0 ? (
+        <EmptyState
+          title="No habits this week"
+          hint="Add a habit in Catalog to fill the grid."
+          actionLabel="Open catalog"
+          actionTo="/catalog"
+        />
+      ) : (
+        <WeekGrid view={view} search={params.toString()} />
+      )}
     </Card>
   )
 }

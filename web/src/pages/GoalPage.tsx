@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 import { PaceBadge } from '@/components/PaceBadge'
+import { PageError, PageLoading, ProgressBar } from '@/components/PageState'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   ApiError,
@@ -43,8 +44,8 @@ export function GoalPage() {
     }
   }, [refresh])
 
-  if (error !== null) return <p className="text-sm text-bad">{error}</p>
-  if (report === null || detail === null) return <p className="text-sm text-muted">Loading…</p>
+  if (error !== null) return <PageError message={error} />
+  if (report === null || detail === null) return <PageLoading />
 
   return (
     <div className="flex flex-col gap-6">
@@ -63,6 +64,9 @@ export function GoalPage() {
           <div>
             <dt className="text-xs text-muted">Progress</dt>
             <dd className="mt-1 font-mono text-xl">{formatPercent(report.fraction)}</dd>
+            <div className="mt-2">
+              <ProgressBar value={report.fraction} />
+            </div>
           </div>
           <div>
             <dt className="text-xs text-muted">Current</dt>
@@ -100,9 +104,10 @@ export function GoalPage() {
           <ul className="flex flex-col gap-2">
             {detail.milestones.map((milestone) => (
               <li key={milestone.name}>
-                <label className="flex items-center gap-3 text-sm">
+                <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm">
                   <input
                     type="checkbox"
+                    className="size-4 accent-accent"
                     checked={milestone.done_at !== null}
                     onChange={() => {
                       toggleMilestone(detail.slug, milestone.name, milestone.done_at === null)

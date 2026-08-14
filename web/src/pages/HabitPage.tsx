@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
+import { PageError, PageLoading } from '@/components/PageState'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ApiError, getHabitStatus, type HabitStatus } from '@/lib/api'
@@ -32,8 +33,8 @@ export function HabitPage() {
     }
   }, [slug, asOf])
 
-  if (error !== null) return <p className="text-sm text-bad">{error}</p>
-  if (status === null) return <p className="text-sm text-muted">Loading…</p>
+  if (error !== null) return <PageError message={error} />
+  if (status === null) return <PageLoading />
 
   return (
     <Card>

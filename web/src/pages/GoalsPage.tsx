@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { PaceBadge } from '@/components/PaceBadge'
+import { EmptyState, PageError, PageHeader, PageLoading, ProgressBar } from '@/components/PageState'
 import { ApiError, type GoalProgress, getGoalProgress, listGoals } from '@/lib/api'
 import { useAsOf } from '@/lib/asOf'
 import { formatPercent } from '@/lib/format'
@@ -31,27 +32,35 @@ export function GoalsPage() {
     }
   }, [asOf])
 
-  if (error !== null) return <p className="text-sm text-bad">{error}</p>
-  if (reports === null) return <p className="text-sm text-muted">Loading…</p>
+  if (error !== null) return <PageError message={error} />
+  if (reports === null) return <PageLoading />
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="font-serif text-2xl tracking-tight">Goals</h1>
+      <PageHeader title="Goals" description="Outcomes by a date, with pace computed on read." />
       {reports.length === 0 ? (
-        <p className="text-sm text-muted">No goals yet.</p>
+        <EmptyState
+          title="No goals yet"
+          hint="Define an outcome in Catalog."
+          actionLabel="Open catalog"
+          actionTo="/catalog"
+        />
       ) : (
         <ul className="flex flex-col gap-3">
           {reports.map((goal) => (
             <li key={goal.slug}>
               <Link
                 to={{ pathname: `/goal/${goal.slug}`, search: params.toString() }}
-                className="flex items-center justify-between rounded-xl border border-line bg-surface p-4 hover:bg-raised"
+                className="flex items-center justify-between gap-4 rounded-2xl border border-line bg-surface p-4 shadow-[var(--shadow-card)] motion-safe:transition-colors motion-safe:duration-200 hover:bg-raised"
               >
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="font-medium">{goal.name}</p>
                   <p className="font-mono text-xs text-muted">
                     {formatPercent(goal.fraction)} · {goal.status} · due {goal.due_on}
                   </p>
+                  <div className="mt-2">
+                    <ProgressBar value={goal.fraction} />
+                  </div>
                 </div>
                 <PaceBadge pace={goal.pace} />
               </Link>
