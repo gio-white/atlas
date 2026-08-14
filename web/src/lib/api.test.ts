@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  API_UNREACHABLE,
   type ApiError,
   getGoalsBoard,
   getScreenDashboard,
@@ -108,6 +109,36 @@ describe('request helpers', () => {
       name: 'ApiError',
       status: 400,
       message: 'unknown metric',
+    } satisfies Partial<ApiError>)
+    vi.unstubAllGlobals()
+  })
+
+  it('maps a 502 proxy failure to a reachable API message', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 502,
+        statusText: 'Bad Gateway',
+        json: async () => null,
+      }),
+    )
+
+    await expect(getToday('2026-08-15')).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 502,
+      message: API_UNREACHABLE,
+    } satisfies Partial<ApiError>)
+    vi.unstubAllGlobals()
+  })
+
+  it('maps a network failure to a reachable API message', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+
+    await expect(getToday('2026-08-15')).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 0,
+      message: API_UNREACHABLE,
     } satisfies Partial<ApiError>)
     vi.unstubAllGlobals()
   })

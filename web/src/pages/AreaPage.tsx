@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 
 import { PaceBadge } from '@/components/PaceBadge'
-import { EmptyState, PageError, PageHeader, PageLoading, ProgressBar } from '@/components/PageState'
+import {
+  EmptyState,
+  PageHeader,
+  PageLoading,
+  PageUnavailable,
+  ProgressBar,
+} from '@/components/PageState'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ApiError, type AreaView, getAreaView } from '@/lib/api'
@@ -35,14 +41,16 @@ export function AreaPage() {
     }
   }, [slug, asOf])
 
-  if (error !== null) return <PageError message={error} />
+  if (error !== null) {
+    return <PageUnavailable title={slug ?? 'Area'} message={error} />
+  }
   if (view === null) return <PageLoading />
 
   const search = params.toString()
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title={view.name} description={view.description ?? undefined} />
+      <PageHeader title={view.name} description={view.description ?? undefined} homeLink />
       <section>
         <h2 className="mb-3 font-serif text-lg font-medium tracking-tight">Metrics</h2>
         {view.metrics.length === 0 ? (

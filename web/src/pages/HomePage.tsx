@@ -41,6 +41,14 @@ import { useShell } from '@/lib/asOf'
 import { greetingForHour } from '@/lib/greeting'
 import { LIFE_SECTIONS } from '@/lib/sections'
 
+function emptyToday(asOf: string): TodayView {
+  return { as_of: asOf, habits: [], entries: [], goals: [] }
+}
+
+function loadError(caught: unknown): string {
+  return caught instanceof ApiError ? caught.message : 'Could not load home'
+}
+
 export function HomePage() {
   const { asOf, displayName, openLog } = useShell()
   const navigate = useNavigate()
@@ -57,10 +65,12 @@ export function HomePage() {
   const greeting = greetingForHour(new Date().getHours())
 
   const refresh = useCallback(async () => {
-    const [today, metricRows, screen, updateStatus, slipWeek, taskRows, homeWeek, goalRows] =
+    const [todayResult, metricRows, screen, updateStatus, slipWeek, taskRows, homeWeek, goalRows] =
       await Promise.all([
-        getToday(asOf),
-        listMetrics(),
+        getToday(asOf)
+          .then((data) => ({ data, error: null as string | null }))
+          .catch((caught: unknown) => ({ data: null, error: loadError(caught) })),
+        listMetrics().catch(() => []),
         getScreenView(asOf).catch(() => null),
         getUpdates(asOf).catch(() => null),
         getSlips(asOf).catch(() => null),
@@ -68,7 +78,8 @@ export function HomePage() {
         getHomeWeek(asOf).catch(() => null),
         listGoals().catch(() => []),
       ])
-    setView(today)
+    setError(todayResult.error)
+    setView(todayResult.data ?? emptyToday(asOf))
     setMetrics(metricRows)
     setScreenMinutes(screen?.judgments.total ?? null)
     setUpdates(updateStatus)
@@ -80,19 +91,17 @@ export function HomePage() {
 
   useEffect(() => {
     let cancelled = false
-    setError(null)
     refresh().catch((caught: unknown) => {
       if (!cancelled) {
-        setError(caught instanceof ApiError ? caught.message : 'Could not load home')
-        setView(null)
+        setError(loadError(caught))
+        setView(emptyToday(asOf))
       }
     })
     return () => {
       cancelled = true
     }
-  }, [refresh])
+  }, [asOf, refresh])
 
-  if (error !== null) return <PageError message={error} />
   if (view === null) return <PageLoading />
 
   return (
@@ -103,11 +112,7 @@ export function HomePage() {
         </h1>
         <p className="mt-1 text-sm text-muted">Focus on progress, not perfection.</p>
       </header>
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {LIFE_SECTIONS.map((section) => (
-          <LifeSectionCard key={section.slug} section={section} />
-        ))}
-      </section>
+      {error !== null && <PageError message={error} />}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <UpdatesCard
           streakDays={updates?.current_streak ?? 0}
@@ -168,6 +173,11 @@ export function HomePage() {
             setJournalOpen(true)
           }}
         />
+      </section>
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {LIFE_SECTIONS.map((section) => (
+          <LifeSectionCard key={section.slug} section={section} />
+        ))}
       </section>
       <JournalDialog open={journalOpen} onOpenChange={setJournalOpen} occurredOn={asOf} />
     </div>

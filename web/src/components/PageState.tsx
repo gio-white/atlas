@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 
@@ -6,17 +6,32 @@ export function PageHeader({
   title,
   kicker,
   description,
+  homeLink = false,
 }: {
   title: string
   kicker?: string
   description?: string
+  homeLink?: boolean
 }) {
   return (
     <header className="flex flex-col gap-1">
+      {homeLink && <HomeLink />}
       {kicker !== undefined && <p className="font-mono text-xs text-muted">{kicker}</p>}
       <h1 className="text-2xl font-semibold tracking-tight text-ink">{title}</h1>
       {description !== undefined && <p className="text-sm text-muted">{description}</p>}
     </header>
+  )
+}
+
+export function HomeLink() {
+  const [params] = useSearchParams()
+  return (
+    <Link
+      to={{ pathname: '/', search: params.toString() }}
+      className="text-sm text-muted hover:text-ink"
+    >
+      Home
+    </Link>
   )
 }
 
@@ -33,9 +48,29 @@ export function PageLoading() {
 
 export function PageError({ message }: { message: string }) {
   return (
-    <p className="text-sm text-bad" role="alert">
+    <p
+      className="rounded-xl border border-bad/30 bg-bad/10 px-4 py-3 text-sm text-bad"
+      role="alert"
+    >
       {message}
     </p>
+  )
+}
+
+export function PageUnavailable({
+  title,
+  description,
+  message,
+}: {
+  title: string
+  description?: string
+  message: string
+}) {
+  return (
+    <div className="flex flex-col gap-5">
+      <PageHeader title={title} description={description} homeLink />
+      <PageError message={message} />
+    </div>
   )
 }
 

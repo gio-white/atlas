@@ -2,29 +2,60 @@ import uvicorn
 
 from atlas.api.app import UVICORN_HOST, main
 
+IMPLEMENTED_PATHS = frozenset(
+    {
+        "/entries",
+        "/entries/{entry_id}",
+        "/areas",
+        "/areas/{slug}",
+        "/areas/{slug}/archive",
+        "/metrics",
+        "/metrics/{slug}",
+        "/metrics/{slug}/archive",
+        "/habits",
+        "/habits/{slug}",
+        "/habits/{slug}/status",
+        "/goals",
+        "/goals/{slug}",
+        "/goals/{slug}/progress",
+        "/goals/{slug}/milestones/{name}/toggle",
+        "/views/today",
+        "/views/week",
+        "/views/home",
+        "/views/goals",
+        "/views/areas/{slug}",
+        "/screen/view",
+        "/screen/dashboard",
+        "/screen/categories",
+        "/screen/categories/{slug}",
+        "/screen/apps",
+        "/screen/apps/{slug}",
+        "/screen/budgets",
+        "/screen/budgets/{slug}",
+        "/screen/devices",
+        "/screen/devices/{slug}",
+        "/screen/sessions",
+        "/screen/sessions/{session_id}",
+        "/updates",
+        "/slips",
+        "/tasks",
+        "/tasks/{task_id}",
+        "/journal",
+        "/export",
+        "/import",
+    }
+)
+
 
 def test_openapi_lists_the_implemented_paths(client):
     response = client.get("/openapi.json")
 
     assert response.status_code == 200
     paths = response.json()["paths"]
-    assert "/entries" in paths
-    assert "/areas" in paths
-    assert "/metrics" in paths
-    assert "/habits" in paths
-    assert "/habits/{slug}/status" in paths
-    assert "/goals" in paths
-    assert "/goals/{slug}/progress" in paths
-    assert "/views/today" in paths
-    assert "/views/week" in paths
-    assert "/views/areas/{slug}" in paths
-    assert "/areas/{slug}" in paths
-    assert "/metrics/{slug}" in paths
-    assert "/habits/{slug}" in paths
-    assert "/goals/{slug}" in paths
-    assert "/goals/{slug}/milestones/{name}/toggle" in paths
-    assert "/export" in paths
-    assert "/import" in paths
+    missing = sorted(IMPLEMENTED_PATHS - paths.keys())
+    assert missing == []
+    extra = sorted(path for path in paths if path not in IMPLEMENTED_PATHS)
+    assert extra == []
 
 
 def test_uvicorn_entrypoint_binds_localhost(monkeypatch):

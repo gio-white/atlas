@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { EmptyState, PageError, PageLoading } from '@/components/PageState'
+import { EmptyState, PageLoading, PageUnavailable } from '@/components/PageState'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { WeekGrid } from '@/components/WeekGrid'
 import { ApiError, getWeek, type WeekView } from '@/lib/api'
@@ -30,7 +30,9 @@ export function WeekPage() {
     }
   }, [asOf])
 
-  if (error !== null) return <PageError message={error} />
+  if (error !== null) {
+    return <PageUnavailable title="Week" message={error} />
+  }
   if (view === null) return <PageLoading />
 
   return (

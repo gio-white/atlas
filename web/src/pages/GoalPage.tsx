@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 
 import { PaceBadge } from '@/components/PaceBadge'
-import { PageError, PageLoading, ProgressBar } from '@/components/PageState'
+import { HomeLink, PageLoading, PageUnavailable, ProgressBar } from '@/components/PageState'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   ApiError,
@@ -61,11 +61,14 @@ export function GoalPage() {
     }
   }, [refresh])
 
-  if (error !== null) return <PageError message={error} />
+  if (error !== null) {
+    return <PageUnavailable title={slug ?? 'Goal'} message={error} />
+  }
   if (report === null || detail === null) return <PageLoading />
 
   return (
     <div className="flex flex-col gap-6">
+      <HomeLink />
       <Card>
         <CardHeader>
           <div>

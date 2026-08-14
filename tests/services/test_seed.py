@@ -24,6 +24,11 @@ def test_seed_demo_loads_the_demo_dataset(session):
     assert summary.goals == 7
     assert summary.milestones == 7
     assert summary.entries > 0
+    assert summary.tasks == 3
+    assert summary.screen_categories == 4
+    assert summary.screen_apps == 6
+    assert summary.screen_devices == 2
+    assert summary.screen_sessions >= 28
 
     payload = export_all(session)
     assert payload["schema_version"] == CURRENT_SCHEMA_VERSION

@@ -49,7 +49,11 @@ def print_seeded(summary: SeedSummary) -> None:
         f"seeded demo as of {summary.as_of}: "
         f"{summary.areas} areas, {summary.metrics} metrics, "
         f"{summary.habits} habits, {summary.goals} goals, "
-        f"{summary.entries} entries"
+        f"{summary.entries} entries, {summary.tasks} tasks, "
+        f"{summary.screen_categories} screen categories, "
+        f"{summary.screen_apps} screen apps, "
+        f"{summary.screen_devices} screen devices, "
+        f"{summary.screen_sessions} screen sessions"
     )
 
 

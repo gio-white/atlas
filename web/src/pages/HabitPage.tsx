@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
-import { PageError, PageLoading } from '@/components/PageState'
+import { HomeLink, PageLoading, PageUnavailable } from '@/components/PageState'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ApiError, getHabitStatus, type HabitStatus } from '@/lib/api'
@@ -33,35 +33,40 @@ export function HabitPage() {
     }
   }, [slug, asOf])
 
-  if (error !== null) return <PageError message={error} />
+  if (error !== null) {
+    return <PageUnavailable title={slug ?? 'Habit'} message={error} />
+  }
   if (status === null) return <PageLoading />
 
   return (
-    <Card>
-      <CardHeader>
-        <div>
-          <CardTitle>{status.name}</CardTitle>
-          <CardDescription className="mt-1 font-mono">
-            {status.metric_slug} · {formatComparator(status.comparator)} {status.target_value} /{' '}
-            {status.period}
-          </CardDescription>
-        </div>
-        <Badge tone={status.satisfied ? 'good' : 'warn'}>
-          {status.satisfied ? 'done' : 'open'}
-        </Badge>
-      </CardHeader>
-      <dl className="grid gap-4 sm:grid-cols-3">
-        <Stat label="Current streak" value={String(status.current_streak)} />
-        <Stat label="Longest streak" value={String(status.longest_streak)} />
-        <Stat label="Adherence" value={formatPercent(status.adherence)} />
-        <Stat
-          label="This bucket"
-          value={status.current_value === null ? '—' : String(status.current_value)}
-        />
-        <Stat label="Scheduled" value={status.scheduled ? 'yes' : 'no'} />
-        <Stat label="As of" value={status.as_of} />
-      </dl>
-    </Card>
+    <div className="flex flex-col gap-3">
+      <HomeLink />
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>{status.name}</CardTitle>
+            <CardDescription className="mt-1 font-mono">
+              {status.metric_slug} · {formatComparator(status.comparator)} {status.target_value} /{' '}
+              {status.period}
+            </CardDescription>
+          </div>
+          <Badge tone={status.satisfied ? 'good' : 'warn'}>
+            {status.satisfied ? 'done' : 'open'}
+          </Badge>
+        </CardHeader>
+        <dl className="grid gap-4 sm:grid-cols-3">
+          <Stat label="Current streak" value={String(status.current_streak)} />
+          <Stat label="Longest streak" value={String(status.longest_streak)} />
+          <Stat label="Adherence" value={formatPercent(status.adherence)} />
+          <Stat
+            label="This bucket"
+            value={status.current_value === null ? '—' : String(status.current_value)}
+          />
+          <Stat label="Scheduled" value={status.scheduled ? 'yes' : 'no'} />
+          <Stat label="As of" value={status.as_of} />
+        </dl>
+      </Card>
+    </div>
   )
 }
 

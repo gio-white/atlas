@@ -3,12 +3,15 @@ from datetime import date
 import pytest
 
 from atlas.db import CURRENT_SCHEMA_VERSION, create_memory_engine, init_schema, make_session_factory
-from atlas.domain import Comparator, GoalKind, Measure, Period, Source
+from atlas.domain import Comparator, GoalKind, Measure, Period, ScreenJudgment, Source
 from atlas.services import (
     MilestoneInput,
     ValidationError,
     create_goal,
     create_habit,
+    create_screen_app,
+    create_screen_category,
+    create_screen_device,
     export_all,
     import_all,
     list_areas,
@@ -16,6 +19,7 @@ from atlas.services import (
     list_habits,
     list_metrics,
     log_entry,
+    log_screen_session,
 )
 from tests.services.helpers import log_pushups, seed_health
 
@@ -185,3 +189,41 @@ def test_import_accepts_schema_version_4(session):
     assert restored["schema_version"] == CURRENT_SCHEMA_VERSION
     assert restored["screen_devices"] == []
     assert restored["screen_sessions"] == []
+
+
+def test_import_accepts_schema_version_5(session):
+    payload = _populated(session)
+    create_screen_category(session, "entertainment", judgment=ScreenJudgment.WASTE)
+    create_screen_app(session, "instagram", category_slug="entertainment")
+    create_screen_device(session, "iphone")
+    log_screen_session(
+        session,
+        "instagram",
+        minutes=30,
+        occurred_on=date(2026, 8, 14),
+        device_slug="iphone",
+    )
+    payload = export_all(session)
+    payload["schema_version"] = 5
+    engine = create_memory_engine()
+    init_schema(engine)
+    with make_session_factory(engine)() as other:
+        import_all(other, payload)
+        restored = export_all(other)
+    assert restored["schema_version"] == CURRENT_SCHEMA_VERSION
+    assert [row["slug"] for row in restored["screen_devices"]] == ["iphone"]
+    assert restored["screen_sessions"][0]["app"] == "instagram"
+    assert restored["screen_sessions"][0]["minutes"] == 30.0
+
+
+def test_import_accepts_schema_version_6(session):
+    payload = _populated(session)
+    payload["schema_version"] = 6
+    payload["goals"][0]["area"] = None
+    engine = create_memory_engine()
+    init_schema(engine)
+    with make_session_factory(engine)() as other:
+        import_all(other, payload)
+        restored = export_all(other)
+    assert restored["schema_version"] == CURRENT_SCHEMA_VERSION
+    assert restored["goals"][0]["area"] is None

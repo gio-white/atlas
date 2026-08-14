@@ -471,6 +471,8 @@ export class ApiError extends Error {
   }
 }
 
+export const API_UNREACHABLE = 'API is not reachable. Start it with atlas serve.'
+
 export function queryString(
   params: Record<string, string | number | boolean | null | undefined>,
 ): string {
@@ -483,22 +485,36 @@ export function queryString(
   return encoded ? `?${encoded}` : ''
 }
 
+function errorDetail(payload: unknown, status: number, statusText: string): string {
+  if (
+    payload !== null &&
+    typeof payload === 'object' &&
+    'detail' in payload &&
+    typeof payload.detail === 'string' &&
+    payload.detail !== ''
+  ) {
+    return payload.detail
+  }
+  if (status === 502 || status === 503 || status === 504) {
+    return API_UNREACHABLE
+  }
+  return statusText || API_UNREACHABLE
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers)
   if (init?.body !== undefined && !headers.has('content-type')) {
     headers.set('content-type', 'application/json')
   }
-  const response = await fetch(path, { ...init, headers })
+  let response: Response
+  try {
+    response = await fetch(path, { ...init, headers })
+  } catch {
+    throw new ApiError(0, API_UNREACHABLE)
+  }
   if (!response.ok) {
     const payload: unknown = await response.json().catch(() => null)
-    const detail =
-      payload !== null &&
-      typeof payload === 'object' &&
-      'detail' in payload &&
-      typeof payload.detail === 'string'
-        ? payload.detail
-        : response.statusText
-    throw new ApiError(response.status, detail)
+    throw new ApiError(response.status, errorDetail(payload, response.status, response.statusText))
   }
   if (response.status === 204) {
     return undefined as T

@@ -3,7 +3,7 @@ import { type FormEvent, useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { Sparkline } from '@/components/home/Charts'
-import { EmptyState, PageError, PageHeader, PageLoading } from '@/components/PageState'
+import { EmptyState, PageHeader, PageLoading, PageUnavailable } from '@/components/PageState'
 import {
   ComparisonLines,
   deviceSlices,
@@ -108,7 +108,9 @@ export function ScreenPage() {
     setParams(copy, { replace: true })
   }
 
-  if (error !== null) return <PageError message={error} />
+  if (error !== null) {
+    return <PageUnavailable title="Screen Time" message={error} />
+  }
   if (dash === null) return <PageLoading />
 
   const delta = formatDeltaFraction(dash.delta_fraction)
@@ -120,6 +122,7 @@ export function ScreenPage() {
         <PageHeader
           title="Screen Time"
           description={`${shortDateLabel(dash.range_start)} – ${shortDateLabel(dash.range_end)}`}
+          homeLink
         />
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex rounded-full border border-line bg-surface p-1" role="tablist">

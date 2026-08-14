@@ -1,3 +1,4 @@
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import { fileURLToPath, URL } from 'node:url'
 
 import tailwindcss from '@tailwindcss/vite'
@@ -5,6 +6,7 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 
 const API = 'http://127.0.0.1:8000'
+const API_UNREACHABLE = 'API is not reachable. Start it with atlas serve.'
 const apiPrefixes = [
   '/areas',
   '/metrics',
@@ -21,11 +23,36 @@ const apiPrefixes = [
   '/import',
 ]
 
+function headerValue(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value.join(',')
+  return value ?? ''
+}
+
+function isDocumentRequest(req: IncomingMessage): boolean {
+  const dest = headerValue(req.headers['sec-fetch-dest'])
+  const accept = headerValue(req.headers.accept)
+  return dest === 'document' || accept.includes('text/html')
+}
+
+function isServerResponse(res: unknown): res is ServerResponse {
+  return typeof res === 'object' && res !== null && 'writeHead' in res
+}
+
 function proxy() {
   return {
     target: API,
-    bypass(req: { headers: { accept?: string } }) {
-      if (req.headers.accept?.includes('text/html')) return '/index.html'
+    bypass(req: IncomingMessage) {
+      if (isDocumentRequest(req)) return '/index.html'
+    },
+    configure(proxyServer: {
+      on: (event: 'error', listener: (...args: unknown[]) => void) => void
+    }) {
+      proxyServer.on('error', (_err: unknown, _req: unknown, res: unknown) => {
+        if (isServerResponse(res) && !res.headersSent) {
+          res.writeHead(502, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ detail: API_UNREACHABLE }))
+        }
+      })
     },
   }
 }

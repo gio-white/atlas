@@ -1,4 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 
 import { PageError, PageHeader } from '@/components/PageState'
 import { Button } from '@/components/ui/button'
@@ -37,7 +38,7 @@ import {
 } from '@/lib/api'
 import { HORIZONS, PARENT_HORIZON } from '@/lib/horizons'
 import { isValidSlug } from '@/lib/slug'
-import { todayIso } from '@/lib/utils'
+import { cn, todayIso } from '@/lib/utils'
 
 const VALUE_TYPES: ValueType[] = ['bool', 'count', 'quantity', 'duration', 'rating', 'text']
 const AGGS: Aggregation[] = ['sum', 'last', 'mean', 'max', 'min']
@@ -80,11 +81,14 @@ export function CatalogPage() {
     })
   }, [refresh])
 
-  if (error !== null) return <PageError message={error} />
-
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Catalog" description="Define what you track. Capture stays on Today." />
+      <PageHeader
+        title="Catalog"
+        description="Define what you track. Capture stays in New Entry and on Home."
+        homeLink
+      />
+      {error !== null && <PageError message={error} />}
       <AreaSection areas={areas} onChange={refresh} />
       <MetricSection areas={areas} metrics={metrics} onChange={refresh} />
       <HabitSection metrics={metrics} habits={habits} onChange={refresh} />
@@ -165,7 +169,9 @@ function EditableArea({ area, onChange }: { area: Area; onChange: () => Promise<
   return (
     <Card>
       <form className="flex flex-wrap items-end gap-3" onSubmit={onSave}>
-        <p className="w-32 font-mono text-sm">{area.slug}</p>
+        <CatalogSlugLink className="w-32 text-sm" to={`/area/${area.slug}`}>
+          {area.slug}
+        </CatalogSlugLink>
         <Field label="Name" value={name} onChange={setName} />
         <Field label="Description" value={description} onChange={setDescription} />
         <Button type="submit" size="sm">
@@ -479,7 +485,9 @@ function EditableHabit({ habit, onChange }: { habit: Habit; onChange: () => Prom
   return (
     <Card>
       <form className="flex flex-wrap items-end gap-3" onSubmit={onSave}>
-        <p className="w-40 font-mono text-sm">{habit.slug}</p>
+        <CatalogSlugLink className="w-40 text-sm" to={`/habit/${habit.slug}`}>
+          {habit.slug}
+        </CatalogSlugLink>
         <Field label="Name" value={name} onChange={setName} />
         <Field label="Target" value={target} onChange={setTarget} />
         <SelectField
@@ -739,7 +747,9 @@ function EditableGoal({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-mono text-base">{goal.slug}</CardTitle>
+        <CardTitle className="font-mono text-base">
+          <CatalogSlugLink to={`/goal/${goal.slug}`}>{goal.slug}</CatalogSlugLink>
+        </CardTitle>
       </CardHeader>
       <form className="flex flex-wrap items-end gap-3" onSubmit={onSave}>
         <Field label="Name" value={name} onChange={setName} />
@@ -863,6 +873,26 @@ function SelectField({
         ))}
       </Select>
     </div>
+  )
+}
+
+function CatalogSlugLink({
+  to,
+  children,
+  className,
+}: {
+  to: string
+  children: string
+  className?: string
+}) {
+  const [params] = useSearchParams()
+  return (
+    <Link
+      to={{ pathname: to, search: params.toString() }}
+      className={cn('font-mono hover:text-warn', className)}
+    >
+      {children}
+    </Link>
   )
 }
 

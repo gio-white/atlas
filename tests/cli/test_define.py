@@ -1,3 +1,5 @@
+import json
+
 from atlas.cli.app import app
 from tests.cli.conftest import invoke, seed_health
 
@@ -72,3 +74,52 @@ def test_goal_add_milestone_without_area(runner):
         ],
     )
     assert "durable-health" in result.output
+
+
+def test_goal_add_horizon_parent_and_cumulative(runner):
+    seed_health(runner)
+    invoke(
+        runner,
+        [
+            "goal",
+            "add",
+            "Durable health",
+            "--kind",
+            "milestone",
+            "--by",
+            "2028-01-01",
+            "--start",
+            "2026-01-01",
+            "--horizon",
+            "long",
+        ],
+    )
+    result = invoke(
+        runner,
+        [
+            "goal",
+            "add",
+            "Ten thousand pushups",
+            "--metric",
+            "pushups",
+            "--target",
+            "10000",
+            "--at-least",
+            "--cumulative",
+            "--by",
+            "2026-12-01",
+            "--start",
+            "2026-01-01",
+            "--horizon",
+            "medium",
+            "--parent",
+            "durable-health",
+        ],
+    )
+    assert "ten-thousand-pushups" in result.output
+    payload = json.loads(invoke(runner, ["export"]).output)
+    by_slug = {goal["slug"]: goal for goal in payload["goals"]}
+    assert by_slug["durable-health"]["horizon"] == "long"
+    assert by_slug["ten-thousand-pushups"]["horizon"] == "medium"
+    assert by_slug["ten-thousand-pushups"]["parent"] == "durable-health"
+    assert by_slug["ten-thousand-pushups"]["measure"] == "cumulative_since_start"

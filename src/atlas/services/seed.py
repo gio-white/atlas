@@ -24,6 +24,11 @@ class SeedSummary:
     goals: int
     milestones: int
     entries: int
+    tasks: int
+    screen_categories: int
+    screen_apps: int
+    screen_devices: int
+    screen_sessions: int
 
 
 def seed_demo(
@@ -45,6 +50,11 @@ def seed_demo(
         goals=len(payload["goals"]),
         milestones=len(payload["milestones"]),
         entries=len(payload["entries"]),
+        tasks=len(payload["tasks"]),
+        screen_categories=len(payload["screen_categories"]),
+        screen_apps=len(payload["screen_apps"]),
+        screen_devices=len(payload["screen_devices"]),
+        screen_sessions=len(payload["screen_sessions"]),
     )
 
 

@@ -4,7 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 
 import { GoalCreateDialog } from '@/components/goals/GoalCreateDialog'
 import { PaceBadge } from '@/components/PaceBadge'
-import { PageError, PageHeader, PageLoading, ProgressBar } from '@/components/PageState'
+import { PageHeader, PageLoading, PageUnavailable, ProgressBar } from '@/components/PageState'
 import { Button } from '@/components/ui/button'
 import {
   ApiError,
@@ -79,7 +79,9 @@ export function GoalsPage() {
     }
   }, [refresh])
 
-  if (error !== null) return <PageError message={error} />
+  if (error !== null) {
+    return <PageUnavailable title="Goals" message={error} />
+  }
   if (board === null) return <PageLoading />
 
   const columns = HORIZONS.filter((horizon) => filter === 'all' || filter === horizon).map(
@@ -94,6 +96,7 @@ export function GoalsPage() {
         <PageHeader
           title="Goals"
           description="Big picture to daily actions. Stay aligned, every step of the way."
+          homeLink
         />
         <Button type="button" onClick={() => setCreateHorizon('long')}>
           <Plus className="size-4" aria-hidden />

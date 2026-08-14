@@ -74,7 +74,7 @@ export function Layout() {
   const sidebar = (
     <div className="flex h-full flex-col gap-6 p-4">
       <NavLink
-        to="/"
+        to={{ pathname: '/', search }}
         className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight text-ink"
         onClick={() => setSidebarOpen(false)}
       >
@@ -142,7 +142,7 @@ export function Layout() {
       )}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 w-64 border-r border-line bg-sidebar motion-safe:transition-transform motion-safe:duration-200 lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-40 w-64 overflow-y-auto border-r border-line bg-sidebar motion-safe:transition-transform motion-safe:duration-200 lg:translate-x-0',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
