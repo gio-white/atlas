@@ -2,35 +2,9 @@ from atlas.cli.app import app
 from tests.cli.conftest import invoke, seed_health
 
 
-def test_area_add_and_show(runner):
-    seed_health(runner)
-    invoke(
-        runner,
-        [
-            "habit",
-            "add",
-            "pushups-daily",
-            "--metric",
-            "pushups",
-            "--period",
-            "day",
-            "--at-least",
-            "1",
-            "--from",
-            "2026-08-01",
-        ],
-    )
-    invoke(runner, ["log", "pushups", "30", "--on", "2026-08-13"])
-
+def test_area_add(runner):
     created = invoke(runner, ["area", "add", "career"])
     assert "career" in created.output
-
-    shown = invoke(runner, ["area", "health", "--on", "2026-08-13"])
-    assert "health" in shown.output
-    assert "Metrics" in shown.output
-    assert "Daily" in shown.output
-    assert "pushups" in shown.output
-    assert "pushups-daily" in shown.output
 
 
 def test_duplicate_area_slug_fails(runner):
@@ -79,3 +53,22 @@ def test_goal_add_infers_area_and_slug(runner):
         ],
     )
     assert "bodyweight-75kg" in result.output
+
+
+def test_goal_add_milestone_without_area(runner):
+    seed_health(runner)
+    result = invoke(
+        runner,
+        [
+            "goal",
+            "add",
+            "Durable health",
+            "--kind",
+            "milestone",
+            "--by",
+            "2028-01-01",
+            "--start",
+            "2026-01-01",
+        ],
+    )
+    assert "durable-health" in result.output

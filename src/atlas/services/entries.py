@@ -1,8 +1,8 @@
 from datetime import UTC, date, datetime
 
-from sqlmodel import Session
+from sqlmodel import Session, select
 
-from atlas.db.models import Entry
+from atlas.db.models import Entry, ScreenApp, ScreenSession
 from atlas.domain import Source, ValueType
 from atlas.services.clock import resolve_today
 from atlas.services.errors import ValidationError
@@ -21,6 +21,7 @@ def log_entry(
     occurred_at: datetime | None = None,
     note: str | None = None,
     source: Source = Source.CLI,
+    link_screen: bool = True,
 ) -> Entry:
     metric = require_active_metric(session, normalize_slug(metric_slug))
     value_num, value_bool, value_text = split_value(ValueType(metric.value_type), value)
@@ -35,6 +36,9 @@ def log_entry(
         source=source,
     )
     session.add(entry)
+    session.flush()
+    if link_screen:
+        _link_screen_session(session, entry)
     session.commit()
     session.refresh(entry)
     return entry
@@ -67,6 +71,7 @@ def amend_entry(
             raise ValidationError("note must be a string or None")
         entry.note = note
     session.add(entry)
+    _sync_linked_screen_session(session, entry)
     session.commit()
     session.refresh(entry)
     return entry
@@ -74,6 +79,7 @@ def amend_entry(
 
 def delete_entry(session: Session, entry_id: int) -> None:
     entry = require_entry(session, entry_id)
+    _delete_linked_screen_session(session, entry_id)
     session.delete(entry)
     session.commit()
 
@@ -98,6 +104,49 @@ def split_value(
     if isinstance(value, bool | str):
         raise ValidationError(f"{value_type} metrics expect a numeric value")
     return float(value), None, None
+
+
+def _link_screen_session(session: Session, entry: Entry) -> None:
+    if entry.id is None or entry.value_num is None or entry.value_num <= 0:
+        return
+    app = session.exec(select(ScreenApp).where(ScreenApp.metric_id == entry.metric_id)).first()
+    if app is None:
+        return
+    existing = session.exec(select(ScreenSession).where(ScreenSession.entry_id == entry.id)).first()
+    if existing is not None:
+        return
+    session.add(
+        ScreenSession(
+            app_id=app.id,
+            minutes=entry.value_num,
+            occurred_on=entry.occurred_on,
+            note=entry.note,
+            source=entry.source,
+            entry_id=entry.id,
+        )
+    )
+
+
+def _sync_linked_screen_session(session: Session, entry: Entry) -> None:
+    row = session.exec(select(ScreenSession).where(ScreenSession.entry_id == entry.id)).first()
+    if row is None:
+        _link_screen_session(session, entry)
+        return
+    if entry.value_num is None or entry.value_num <= 0:
+        return
+    row.started_at = None
+    row.ended_at = None
+    row.minutes = entry.value_num
+    row.occurred_on = entry.occurred_on
+    row.note = entry.note
+    session.add(row)
+
+
+def _delete_linked_screen_session(session: Session, entry_id: int) -> None:
+    row = session.exec(select(ScreenSession).where(ScreenSession.entry_id == entry_id)).first()
+    if row is not None:
+        session.delete(row)
+        session.flush()
 
 
 def _require_date(value: object) -> date:

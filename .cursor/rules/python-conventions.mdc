@@ -26,6 +26,10 @@ def log_entry(session: Session, metric_slug: str, value: float) -> Entry:
 
 Functions in `atlas/domain/` are pure: no I/O, no session, no datetime.now() unless the clock is passed in. They operate on in-memory values and return new values.
 
+## Style
+
+Ruff formats at line length 100 (`uv run ruff format`). Apply `--fix` / format when ruff can; wrap `E501` rather than `# noqa`. A check finding is work — see `.cursor/rules/checks.mdc`.
+
 ## Comments
 
 Do not write comments that narrate what the next line does. Comments are for non-obvious invariants, trade-offs, or why a naive approach is wrong.

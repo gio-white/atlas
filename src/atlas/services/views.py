@@ -99,11 +99,7 @@ class AreaView:
 
 def today_view(session: Session, *, as_of: date | None = None) -> TodayView:
     as_of = resolve_today(as_of)
-    habits = [
-        status
-        for status in (_habit_statuses(session, as_of))
-        if status.scheduled
-    ]
+    habits = [status for status in (_habit_statuses(session, as_of)) if status.scheduled]
     goals = [
         goal_progress(session, goal.slug, as_of=as_of)
         for goal in session.exec(
@@ -203,8 +199,7 @@ def area_view(session: Session, slug: str, *, as_of: date | None = None) -> Area
 
 def _habit_statuses(session: Session, as_of: date) -> list[HabitStatus]:
     return [
-        habit_status(session, habit.slug, as_of=as_of)
-        for habit, _metric in _active_habits(session)
+        habit_status(session, habit.slug, as_of=as_of) for habit, _metric in _active_habits(session)
     ]
 
 

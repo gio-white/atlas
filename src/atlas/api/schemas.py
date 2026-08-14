@@ -13,7 +13,9 @@ from atlas.domain import (
     PaceStatus,
     Period,
     ScreenBudgetTargetKind,
+    ScreenInsightKind,
     ScreenJudgment,
+    ScreenScoreBand,
     Source,
     TaskBucket,
     TaskPriority,
@@ -158,7 +160,7 @@ class GoalCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     slug: str
-    area: str
+    area: str | None = None
     kind: GoalKind
     start_on: date
     due_on: date
@@ -177,7 +179,7 @@ class GoalCreate(BaseModel):
 class GoalOut(BaseModel):
     id: int
     slug: str
-    area: str
+    area: str | None
     name: str
     kind: GoalKind
     metric: str | None
@@ -204,6 +206,7 @@ class GoalUpdate(BaseModel):
     horizon: GoalHorizon | None = None
     parent: str | None = None
     description: str | None = None
+    area: str | None = None
 
 
 class MilestoneOut(BaseModel):
@@ -526,6 +529,63 @@ class ScreenSessionOut(BaseModel):
     note: str | None
 
 
+class ScreenDeviceCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    slug: str
+    name: str | None = None
+
+
+class ScreenDeviceUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = None
+
+
+class ScreenDeviceOut(BaseModel):
+    id: int
+    slug: str
+    name: str
+    archived_at: datetime | None
+
+
+class ScreenSessionCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    app: str
+    minutes: float | None = None
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
+    occurred_on: date | None = None
+    device: str | None = None
+    note: str | None = None
+
+
+class ScreenSessionUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    minutes: float | None = None
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
+    occurred_on: date | None = None
+    device: str | None = None
+    note: str | None = None
+
+
+class ScreenSessionRecordOut(BaseModel):
+    id: int
+    app: str
+    device: str | None
+    started_at: datetime | None
+    ended_at: datetime | None
+    minutes: float
+    occurred_on: date
+    note: str | None
+    source: Source
+    created_at: datetime
+    entry_id: int | None
+
+
 class ScreenBudgetStatusOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -552,6 +612,105 @@ class ScreenViewOut(BaseModel):
     categories: list[ScreenCategoryRowOut]
     judgments: ScreenJudgmentTotalsOut
     sessions: list[ScreenSessionOut]
+    budgets: list[ScreenBudgetStatusOut]
+
+
+class ScreenAppShareOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    slug: str
+    name: str
+    category: str
+    category_name: str
+    judgment: ScreenJudgment
+    minutes: float
+    share: float
+
+
+class ScreenCategoryShareOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    slug: str
+    name: str
+    judgment: ScreenJudgment
+    minutes: float
+    share: float
+    apps: list[ScreenAppShareOut]
+
+
+class ScreenDeviceShareOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    slug: str
+    name: str
+    minutes: float
+    share: float
+
+
+class ScreenDayBarOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    date: date
+    useful: float
+    waste: float
+    neutral: float
+    total: float
+
+
+class ScreenComparisonPointOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    current: float
+    previous: float
+
+
+class ScreenTrendPointOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    week_start: date
+    daily_average: float | None
+
+
+class ScreenLongestDayOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    date: date
+    minutes: float
+
+
+class ScreenInsightOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    kind: ScreenInsightKind
+    summary: str
+    prescription: str
+
+
+class ScreenDashboardOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    period: Period
+    as_of: date
+    range_start: date
+    range_end: date
+    previous_start: date
+    previous_end: date
+    total: float | None
+    daily_average: float | None
+    longest_day: ScreenLongestDayOut | None
+    delta_minutes: float | None
+    delta_fraction: float | None
+    score: int | None
+    score_band: ScreenScoreBand | None
+    judgments: ScreenJudgmentTotalsOut
+    apps: list[ScreenAppShareOut]
+    categories: list[ScreenCategoryShareOut]
+    devices: list[ScreenDeviceShareOut]
+    daily: list[ScreenDayBarOut]
+    comparison: list[ScreenComparisonPointOut]
+    hours: list[list[float]]
+    trend: list[ScreenTrendPointOut]
+    insights: list[ScreenInsightOut]
     budgets: list[ScreenBudgetStatusOut]
 
 
@@ -640,5 +799,3 @@ class JournalDayOut(BaseModel):
     as_of: date
     text: str | None
     entry_id: int | None
-
-

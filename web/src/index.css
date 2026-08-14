@@ -21,6 +21,10 @@
   --screen: #2563eb;
   --goal: #059669;
   --quick: #d97706;
+  --sleep: #4f46e5;
+  --health: #e11d48;
+  --adventure: #0d9488;
+  --entertainment: #c026d3;
   --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px rgb(217 119 6 / 0.08);
   color-scheme: light;
 }
@@ -44,6 +48,10 @@
   --screen: #60a5fa;
   --goal: #4ade80;
   --quick: #fbbf24;
+  --sleep: #818cf8;
+  --health: #fb7185;
+  --adventure: #2dd4bf;
+  --entertainment: #e879f9;
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 28px rgb(0 0 0 / 0.35);
   color-scheme: dark;
 }
@@ -71,6 +79,10 @@
   --color-screen: var(--screen);
   --color-goal: var(--goal);
   --color-quick: var(--quick);
+  --color-sleep: var(--sleep);
+  --color-health: var(--health);
+  --color-adventure: var(--adventure);
+  --color-entertainment: var(--entertainment);
 }
 
 html,

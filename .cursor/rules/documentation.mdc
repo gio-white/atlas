@@ -7,7 +7,7 @@ alwaysApply: true
 
 `docs/architecture.md` is the living source of truth alongside the code. Update it in the **same cycle** as the change that alters behavior — never as a follow-up chore.
 
-Code and docs disagreeing is a bug, not a stale doc. Do not commit a behavior change without the matching docs edit.
+Code and docs disagreeing is a bug, not a stale doc. Do not commit a behavior change without the matching docs edit. A failing ruff, Biome, or pytest check is the same class of bug: apply the suggested fix when it is the fix, inspect the rest, and leave the gate green in this cycle (`.cursor/rules/checks.mdc`).
 
 ## What to keep current
 

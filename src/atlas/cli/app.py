@@ -7,24 +7,20 @@ from sqlmodel import Session
 
 from atlas.cli.format import (
     print_amended,
-    print_area,
     print_created,
     print_deleted,
-    print_goals,
-    print_habit_status,
     print_imported,
     print_logged,
+    print_screen_logged,
     print_seeded,
-    print_today,
-    print_week,
 )
-from atlas.cli.group import FallbackToShowGroup
 from atlas.cli.lookup import resolve_metric_slug
 from atlas.cli.parse import (
     comparator_and_target,
     comparator_from_flags,
     measure_from_flag,
     parse_iso_date,
+    parse_iso_datetime,
     parse_log_value,
     parse_weekdays,
     require_iso_date,
@@ -37,7 +33,6 @@ from atlas.domain import (
     Direction,
     GoalHorizon,
     GoalKind,
-    GoalStatus,
     Period,
     TaskBucket,
     TaskPriority,
@@ -45,7 +40,6 @@ from atlas.domain import (
 )
 from atlas.services import (
     amend_entry,
-    area_view,
     create_area,
     create_goal,
     create_habit,
@@ -54,39 +48,26 @@ from atlas.services import (
     delete_entry,
     export_all,
     get_metric,
-    goal_progress,
-    habit_status,
     import_all,
     list_areas,
-    list_goals,
     log_entry,
     log_journal,
+    log_screen_session,
     log_slip,
     log_update,
     seed_demo,
-    today_view,
     update_task,
-    week_view,
 )
 from atlas.settings import load_settings
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
-area_app = typer.Typer(
-    no_args_is_help=True,
-    add_completion=False,
-    cls=FallbackToShowGroup,
-    help="Define and review areas.",
-)
+area_app = typer.Typer(no_args_is_help=True, add_completion=False, help="Define areas.")
 metric_app = typer.Typer(no_args_is_help=True, add_completion=False, help="Define metrics.")
-habit_app = typer.Typer(
-    no_args_is_help=True,
-    add_completion=False,
-    cls=FallbackToShowGroup,
-    help="Define and review habits.",
-)
+habit_app = typer.Typer(no_args_is_help=True, add_completion=False, help="Define habits.")
 goal_app = typer.Typer(no_args_is_help=True, add_completion=False, help="Define goals.")
 entry_app = typer.Typer(no_args_is_help=True, add_completion=False, help="Amend or delete entries.")
 task_app = typer.Typer(no_args_is_help=True, add_completion=False, help="Capture one-off tasks.")
+screen_app = typer.Typer(no_args_is_help=True, add_completion=False, help="Log screen sessions.")
 
 app.add_typer(area_app, name="area")
 app.add_typer(metric_app, name="metric")
@@ -94,11 +75,12 @@ app.add_typer(habit_app, name="habit")
 app.add_typer(goal_app, name="goal")
 app.add_typer(entry_app, name="entry")
 app.add_typer(task_app, name="task")
+app.add_typer(screen_app, name="screen")
 
 
 @app.callback()
 def main() -> None:
-    """Personal life-tracking CLI."""
+    """Capture and admin CLI. Review lives in the web UI."""
 
 
 @app.command()
@@ -192,16 +174,6 @@ def area_add(
         print_created("area", area.slug)
 
 
-@area_app.command("show")
-def area_show(
-    slug: Annotated[str, typer.Argument()],
-    on: Annotated[str | None, typer.Option("--on")] = None,
-) -> None:
-    """Review one area's metrics, habits, and goals."""
-    with cli_session() as session:
-        print_area(area_view(session, slug, as_of=parse_iso_date(on)))
-
-
 @metric_app.command("add")
 def metric_add(
     slug: Annotated[str, typer.Argument()],
@@ -259,16 +231,6 @@ def habit_add(
         print_created("habit", habit.slug)
 
 
-@habit_app.command("show")
-def habit_show(
-    slug: Annotated[str, typer.Argument()],
-    on: Annotated[str | None, typer.Option("--on")] = None,
-) -> None:
-    """Review one habit's streak and adherence."""
-    with cli_session() as session:
-        print_habit_status(habit_status(session, slug, as_of=parse_iso_date(on)))
-
-
 @goal_app.command("add")
 def goal_add(
     name: Annotated[str, typer.Argument()],
@@ -300,12 +262,7 @@ def goal_add(
             comparator = comparator_from_flags(at_least, at_most, exactly)
             measure = measure_from_flag(cumulative)
         elif (
-            metric is not None
-            or at_least
-            or at_most
-            or exactly
-            or cumulative
-            or target is not None
+            metric is not None or at_least or at_most or exactly or cumulative or target is not None
         ):
             fail("milestone goals must not set --metric, --target, or a comparator")
         goal = create_goal(
@@ -326,37 +283,6 @@ def goal_add(
             description=description,
         )
         print_created("goal", goal.slug)
-
-
-@app.command()
-def goals(
-    area: Annotated[str | None, typer.Option("--area")] = None,
-    status: Annotated[GoalStatus | None, typer.Option("--status")] = None,
-    horizon: Annotated[GoalHorizon | None, typer.Option("--horizon")] = None,
-    on: Annotated[str | None, typer.Option("--on")] = None,
-) -> None:
-    """Review goals with progress and pace."""
-    with cli_session() as session:
-        as_of = parse_iso_date(on)
-        reports = [
-            goal_progress(session, goal.slug, as_of=as_of)
-            for goal in list_goals(session, area_slug=area, status=status, horizon=horizon)
-        ]
-        print_goals(reports)
-
-
-@app.command()
-def today(on: Annotated[str | None, typer.Option("--on")] = None) -> None:
-    """What is due today and what is logged."""
-    with cli_session() as session:
-        print_today(today_view(session, as_of=parse_iso_date(on)))
-
-
-@app.command()
-def week(on: Annotated[str | None, typer.Option("--on")] = None) -> None:
-    """The current week across habits."""
-    with cli_session() as session:
-        print_week(week_view(session, as_of=parse_iso_date(on)))
 
 
 @entry_app.command("amend")
@@ -417,6 +343,31 @@ def task_done(task_id: Annotated[int, typer.Argument(metavar="ID")]) -> None:
         typer.echo(f"done task #{task.id} {task.title}")
 
 
+@screen_app.command("log")
+def screen_log(
+    app_slug: Annotated[str, typer.Argument(metavar="APP")],
+    minutes: Annotated[float | None, typer.Argument()] = None,
+    started: Annotated[str | None, typer.Option("--from")] = None,
+    ended: Annotated[str | None, typer.Option("--to")] = None,
+    device: Annotated[str | None, typer.Option("--device")] = None,
+    on: Annotated[str | None, typer.Option("--on")] = None,
+    note: Annotated[str | None, typer.Option("--note")] = None,
+) -> None:
+    """Record a screen session as an interval or a duration."""
+    with cli_session() as session:
+        row = log_screen_session(
+            session,
+            app_slug,
+            minutes=minutes,
+            started_at=parse_iso_datetime(started),
+            ended_at=parse_iso_datetime(ended),
+            occurred_on=parse_iso_date(on),
+            device_slug=device,
+            note=note,
+        )
+        print_screen_logged(app_slug, row)
+
+
 @app.command("export")
 def export_cmd() -> None:
     """Write a JSON export to stdout."""
@@ -441,9 +392,9 @@ def import_cmd(
         print_imported(str(path), replace=replace)
 
 
-def _area_slug_for_metric(session: Session, metric_slug: str | None) -> str:
+def _area_slug_for_metric(session: Session, metric_slug: str | None) -> str | None:
     if metric_slug is None:
-        fail("provide --area, or --metric so the area can be inferred")
+        return None
     metric = get_metric(session, metric_slug)
     for area in list_areas(session, include_archived=True):
         if area.id == metric.area_id:

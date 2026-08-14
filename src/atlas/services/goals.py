@@ -112,7 +112,7 @@ def create_goal(
     session: Session,
     slug: str,
     *,
-    area_slug: str,
+    area_slug: str | None = None,
     kind: GoalKind,
     start_on: date,
     due_on: date,
@@ -131,13 +131,13 @@ def create_goal(
     ensure_unique_slug(session, Goal, slug)
     if due_on < start_on:
         raise ValidationError("due_on must be on or after start_on")
-    area = require_active_area(session, normalize_slug(area_slug))
-    metric_id = _metric_id_for_goal(session, kind, area.id, metric_slug)
+    area_id = _area_id_for(session, area_slug)
+    metric_id = _metric_id_for_goal(session, kind, area_id, metric_slug)
     _validate_kind_fields(kind, metric_slug, target_value, comparator, measure)
     resolved_horizon = horizon if horizon is not None else infer_horizon(start_on, due_on)
     parent_id = _parent_id_for(session, resolved_horizon, parent_slug)
     goal = Goal(
-        area_id=area.id,
+        area_id=area_id,
         slug=slug,
         name=name if name is not None else display_name(slug),
         kind=kind,
@@ -208,6 +208,7 @@ def update_goal(
     horizon: GoalHorizon | None = None,
     parent_slug: str | None | object = _UNSET,
     description: str | None | object = _UNSET,
+    area_slug: str | None | object = _UNSET,
 ) -> Goal:
     goal = require_goal(session, normalize_slug(slug))
     if name is not None:
@@ -235,9 +236,7 @@ def update_goal(
             raise ValidationError("cannot change horizon while the goal has children")
         goal.horizon = horizon
     if parent_slug is not _UNSET:
-        goal.parent_id = _parent_id_for(
-            session, new_horizon, parent_slug, child_id=goal.id
-        )
+        goal.parent_id = _parent_id_for(session, new_horizon, parent_slug, child_id=goal.id)
     elif not parent_horizon_is_valid(
         new_horizon,
         _horizon_of(session.get(Goal, goal.parent_id)) if goal.parent_id is not None else None,
@@ -245,6 +244,10 @@ def update_goal(
         raise ValidationError(_parent_mismatch_message(new_horizon))
     if description is not _UNSET:
         goal.description = _clean_description(description if isinstance(description, str) else None)
+    if area_slug is not _UNSET:
+        new_area_id = _area_id_for(session, area_slug if isinstance(area_slug, str) else None)
+        _ensure_metric_matches_area(session, goal, new_area_id)
+        goal.area_id = new_area_id
     session.add(goal)
     session.commit()
     session.refresh(goal)
@@ -308,7 +311,7 @@ def toggle_milestone(
 
 
 def _metric_id_for_goal(
-    session: Session, kind: GoalKind, area_id: int, metric_slug: str | None
+    session: Session, kind: GoalKind, area_id: int | None, metric_slug: str | None
 ) -> int | None:
     if kind is GoalKind.MILESTONE:
         return None
@@ -317,11 +320,23 @@ def _metric_id_for_goal(
     metric = require_active_metric(session, normalize_slug(metric_slug))
     if ValueType(metric.value_type) is ValueType.TEXT:
         raise ValidationError("metric_target goals cannot target a text metric")
-    if metric.area_id != area_id:
-        raise ValidationError(
-            f"metric {metric.slug!r} does not belong to the goal's area"
-        )
+    if area_id is not None and metric.area_id != area_id:
+        raise ValidationError(f"metric {metric.slug!r} does not belong to the goal's area")
     return metric.id
+
+
+def _area_id_for(session: Session, area_slug: str | None) -> int | None:
+    if area_slug is None or not area_slug.strip():
+        return None
+    return require_active_area(session, normalize_slug(area_slug)).id
+
+
+def _ensure_metric_matches_area(session: Session, goal: Goal, area_id: int | None) -> None:
+    if area_id is None or goal.metric_id is None:
+        return
+    metric = metric_by_id(session, goal.metric_id)
+    if metric.area_id != area_id:
+        raise ValidationError(f"metric {metric.slug!r} does not belong to the goal's area")
 
 
 def _validate_kind_fields(
@@ -343,9 +358,7 @@ def _validate_kind_fields(
             if value is None
         ]
         if missing:
-            raise ValidationError(
-                "metric_target goals require " + ", ".join(missing)
-            )
+            raise ValidationError("metric_target goals require " + ", ".join(missing))
         return
     extra = [
         name
@@ -408,9 +421,7 @@ def _clean_description(description: str | None) -> str | None:
     return cleaned or None
 
 
-def _add_milestones(
-    session: Session, goal: Goal, milestones: Sequence[MilestoneInput]
-) -> None:
+def _add_milestones(session: Session, goal: Goal, milestones: Sequence[MilestoneInput]) -> None:
     seen: set[str] = set()
     for item in milestones:
         name = item.name.strip()
@@ -519,9 +530,7 @@ def _week_column(
     return GoalBoardWeek(total=total, done=done, fraction=fraction, tasks=selected)
 
 
-def _task_on_week_board(
-    task: Task, week_start: date, week_end: date, timezone
-) -> bool:
+def _task_on_week_board(task: Task, week_start: date, week_end: date, timezone) -> bool:
     if task.due_on is not None and week_start <= task.due_on <= week_end:
         return True
     if task.done_at is not None:
@@ -532,9 +541,7 @@ def _task_on_week_board(
         if week_start <= done_on <= week_end:
             return True
     return (
-        task.due_on is None
-        and task.done_at is None
-        and TaskBucket(task.bucket) is TaskBucket.TODAY
+        task.due_on is None and task.done_at is None and TaskBucket(task.bucket) is TaskBucket.TODAY
     )
 
 

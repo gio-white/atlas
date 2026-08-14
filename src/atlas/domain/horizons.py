@@ -5,9 +5,7 @@ from atlas.domain.enums import GoalHorizon, PaceStatus
 LONG_WINDOW_DAYS = 365
 MEDIUM_WINDOW_DAYS = 28
 
-COLUMN_ON_TRACK_PACES = frozenset(
-    {PaceStatus.ON_TRACK, PaceStatus.AHEAD, PaceStatus.ACHIEVED}
-)
+COLUMN_ON_TRACK_PACES = frozenset({PaceStatus.ON_TRACK, PaceStatus.AHEAD, PaceStatus.ACHIEVED})
 
 
 def infer_horizon(start_on: date, due_on: date) -> GoalHorizon:

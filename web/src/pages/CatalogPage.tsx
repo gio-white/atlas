@@ -516,7 +516,7 @@ function GoalSection({
   const numeric = metrics.filter((metric) => metric.value_type !== 'text')
   const [slug, setSlug] = useState('')
   const [name, setName] = useState('')
-  const [area, setArea] = useState(areas[0]?.slug ?? '')
+  const [area, setArea] = useState('')
   const [kind, setKind] = useState<GoalKind>('metric_target')
   const [metric, setMetric] = useState(numeric[0]?.slug ?? '')
   const [target, setTarget] = useState('')
@@ -531,9 +531,8 @@ function GoalSection({
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (area === '' && areas[0] !== undefined) setArea(areas[0].slug)
     if (metric === '' && numeric[0] !== undefined) setMetric(numeric[0].slug)
-  }, [area, areas, metric, numeric])
+  }, [metric, numeric])
 
   async function onCreate(event: FormEvent) {
     event.preventDefault()
@@ -551,7 +550,7 @@ function GoalSection({
     try {
       await createGoal({
         slug: resolved,
-        area,
+        area: area || null,
         kind,
         start_on: startOn,
         due_on: dueOn,
@@ -594,7 +593,9 @@ function GoalSection({
             label="Area"
             value={area}
             onChange={setArea}
-            options={areas.map((item) => item.slug)}
+            options={['', ...areas.map((item) => item.slug)]}
+            labels={{ '': 'None' }}
+            required={false}
           />
           <SelectField
             label="Kind"
@@ -681,7 +682,7 @@ function GoalSection({
         )}
       </Card>
       {goals.map((goal) => (
-        <EditableGoal key={goal.slug} goal={goal} goals={goals} onChange={onChange} />
+        <EditableGoal key={goal.slug} goal={goal} goals={goals} areas={areas} onChange={onChange} />
       ))}
     </section>
   )
@@ -690,10 +691,12 @@ function GoalSection({
 function EditableGoal({
   goal,
   goals,
+  areas,
   onChange,
 }: {
   goal: Goal
   goals: Goal[]
+  areas: Area[]
   onChange: () => Promise<void>
 }) {
   const [name, setName] = useState(goal.name)
@@ -703,6 +706,7 @@ function EditableGoal({
   const [horizon, setHorizon] = useState(goal.horizon)
   const [parent, setParent] = useState(goal.parent ?? '')
   const [description, setDescription] = useState(goal.description ?? '')
+  const [area, setArea] = useState(goal.area ?? '')
   const [error, setError] = useState<string | null>(null)
   const parentHorizon = PARENT_HORIZON[horizon]
   const parentOptions =
@@ -724,6 +728,7 @@ function EditableGoal({
         horizon,
         parent: parent || null,
         description: description || null,
+        area: area || null,
       })
       await onChange()
     } catch (caught) {
@@ -757,6 +762,14 @@ function EditableGoal({
             setParent('')
           }}
           options={[...HORIZONS]}
+        />
+        <SelectField
+          label="Area"
+          value={area}
+          onChange={setArea}
+          options={['', ...areas.map((item) => item.slug)]}
+          labels={{ '': 'None' }}
+          required={false}
         />
         {parentHorizon !== null && (
           <SelectField

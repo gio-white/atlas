@@ -1,9 +1,18 @@
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 from sqlmodel import Session, select
 
-from atlas.db.models import Area, Metric, ScreenApp, ScreenBudget, ScreenCategory
+from atlas.db.models import (
+    Area,
+    Entry,
+    Metric,
+    ScreenApp,
+    ScreenBudget,
+    ScreenCategory,
+    ScreenDevice,
+    ScreenSession,
+)
 from atlas.domain import (
     Aggregation,
     Comparator,
@@ -12,9 +21,15 @@ from atlas.domain import (
     ScreenBudgetSpec,
     ScreenBudgetTargetKind,
     ScreenCategorySpec,
+    ScreenInsightKind,
     ScreenJudgment,
+    ScreenScoreBand,
+    ScreenSessionView,
+    Source,
     ValueType,
+    add_minutes,
     adherence,
+    attributed_day_minutes,
     bucket_for,
     current_streak,
     direction_for_judgment,
@@ -22,22 +37,38 @@ from atlas.domain import (
     is_scheduled,
     longest_streak,
     member_apps,
+    minutes_in_range,
+    resolve_screen_session,
     rollup,
-    screen_day_totals,
+    screen_dashboard_math,
+    session_entry_views,
+)
+from atlas.domain.screen import (
+    ScreenAppShare,
+    ScreenCategoryShare,
+    ScreenComparisonPoint,
+    ScreenDayBar,
+    ScreenDeviceShare,
+    ScreenInsight,
+    ScreenLongestDay,
+    ScreenTrendPoint,
 )
 from atlas.services.clock import resolve_today
+from atlas.services.entries import log_entry
 from atlas.services.errors import ValidationError
 from atlas.services.lookups import (
     ensure_unique_slug,
-    entries_for_metric,
     metric_by_id,
     not_archived,
+    require_entry,
     require_screen_app,
     require_screen_budget,
     require_screen_category,
+    require_screen_device,
+    require_screen_session,
 )
-from atlas.services.mapping import entry_view
 from atlas.services.slugs import display_name, normalize_slug
+from atlas.settings import load_settings
 
 SCREEN_AREA_SLUG = "screen"
 _UNSET = object()
@@ -72,7 +103,7 @@ class ScreenJudgmentTotals:
 
 
 @dataclass(frozen=True, slots=True)
-class ScreenSession:
+class ScreenSessionRow:
     id: int
     app: str
     category: str
@@ -105,7 +136,34 @@ class ScreenView:
     as_of: date
     categories: list[ScreenCategoryRow]
     judgments: ScreenJudgmentTotals
-    sessions: list[ScreenSession]
+    sessions: list[ScreenSessionRow]
+    budgets: list[ScreenBudgetStatus]
+
+
+@dataclass(frozen=True, slots=True)
+class ScreenDashboard:
+    period: Period
+    as_of: date
+    range_start: date
+    range_end: date
+    previous_start: date
+    previous_end: date
+    total: float | None
+    daily_average: float | None
+    longest_day: ScreenLongestDay | None
+    delta_minutes: float | None
+    delta_fraction: float | None
+    score: int | None
+    score_band: ScreenScoreBand | None
+    judgments: ScreenJudgmentTotals
+    apps: list[ScreenAppShare]
+    categories: list[ScreenCategoryShare]
+    devices: list[ScreenDeviceShare]
+    daily: list[ScreenDayBar]
+    comparison: list[ScreenComparisonPoint]
+    hours: list[list[float]]
+    trend: list[ScreenTrendPoint]
+    insights: list[ScreenInsight]
     budgets: list[ScreenBudgetStatus]
 
 
@@ -339,28 +397,230 @@ def update_screen_budget(
     return budget
 
 
+def create_screen_device(
+    session: Session,
+    slug: str,
+    *,
+    name: str | None = None,
+) -> ScreenDevice:
+    slug = normalize_slug(slug)
+    ensure_unique_slug(session, ScreenDevice, slug)
+    device = ScreenDevice(
+        slug=slug,
+        name=name if name is not None else display_name(slug),
+    )
+    session.add(device)
+    session.commit()
+    session.refresh(device)
+    return device
+
+
+def list_screen_devices(session: Session, *, include_archived: bool = False) -> list[ScreenDevice]:
+    statement = select(ScreenDevice).order_by(ScreenDevice.slug)
+    if not include_archived:
+        statement = statement.where(not_archived(ScreenDevice.archived_at))
+    return list(session.exec(statement).all())
+
+
+def get_screen_device(session: Session, slug: str) -> ScreenDevice:
+    return require_screen_device(session, normalize_slug(slug))
+
+
+def update_screen_device(
+    session: Session,
+    slug: str,
+    *,
+    name: str | None = None,
+) -> ScreenDevice:
+    device = require_screen_device(session, normalize_slug(slug))
+    if name is not None:
+        if not isinstance(name, str) or not name.strip():
+            raise ValidationError("name must be a non-empty string")
+        device.name = name
+    session.add(device)
+    session.commit()
+    session.refresh(device)
+    return device
+
+
+def log_screen_session(
+    session: Session,
+    app_slug: str,
+    *,
+    minutes: float | None = None,
+    started_at: datetime | None = None,
+    ended_at: datetime | None = None,
+    occurred_on: date | None = None,
+    device_slug: str | None = None,
+    note: str | None = None,
+    source: Source = Source.CLI,
+) -> ScreenSession:
+    app = require_screen_app(session, normalize_slug(app_slug))
+    if app.archived_at is not None:
+        raise ValidationError(f"screen_app {app.slug!r} is archived")
+    device = _optional_device(session, device_slug)
+    try:
+        resolved = resolve_screen_session(
+            started_at=started_at,
+            ended_at=ended_at,
+            minutes=minutes,
+            occurred_on=occurred_on,
+            timezone=load_settings().timezone,
+            today=resolve_today(None),
+        )
+    except ValueError as exc:
+        raise ValidationError(str(exc)) from exc
+    metric = metric_by_id(session, app.metric_id)
+    entry = log_entry(
+        session,
+        metric.slug,
+        resolved.minutes,
+        occurred_on=resolved.occurred_on,
+        occurred_at=resolved.started_at,
+        note=note,
+        source=source,
+        link_screen=False,
+    )
+    row = ScreenSession(
+        app_id=app.id,
+        device_id=device.id if device is not None else None,
+        started_at=resolved.started_at,
+        ended_at=resolved.ended_at,
+        minutes=resolved.minutes,
+        occurred_on=resolved.occurred_on,
+        note=note,
+        source=source,
+        entry_id=entry.id,
+    )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return row
+
+
+def get_screen_session(session: Session, session_id: int) -> ScreenSession:
+    return require_screen_session(session, session_id)
+
+
+def list_screen_sessions(
+    session: Session,
+    *,
+    occurred_on: date | None = None,
+) -> list[ScreenSession]:
+    statement = select(ScreenSession).order_by(ScreenSession.id)
+    if occurred_on is not None:
+        statement = statement.where(ScreenSession.occurred_on == occurred_on)
+    return list(session.exec(statement).all())
+
+
+def update_screen_session(
+    session: Session,
+    session_id: int,
+    *,
+    minutes: float | None | object = _UNSET,
+    started_at: datetime | None | object = _UNSET,
+    ended_at: datetime | None | object = _UNSET,
+    occurred_on: date | None | object = _UNSET,
+    device_slug: str | None | object = _UNSET,
+    note: str | None | object = _UNSET,
+) -> ScreenSession:
+    row = require_screen_session(session, session_id)
+    next_start = row.started_at if started_at is _UNSET else started_at
+    next_end = row.ended_at if ended_at is _UNSET else ended_at
+    next_minutes = row.minutes if minutes is _UNSET else minutes
+    next_occurred = row.occurred_on if occurred_on is _UNSET else occurred_on
+    if started_at is not _UNSET and ended_at is not _UNSET and minutes is _UNSET:
+        next_minutes = None
+    if started_at is _UNSET and ended_at is _UNSET and minutes is not _UNSET:
+        next_start = None
+        next_end = None
+    try:
+        resolved = resolve_screen_session(
+            started_at=next_start if isinstance(next_start, datetime) else None,
+            ended_at=next_end if isinstance(next_end, datetime) else None,
+            minutes=next_minutes if isinstance(next_minutes, int | float) else None,
+            occurred_on=(
+                next_occurred
+                if isinstance(next_occurred, date) and not isinstance(next_occurred, datetime)
+                else None
+            ),
+            timezone=load_settings().timezone,
+            today=resolve_today(None),
+        )
+    except ValueError as exc:
+        raise ValidationError(str(exc)) from exc
+    if device_slug is not _UNSET:
+        device = _optional_device(session, device_slug if isinstance(device_slug, str) else None)
+        row.device_id = device.id if device is not None else None
+    if note is not _UNSET:
+        if note is not None and not isinstance(note, str):
+            raise ValidationError("note must be a string or None")
+        row.note = note
+    row.started_at = resolved.started_at
+    row.ended_at = resolved.ended_at
+    row.minutes = resolved.minutes
+    row.occurred_on = resolved.occurred_on
+    session.add(row)
+    if row.entry_id is not None:
+        entry = require_entry(session, row.entry_id)
+        entry.value_num = resolved.minutes
+        entry.occurred_on = resolved.occurred_on
+        entry.occurred_at = resolved.started_at
+        entry.note = row.note
+        session.add(entry)
+    session.commit()
+    session.refresh(row)
+    return row
+
+
+def delete_screen_session(session: Session, session_id: int) -> None:
+    row = require_screen_session(session, session_id)
+    entry_id = row.entry_id
+    session.delete(row)
+    session.flush()
+    if entry_id is not None:
+        entry = session.get(Entry, entry_id)
+        if entry is not None:
+            session.delete(entry)
+    session.commit()
+
+
+def _optional_device(session: Session, device_slug: str | None) -> ScreenDevice | None:
+    if device_slug is None or device_slug == "":
+        return None
+    device = require_screen_device(session, normalize_slug(device_slug))
+    if device.archived_at is not None:
+        raise ValidationError(f"screen_device {device.slug!r} is archived")
+    return device
+
+
 def screen_view(session: Session, *, as_of: date | None = None) -> ScreenView:
     as_of = resolve_today(as_of)
+    timezone = load_settings().timezone
     categories = list_screen_categories(session)
     apps = list_screen_apps(session)
-    category_by_id = {category.id: category for category in categories}
-    specs = [_app_spec(session, app, category_by_id) for app in apps]
-    category_specs = [
-        ScreenCategorySpec(slug=category.slug, judgment=ScreenJudgment(category.judgment))
-        for category in categories
-    ]
-    entries_by_metric = {
-        spec.metric_slug: [
-            entry_view(entry) for entry in entries_for_metric(session, app.metric_id)
-        ]
-        for spec, app in zip(specs, apps, strict=True)
+    views = _session_views(session)
+    by_app: dict[str, float | None] = {app.slug: None for app in apps}
+    for view in views:
+        minutes = attributed_day_minutes(view, timezone).get(as_of)
+        if minutes:
+            by_app[view.app_slug] = add_minutes(by_app.get(view.app_slug), minutes)
+    by_category: dict[str, float | None] = {category.slug: None for category in categories}
+    by_judgment: dict[ScreenJudgment, float | None] = {
+        ScreenJudgment.USEFUL: None,
+        ScreenJudgment.WASTE: None,
+        ScreenJudgment.NEUTRAL: None,
     }
-    by_app, by_category, by_judgment = screen_day_totals(
-        specs,
-        category_specs,
-        entries_by_metric,
-        as_of,
-    )
+    category_by_id = {category.id: category for category in categories}
+    app_by_slug = {app.slug: app for app in apps}
+    for app in apps:
+        category = category_by_id[app.category_id]
+        minutes = by_app[app.slug]
+        by_category[category.slug] = add_minutes(by_category[category.slug], minutes)
+        by_judgment[ScreenJudgment(category.judgment)] = add_minutes(
+            by_judgment[ScreenJudgment(category.judgment)],
+            minutes,
+        )
     metric_by_id_map = {app.metric_id: metric_by_id(session, app.metric_id) for app in apps}
     app_rows_by_category: dict[int, list[ScreenAppRow]] = {
         category.id: [] for category in categories
@@ -388,6 +648,12 @@ def screen_view(session: Session, *, as_of: date | None = None) -> ScreenView:
         )
         for category in categories
     ]
+    specs = [_app_spec(session, app, category_by_id) for app in apps]
+    category_specs = [
+        ScreenCategorySpec(slug=category.slug, judgment=ScreenJudgment(category.judgment))
+        for category in categories
+    ]
+    entries_by_metric = session_entry_views(views, timezone)
     return ScreenView(
         as_of=as_of,
         categories=category_rows,
@@ -395,21 +661,72 @@ def screen_view(session: Session, *, as_of: date | None = None) -> ScreenView:
             useful=by_judgment[ScreenJudgment.USEFUL],
             waste=by_judgment[ScreenJudgment.WASTE],
             neutral=by_judgment[ScreenJudgment.NEUTRAL],
-            total=rollup(
-                [
-                    entry
-                    for entries in entries_by_metric.values()
-                    for entry in entries
-                    if entry.occurred_on == as_of
-                ],
-                Aggregation.SUM,
-            ),
+            total=minutes_in_range(views, as_of, as_of, timezone),
         ),
-        sessions=_sessions_on(session, apps, category_by_id, metric_by_id_map, as_of),
+        sessions=_sessions_on(
+            views, app_by_slug, category_by_id, metric_by_id_map, as_of, timezone
+        ),
         budgets=[
             _budget_status(budget, specs, category_specs, entries_by_metric, as_of)
             for budget in list_screen_budgets(session)
         ],
+    )
+
+
+def screen_dashboard(
+    session: Session,
+    *,
+    as_of: date | None = None,
+    period: Period = Period.WEEK,
+) -> ScreenDashboard:
+    as_of = resolve_today(as_of)
+    period = Period(period)
+    timezone = load_settings().timezone
+    views = _session_views(session)
+    math = screen_dashboard_math(views, as_of=as_of, period=period, timezone=timezone)
+    categories = list_screen_categories(session)
+    apps = list_screen_apps(session)
+    category_by_id = {category.id: category for category in categories}
+    specs = [_app_spec(session, app, category_by_id) for app in apps]
+    category_specs = [
+        ScreenCategorySpec(slug=category.slug, judgment=ScreenJudgment(category.judgment))
+        for category in categories
+    ]
+    entries_by_metric = session_entry_views(views, timezone)
+    budgets = [
+        _budget_status(budget, specs, category_specs, entries_by_metric, as_of)
+        for budget in list_screen_budgets(session)
+    ]
+    insights = [*math.insights, *_budget_insights(budgets)]
+    return ScreenDashboard(
+        period=math.period,
+        as_of=math.as_of,
+        range_start=math.range_start,
+        range_end=math.range_end,
+        previous_start=math.previous_start,
+        previous_end=math.previous_end,
+        total=math.total,
+        daily_average=math.daily_average,
+        longest_day=math.longest_day,
+        delta_minutes=math.delta_minutes,
+        delta_fraction=math.delta_fraction,
+        score=math.score,
+        score_band=math.score_band,
+        judgments=ScreenJudgmentTotals(
+            useful=math.useful,
+            waste=math.waste,
+            neutral=math.neutral,
+            total=math.total,
+        ),
+        apps=list(math.apps),
+        categories=list(math.categories),
+        devices=list(math.devices),
+        daily=list(math.daily),
+        comparison=list(math.comparison),
+        hours=[list(row) for row in math.hours],
+        trend=list(math.trend),
+        insights=insights,
+        budgets=budgets,
     )
 
 
@@ -463,31 +780,74 @@ def _app_spec(
     return ScreenAppSpec(slug=app.slug, category_slug=category.slug, metric_slug=metric.slug)
 
 
+def _session_views(session: Session) -> list[ScreenSessionView]:
+    categories = {
+        category.id: category for category in list_screen_categories(session, include_archived=True)
+    }
+    apps = {app.id: app for app in list_screen_apps(session, include_archived=True)}
+    devices = {device.id: device for device in list_screen_devices(session, include_archived=True)}
+    views: list[ScreenSessionView] = []
+    for row in list_screen_sessions(session):
+        app = apps.get(row.app_id)
+        if app is None:
+            continue
+        category = categories[app.category_id]
+        device = devices.get(row.device_id) if row.device_id is not None else None
+        views.append(
+            ScreenSessionView(
+                id=row.id,
+                minutes=row.minutes,
+                occurred_on=row.occurred_on,
+                started_at=_coerce_utc(row.started_at),
+                ended_at=_coerce_utc(row.ended_at),
+                app_slug=app.slug,
+                app_name=app.name,
+                category_slug=category.slug,
+                category_name=category.name,
+                judgment=ScreenJudgment(category.judgment),
+                device_slug=device.slug if device is not None else None,
+                device_name=device.name if device is not None else None,
+                note=row.note,
+            )
+        )
+    return views
+
+
+def _coerce_utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
 def _sessions_on(
-    session: Session,
-    apps: list[ScreenApp],
+    views: list[ScreenSessionView],
+    apps: dict[str, ScreenApp],
     category_by_id: dict[int | None, ScreenCategory],
     metric_by_id_map: dict[int | None, Metric],
     as_of: date,
-) -> list[ScreenSession]:
-    sessions: list[ScreenSession] = []
-    for app in apps:
-        metric = metric_by_id_map[app.metric_id]
+    timezone,
+) -> list[ScreenSessionRow]:
+    sessions: list[ScreenSessionRow] = []
+    for view in views:
+        minutes = attributed_day_minutes(view, timezone).get(as_of)
+        if not minutes or view.id is None:
+            continue
+        app = apps[view.app_slug]
         category = category_by_id[app.category_id]
-        for entry in entries_for_metric(session, app.metric_id):
-            if entry.occurred_on != as_of or entry.id is None:
-                continue
-            sessions.append(
-                ScreenSession(
-                    id=entry.id,
-                    app=app.slug,
-                    category=category.slug,
-                    metric=metric.slug,
-                    occurred_on=entry.occurred_on,
-                    minutes=entry.value_num,
-                    note=entry.note,
-                )
+        metric = metric_by_id_map[app.metric_id]
+        sessions.append(
+            ScreenSessionRow(
+                id=view.id,
+                app=view.app_slug,
+                category=category.slug,
+                metric=metric.slug,
+                occurred_on=as_of,
+                minutes=minutes,
+                note=view.note,
             )
+        )
     sessions.sort(key=lambda item: item.id)
     return sessions
 
@@ -510,17 +870,11 @@ def _budget_status(
     )
     habit = spec.as_habit()
     members = member_apps(apps, categories, spec)
-    views = [
-        entry
-        for app in members
-        for entry in entries_by_metric.get(app.metric_slug, [])
-    ]
+    views = [entry for app in members for entry in entries_by_metric.get(app.metric_slug, [])]
     bucket = bucket_for(as_of, habit.period)
     scheduled = is_scheduled(habit, bucket, as_of)
     in_bucket = [
-        view
-        for view in views
-        if bucket.start <= view.occurred_on <= min(bucket.end, as_of)
+        view for view in views if bucket.start <= view.occurred_on <= min(bucket.end, as_of)
     ]
     current_value = rollup(in_bucket, habit.aggregation)
     return ScreenBudgetStatus(
@@ -539,3 +893,43 @@ def _budget_status(
         adherence=adherence(habit, views, habit.active_from, as_of),
         as_of=as_of,
     )
+
+
+def screen_minutes_in_range(
+    session: Session,
+    start: date,
+    end: date,
+) -> float:
+    timezone = load_settings().timezone
+    return minutes_in_range(_session_views(session), start, end, timezone) or 0.0
+
+
+def _budget_insights(budgets: list[ScreenBudgetStatus]) -> list[ScreenInsight]:
+    waste_caps = [
+        budget
+        for budget in budgets
+        if budget.target_kind is ScreenBudgetTargetKind.JUDGMENT
+        and budget.target_slug == ScreenJudgment.WASTE
+    ]
+    if not waste_caps:
+        return [
+            ScreenInsight(
+                kind=ScreenInsightKind.BUDGET,
+                summary="No waste cap is set.",
+                prescription="Add a waste cap so the dashboard can flag when the ceiling breaks.",
+            )
+        ]
+    over = [budget for budget in waste_caps if budget.scheduled and not budget.satisfied]
+    if not over:
+        return []
+    names = ", ".join(budget.name for budget in over)
+    return [
+        ScreenInsight(
+            kind=ScreenInsightKind.BUDGET,
+            summary=f"{names} is over its cap.",
+            prescription=(
+                "Lower tonight's waste minutes or raise the cap "
+                "if it is no longer the right ceiling."
+            ),
+        )
+    ]

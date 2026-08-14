@@ -12,6 +12,8 @@ from atlas.db.models import (
     ScreenApp,
     ScreenBudget,
     ScreenCategory,
+    ScreenDevice,
+    ScreenSession,
     Task,
 )
 from atlas.domain import Period
@@ -67,6 +69,20 @@ def require_screen_budget(session: Session, slug: str) -> ScreenBudget:
     return row
 
 
+def require_screen_device(session: Session, slug: str) -> ScreenDevice:
+    row = session.exec(select(ScreenDevice).where(ScreenDevice.slug == slug)).first()
+    if row is None:
+        raise NotFoundError("screen_device", slug)
+    return row
+
+
+def require_screen_session(session: Session, session_id: int) -> ScreenSession:
+    row = session.get(ScreenSession, session_id)
+    if row is None:
+        raise NotFoundError("screen_session", session_id)
+    return row
+
+
 def require_entry(session: Session, entry_id: int) -> Entry:
     row = session.get(Entry, entry_id)
     if row is None:
@@ -106,7 +122,8 @@ def ensure_unique_slug(
     | type[Goal]
     | type[ScreenCategory]
     | type[ScreenApp]
-    | type[ScreenBudget],
+    | type[ScreenBudget]
+    | type[ScreenDevice],
     slug: str,
 ) -> None:
     if session.exec(select(model).where(model.slug == slug)).first() is not None:

@@ -46,6 +46,36 @@ def test_create_taxonomy_and_read_view(client):
     assert body["categories"][0]["apps"][0]["minutes"] == 30.0
 
 
+def test_create_interval_session_and_device(client):
+    client.post("/screen/categories", json={"slug": "entertainment", "judgment": "waste"})
+    client.post("/screen/apps", json={"slug": "instagram", "category": "entertainment"})
+    device = client.post("/screen/devices", json={"slug": "iphone", "name": "iPhone"})
+    assert device.status_code == 201, device.text
+
+    created = client.post(
+        "/screen/sessions",
+        json={
+            "app": "instagram",
+            "device": "iphone",
+            "started_at": "2026-08-14T20:00:00+00:00",
+            "ended_at": "2026-08-14T20:30:00+00:00",
+        },
+    )
+    assert created.status_code == 201, created.text
+    body = created.json()
+    assert body["minutes"] == 30.0
+    assert body["device"] == "iphone"
+    assert body["app"] == "instagram"
+
+    listed = client.get("/screen/sessions", params={"occurred_on": "2026-08-14"})
+    assert listed.status_code == 200
+    assert len(listed.json()) == 1
+
+    removed = client.delete(f"/screen/sessions/{body['id']}")
+    assert removed.status_code == 204
+    assert client.get("/screen/sessions").json() == []
+
+
 def test_patch_category_judgment_updates_view(client):
     client.post("/screen/categories", json={"slug": "entertainment", "judgment": "waste"})
     client.post("/screen/apps", json={"slug": "instagram", "category": "entertainment"})
@@ -72,3 +102,28 @@ def test_duplicate_app_slug_conflicts(client):
     assert first.status_code == 201
     again = client.post("/screen/apps", json={"slug": "instagram", "category": "entertainment"})
     assert again.status_code == 409
+
+
+def test_screen_dashboard_week(client):
+    client.post("/screen/categories", json={"slug": "entertainment", "judgment": "waste"})
+    client.post("/screen/apps", json={"slug": "instagram", "category": "entertainment"})
+    logged = client.post(
+        "/screen/sessions",
+        json={"app": "instagram", "minutes": 30, "occurred_on": "2026-08-12"},
+    )
+    assert logged.status_code == 201, logged.text
+    response = client.get(
+        "/screen/dashboard",
+        params={"period": "week", "as_of": "2026-08-14"},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["period"] == "week"
+    assert body["range_start"] == "2026-08-10"
+    assert body["range_end"] == "2026-08-14"
+    assert body["total"] == 30.0
+    assert body["daily_average"] == 6.0
+    assert len(body["hours"]) == 7
+    assert len(body["trend"]) == 8
+    assert body["apps"][0]["slug"] == "instagram"
+    assert body["devices"][0]["slug"] == "unknown"

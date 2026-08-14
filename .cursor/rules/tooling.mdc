@@ -1,5 +1,5 @@
 ---
-description: uv-only commands, ruff/pytest gates, one-todo-per-commit
+description: uv-only commands, ruff check/format and pytest gates
 alwaysApply: true
 ---
 
@@ -22,6 +22,7 @@ uv add fastapi
 uv add --dev pytest ruff
 uv run pytest
 uv run ruff check
+uv run ruff format --check
 uv run uvicorn atlas.api.app:app --reload
 ```
 
@@ -29,19 +30,16 @@ Use `uv add` / `uv add --dev` / `uv sync`. The lockfile is `uv.lock`; do not inv
 
 ## Pre-commit gates
 
-Before every commit, both must pass:
+Before every commit, all must pass:
 
 1. `uv run ruff check`
-2. `uv run pytest`
+2. `uv run ruff format --check`
+3. `uv run pytest`
 
-Fix failures in the same cycle. Do not commit with failing lint or tests.
+A finding is work: apply `ruff check --fix` / `ruff format` when the tool can, then inspect the rest. See `.cursor/rules/checks.mdc`. Do not commit with a known failure.
 
 ## Frontend (`web/`)
 
 pnpm and Biome only. See `.cursor/rules/frontend.mdc`. Never `npm` / `yarn` / ESLint / Prettier / oxlint in `web/`.
 
-## One todo, one commit
 
-Each assigned plan todo is one cycle: implement, lint, test, update `docs/architecture.md`, then a single focused commit. Stop after that commit so the change can be reviewed before the next todo starts. Do not batch multiple todos into one commit.
-
-Commit messages are the subject and body only. Never add Cursor attribution: no `Co-authored-by: Cursor`, `Made with Cursor`, `Coded by Cursor`, `--trailer`, or any similar branding. Do not pass git trailers when committing.

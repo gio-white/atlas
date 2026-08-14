@@ -6,6 +6,7 @@ from atlas.domain import Comparator, GoalHorizon, GoalKind, GoalStatus, Measure,
 from atlas.services import (
     MilestoneInput,
     ValidationError,
+    create_area,
     create_goal,
     create_task,
     get_goal,
@@ -307,3 +308,60 @@ def test_goals_board_groups_by_horizon_and_lists_week_tasks(session):
     assert board.long.total == 1
     assert board.long.on_track == 0
 
+
+def test_create_goal_without_area(session):
+    seed_health(session)
+    goal = create_goal(
+        session,
+        "north",
+        kind=GoalKind.MILESTONE,
+        start_on=date(2026, 1, 1),
+        due_on=date(2028, 1, 1),
+    )
+    assert goal.area_id is None
+    metric = create_goal(
+        session,
+        "bodyweight-75",
+        kind=GoalKind.METRIC_TARGET,
+        metric_slug="weight",
+        target_value=75.0,
+        comparator=Comparator.AT_MOST,
+        measure=Measure.LATEST_VALUE,
+        start_on=date(2026, 1, 1),
+        due_on=date(2026, 12, 31),
+    )
+    assert metric.area_id is None
+
+
+def test_metric_must_match_area_only_when_both_are_set(session):
+    seed_health(session)
+    create_area(session, "finance", name="Finance")
+    with pytest.raises(ValidationError, match="does not belong"):
+        create_goal(
+            session,
+            "bodyweight-75",
+            area_slug="finance",
+            kind=GoalKind.METRIC_TARGET,
+            metric_slug="weight",
+            target_value=75.0,
+            comparator=Comparator.AT_MOST,
+            measure=Measure.LATEST_VALUE,
+            start_on=date(2026, 1, 1),
+            due_on=date(2026, 12, 31),
+        )
+
+
+def test_update_goal_can_clear_area(session):
+    seed_health(session)
+    create_goal(
+        session,
+        "north",
+        area_slug="health",
+        kind=GoalKind.MILESTONE,
+        start_on=date(2026, 1, 1),
+        due_on=date(2028, 1, 1),
+    )
+    updated = update_goal(session, "north", area_slug=None)
+    assert updated.area_id is None
+    listed = list_goals(session, area_slug="health")
+    assert listed == []

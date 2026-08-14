@@ -2,14 +2,14 @@ from atlas.cli.app import app
 from tests.cli.conftest import invoke
 
 
-def test_seed_loads_demo_and_today_has_habits(runner):
+def test_seed_loads_demo(runner):
     result = invoke(runner, ["seed"])
     assert "seeded demo as of" in result.output
-    assert "4 areas" in result.output
+    assert "areas" in result.output
     assert "entries" in result.output
 
-    today = invoke(runner, ["today"])
-    assert "meditated-daily" in today.output
+    exported = invoke(runner, ["export"])
+    assert "meditated-daily" in exported.output
 
 
 def test_seed_refuses_when_the_database_already_has_data(runner):

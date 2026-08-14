@@ -82,9 +82,7 @@ def update_task(
     if bucket is not None:
         task.bucket = bucket
     if due_on is not _UNSET:
-        if due_on is not None and (
-            isinstance(due_on, datetime) or not isinstance(due_on, date)
-        ):
+        if due_on is not None and (isinstance(due_on, datetime) or not isinstance(due_on, date)):
             raise ValidationError("due_on must be a date or None")
         task.due_on = due_on
     if due_at is not _UNSET:
@@ -98,9 +96,7 @@ def update_task(
     elif done is False:
         task.done_at = None
     if goal_slug is not _UNSET:
-        task.goal_id = _goal_id_for(
-            session, goal_slug if isinstance(goal_slug, str) else None
-        )
+        task.goal_id = _goal_id_for(session, goal_slug if isinstance(goal_slug, str) else None)
     session.add(task)
     session.commit()
     session.refresh(task)

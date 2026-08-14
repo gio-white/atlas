@@ -56,4 +56,4 @@ All three must pass:
 2. `pnpm test`
 3. `pnpm build`
 
-Fix failures in the same cycle. Do not commit with failing lint, tests, or build.
+A finding is work. If Biome marks it fixable, run `pnpm format` then `pnpm lint` again; inspect the rest and edit to match nearby code. See `.cursor/rules/checks.mdc`. Do not commit with a known failure.

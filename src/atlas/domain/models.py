@@ -116,6 +116,37 @@ class ScreenAppSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class ScreenSessionSpec:
+    occurred_on: date
+    minutes: float
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
+
+    def has_interval(self) -> bool:
+        return self.started_at is not None and self.ended_at is not None
+
+
+@dataclass(frozen=True, slots=True)
+class ScreenSessionView:
+    minutes: float
+    occurred_on: date
+    app_slug: str
+    app_name: str
+    category_slug: str
+    category_name: str
+    judgment: ScreenJudgment
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
+    device_slug: str | None = None
+    device_name: str | None = None
+    id: int | None = None
+    note: str | None = None
+
+    def has_interval(self) -> bool:
+        return self.started_at is not None and self.ended_at is not None
+
+
+@dataclass(frozen=True, slots=True)
 class ScreenBudgetSpec:
     target_kind: ScreenBudgetTargetKind
     target_slug: str

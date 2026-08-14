@@ -2,15 +2,17 @@ import {
   Bell,
   BookOpen,
   CheckSquare,
+  Clapperboard,
   Compass,
   Flag,
+  HeartPulse,
   Home,
   Menu,
   Monitor,
+  Moon,
+  Mountain,
   Plus,
   Settings,
-  Sparkles,
-  TriangleAlert,
   X,
 } from 'lucide-react'
 import { useState } from 'react'
@@ -22,12 +24,23 @@ import { Button } from '@/components/ui/button'
 import type { ShellContext } from '@/lib/asOf'
 import { longDateLabel } from '@/lib/dates'
 import { initials, readDisplayName } from '@/lib/profile'
+import { LIFE_SECTIONS } from '@/lib/sections'
 import { cn, todayIso } from '@/lib/utils'
+
+const SECTION_ICONS = {
+  sleep: Moon,
+  health: HeartPulse,
+  adventure: Mountain,
+  entertainment: Clapperboard,
+} as const
 
 const NAV = [
   { to: '/', label: 'Home', icon: Home, end: true },
-  { to: '/updates', label: 'Updates', icon: Sparkles },
-  { to: '/slips', label: 'Slips', icon: TriangleAlert },
+  ...LIFE_SECTIONS.map((section) => ({
+    to: section.path,
+    label: section.label,
+    icon: SECTION_ICONS[section.slug],
+  })),
   { to: '/screen', label: 'Screen Time', icon: Monitor },
   { to: '/goal', label: 'Goals', icon: Flag },
   { to: '/tasks', label: 'Tasks', icon: CheckSquare },

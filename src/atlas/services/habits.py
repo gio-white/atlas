@@ -154,9 +154,7 @@ def _status_for(session: Session, habit: Habit, metric: Metric, as_of: date) -> 
     bucket = bucket_for(as_of, spec.period)
     scheduled = is_scheduled(spec, bucket, as_of)
     in_bucket = [
-        view
-        for view in views
-        if bucket.start <= view.occurred_on <= min(bucket.end, as_of)
+        view for view in views if bucket.start <= view.occurred_on <= min(bucket.end, as_of)
     ]
     current_value = rollup(in_bucket, spec.aggregation)
     return HabitStatus(

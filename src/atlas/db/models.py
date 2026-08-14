@@ -80,7 +80,7 @@ class Goal(SQLModel, table=True):
     __tablename__ = "goal"
 
     id: int | None = Field(default=None, primary_key=True)
-    area_id: int = Field(foreign_key="area.id")
+    area_id: int | None = Field(default=None, foreign_key="area.id")
     slug: str = Field(unique=True, index=True)
     name: str
     kind: GoalKind
@@ -142,6 +142,32 @@ class ScreenBudget(SQLModel, table=True):
     comparator: Comparator
     active_from: date
     active_to: date | None = None
+
+
+class ScreenDevice(SQLModel, table=True):
+    __tablename__ = "screen_device"
+
+    id: int | None = Field(default=None, primary_key=True)
+    slug: str = Field(unique=True, index=True)
+    name: str
+    archived_at: datetime | None = None
+
+
+class ScreenSession(SQLModel, table=True):
+    __tablename__ = "screen_session"
+    __table_args__ = (Index("ix_screen_session_app_id_occurred_on", "app_id", "occurred_on"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    app_id: int = Field(foreign_key="screen_app.id")
+    device_id: int | None = Field(default=None, foreign_key="screen_device.id")
+    started_at: datetime | None = None
+    ended_at: datetime | None = None
+    minutes: float
+    occurred_on: date
+    note: str | None = None
+    source: Source
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    entry_id: int | None = Field(default=None, foreign_key="entry.id", unique=True)
 
 
 class Task(SQLModel, table=True):

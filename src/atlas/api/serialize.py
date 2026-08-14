@@ -12,6 +12,8 @@ from atlas.api.schemas import (
     ScreenAppOut,
     ScreenBudgetOut,
     ScreenCategoryOut,
+    ScreenDeviceOut,
+    ScreenSessionRecordOut,
     TaskOut,
 )
 from atlas.domain import (
@@ -30,7 +32,14 @@ from atlas.domain import (
     TaskPriority,
     ValueType,
 )
-from atlas.services import list_areas, list_goals, list_metrics, list_screen_categories
+from atlas.services import (
+    list_areas,
+    list_goals,
+    list_metrics,
+    list_screen_apps,
+    list_screen_categories,
+    list_screen_devices,
+)
 
 
 def area_slug_by_id(session: Session) -> dict[int, str]:
@@ -109,7 +118,7 @@ def habits_out(session: Session, habits: list[Any]) -> list[HabitOut]:
 
 def goal_out(
     goal: Any,
-    area_slug: str,
+    area_slug: str | None,
     metric_slug: str | None,
     parent_slug: str | None,
 ) -> GoalOut:
@@ -145,7 +154,7 @@ def goals_out(session: Session, goals: list[Any]) -> list[GoalOut]:
     return [
         goal_out(
             goal,
-            areas[goal.area_id],
+            areas.get(goal.area_id) if goal.area_id is not None else None,
             metrics.get(goal.metric_id) if goal.metric_id is not None else None,
             parents.get(goal.parent_id) if goal.parent_id is not None else None,
         )
@@ -162,7 +171,7 @@ def goal_detail_out(session: Session, detail: Any) -> GoalDetailOut:
     metrics = metric_slug_by_id(session)
     base = goal_out(
         detail.goal,
-        areas[detail.goal.area_id],
+        areas.get(detail.goal.area_id) if detail.goal.area_id is not None else None,
         metrics.get(detail.goal.metric_id) if detail.goal.metric_id is not None else None,
         goal_slug_by_id(session).get(detail.goal.parent_id)
         if detail.goal.parent_id is not None
@@ -242,3 +251,53 @@ def screen_budget_out(budget: Any) -> ScreenBudgetOut:
         active_from=budget.active_from,
         active_to=budget.active_to,
     )
+
+
+def screen_device_out(device: Any) -> ScreenDeviceOut:
+    return ScreenDeviceOut(
+        id=device.id,
+        slug=device.slug,
+        name=device.name,
+        archived_at=device.archived_at,
+    )
+
+
+def screen_session_record_out(
+    row: Any,
+    app_slug: str,
+    device_slug: str | None,
+) -> ScreenSessionRecordOut:
+    return ScreenSessionRecordOut(
+        id=row.id,
+        app=app_slug,
+        device=device_slug,
+        started_at=row.started_at,
+        ended_at=row.ended_at,
+        minutes=row.minutes,
+        occurred_on=row.occurred_on,
+        note=row.note,
+        source=Source(row.source),
+        created_at=row.created_at,
+        entry_id=row.entry_id,
+    )
+
+
+def screen_session_records_out(session: Session, rows: list[Any]) -> list[ScreenSessionRecordOut]:
+    apps = {
+        app.id: app.slug
+        for app in list_screen_apps(session, include_archived=True)
+        if app.id is not None
+    }
+    devices = {
+        device.id: device.slug
+        for device in list_screen_devices(session, include_archived=True)
+        if device.id is not None
+    }
+    return [
+        screen_session_record_out(
+            row,
+            apps[row.app_id],
+            devices.get(row.device_id) if row.device_id is not None else None,
+        )
+        for row in rows
+    ]

@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { type ApiError, getGoalsBoard, getToday, logEntry, queryString } from './api'
+import {
+  type ApiError,
+  getGoalsBoard,
+  getScreenDashboard,
+  getToday,
+  logEntry,
+  queryString,
+} from './api'
 
 describe('queryString', () => {
   it('omits empty values and names as_of for the API', () => {
@@ -42,6 +49,47 @@ describe('request helpers', () => {
     await getGoalsBoard('2026-08-13')
 
     expect(fetchMock).toHaveBeenCalledWith('/views/goals?as_of=2026-08-13', expect.any(Object))
+    vi.unstubAllGlobals()
+  })
+
+  it('getScreenDashboard sends period and as_of', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        period: 'week',
+        as_of: '2026-08-14',
+        range_start: '2026-08-10',
+        range_end: '2026-08-14',
+        previous_start: '2026-08-03',
+        previous_end: '2026-08-07',
+        total: null,
+        daily_average: null,
+        longest_day: null,
+        delta_minutes: null,
+        delta_fraction: null,
+        score: null,
+        score_band: null,
+        judgments: { useful: null, waste: null, neutral: null, total: null },
+        apps: [],
+        categories: [],
+        devices: [],
+        daily: [],
+        comparison: [],
+        hours: [],
+        trend: [],
+        insights: [],
+        budgets: [],
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getScreenDashboard('week', '2026-08-14')
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/screen/dashboard?period=week&as_of=2026-08-14',
+      expect.any(Object),
+    )
     vi.unstubAllGlobals()
   })
 

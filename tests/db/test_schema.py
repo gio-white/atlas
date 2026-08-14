@@ -17,6 +17,8 @@ from atlas.db import (
     ScreenApp,
     ScreenBudget,
     ScreenCategory,
+    ScreenDevice,
+    ScreenSession,
     create_engine_for,
     create_memory_engine,
     init_db,
@@ -183,15 +185,104 @@ def test_screen_slugs_are_unique(session):
         session.commit()
 
 
+def test_screen_device_slug_is_unique(session):
+    session.add(ScreenDevice(slug="iphone", name="iPhone"))
+    session.commit()
+    session.add(ScreenDevice(slug="iphone", name="Again"))
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_screen_session_is_indexed_on_app_and_occurred_on(engine):
+    indexes = inspect(engine).get_indexes("screen_session")
+    column_sets = {tuple(index["column_names"]) for index in indexes}
+    assert ("app_id", "occurred_on") in column_sets
+
+
+def test_init_schema_backfills_sessions_from_screen_app_entries(tmp_path):
+    engine = create_engine_for(tmp_path / "v4.db")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE area ("
+                "id INTEGER PRIMARY KEY, slug VARCHAR UNIQUE, name VARCHAR, "
+                "description TEXT, archived_at DATETIME)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE metric ("
+                "id INTEGER PRIMARY KEY, area_id INTEGER, slug VARCHAR UNIQUE, name VARCHAR, "
+                "value_type VARCHAR, unit VARCHAR, aggregation VARCHAR, direction VARCHAR, "
+                "archived_at DATETIME)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE entry ("
+                "id INTEGER PRIMARY KEY, metric_id INTEGER, occurred_on DATE, "
+                "occurred_at DATETIME, value_num FLOAT, value_bool BOOLEAN, "
+                "value_text TEXT, note TEXT, source VARCHAR, created_at DATETIME)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE screen_category ("
+                "id INTEGER PRIMARY KEY, slug VARCHAR UNIQUE, name VARCHAR, "
+                "judgment VARCHAR, archived_at DATETIME)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE screen_app ("
+                "id INTEGER PRIMARY KEY, slug VARCHAR UNIQUE, name VARCHAR, "
+                "category_id INTEGER, metric_id INTEGER UNIQUE, archived_at DATETIME)"
+            )
+        )
+        connection.execute(
+            text("CREATE TABLE schema_version (id INTEGER PRIMARY KEY, version INTEGER)")
+        )
+        connection.execute(text("INSERT INTO schema_version (id, version) VALUES (1, 4)"))
+        connection.execute(text("INSERT INTO area (id, slug, name) VALUES (1, 'screen', 'Screen')"))
+        connection.execute(
+            text(
+                "INSERT INTO metric (id, area_id, slug, name, value_type, aggregation, direction) "
+                "VALUES (1, 1, 'instagram', 'Instagram', 'DURATION', 'SUM', 'LOWER_IS_BETTER')"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO screen_category (id, slug, name, judgment) "
+                "VALUES (1, 'entertainment', 'Entertainment', 'WASTE')"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO screen_app (id, slug, name, category_id, metric_id) "
+                "VALUES (1, 'instagram', 'Instagram', 1, 1)"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO entry (id, metric_id, occurred_on, value_num, source, created_at) "
+                "VALUES (1, 1, '2026-08-14', 30.0, 'CLI', '2026-08-14T12:00:00+00:00')"
+            )
+        )
+    init_schema(engine)
+    with Session(engine) as session:
+        rows = session.exec(select(ScreenSession)).all()
+        assert len(rows) == 1
+        assert rows[0].minutes == 30.0
+        assert rows[0].entry_id == 1
+        assert rows[0].started_at is None
+        assert session.get(SchemaVersion, 1).version == CURRENT_SCHEMA_VERSION
+
+
 def test_multiple_entries_per_day_are_allowed(session):
     metric = _metric(session, _area(session))
     day = date(2026, 8, 13)
-    session.add(
-        Entry(metric_id=metric.id, occurred_on=day, value_num=10, source=Source.CLI)
-    )
-    session.add(
-        Entry(metric_id=metric.id, occurred_on=day, value_num=20, source=Source.API)
-    )
+    session.add(Entry(metric_id=metric.id, occurred_on=day, value_num=10, source=Source.CLI))
+    session.add(Entry(metric_id=metric.id, occurred_on=day, value_num=20, source=Source.API))
     session.commit()
 
     rows = session.exec(select(Entry).where(Entry.metric_id == metric.id)).all()
@@ -317,6 +408,92 @@ def test_init_schema_migrates_v3_goal_hierarchy_columns(tmp_path):
         }
     assert horizons["year-goal"] == "long"
     assert horizons["week-goal"] == "short"
+    area_column = next(
+        column for column in inspect(engine).get_columns("goal") if column["name"] == "area_id"
+    )
+    assert area_column["nullable"] is True
+    with engine.connect() as connection:
+        year = connection.execute(text("SELECT area_id FROM goal WHERE slug = 'year-goal'")).one()
+        assert year.area_id == 1
+        connection.execute(text("UPDATE goal SET area_id = NULL WHERE slug = 'year-goal'"))
+        connection.commit()
+        cleared = connection.execute(
+            text("SELECT area_id FROM goal WHERE slug = 'year-goal'")
+        ).one()
+        assert cleared.area_id is None
+    with Session(engine) as session:
+        assert session.get(SchemaVersion, 1).version == CURRENT_SCHEMA_VERSION
+
+
+def test_goal_can_omit_area(session):
+    goal = Goal(
+        slug="north",
+        name="North",
+        kind=GoalKind.MILESTONE,
+        start_on=date(2026, 1, 1),
+        due_on=date(2028, 1, 1),
+        status=GoalStatus.ACTIVE,
+    )
+    session.add(goal)
+    session.commit()
+    session.refresh(goal)
+    assert goal.area_id is None
+
+
+def test_init_schema_migrates_v5_nullable_goal_area(tmp_path):
+    engine = create_engine_for(tmp_path / "v5.db")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE area ("
+                "id INTEGER PRIMARY KEY, slug VARCHAR UNIQUE, name VARCHAR, "
+                "description TEXT, archived_at DATETIME)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE goal ("
+                "id INTEGER PRIMARY KEY, area_id INTEGER NOT NULL, slug VARCHAR UNIQUE, "
+                "name VARCHAR, kind VARCHAR, metric_id INTEGER, target_value FLOAT, "
+                "comparator VARCHAR, baseline_value FLOAT, measure VARCHAR, "
+                "start_on DATE, due_on DATE, horizon VARCHAR NOT NULL, parent_id INTEGER, "
+                "description TEXT, status VARCHAR, achieved_at DATETIME)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE milestone ("
+                "id INTEGER PRIMARY KEY, goal_id INTEGER NOT NULL, name VARCHAR, "
+                "due_on DATE, done_at DATETIME, "
+                "FOREIGN KEY(goal_id) REFERENCES goal(id))"
+            )
+        )
+        connection.execute(
+            text("CREATE TABLE schema_version (id INTEGER PRIMARY KEY, version INTEGER)")
+        )
+        connection.execute(text("INSERT INTO schema_version (id, version) VALUES (1, 5)"))
+        connection.execute(text("INSERT INTO area (id, slug, name) VALUES (1, 'health', 'Health')"))
+        connection.execute(
+            text(
+                "INSERT INTO goal (id, area_id, slug, name, kind, start_on, due_on, "
+                "horizon, status) VALUES (1, 1, 'north', 'North', 'milestone',"
+                " '2026-01-01', '2028-01-01', 'long', 'active')"
+            )
+        )
+        connection.execute(
+            text("INSERT INTO milestone (id, goal_id, name) VALUES (1, 1, 'keep-going')")
+        )
+    init_schema(engine)
+
+    area_column = next(
+        column for column in inspect(engine).get_columns("goal") if column["name"] == "area_id"
+    )
+    assert area_column["nullable"] is True
+    with engine.connect() as connection:
+        goal = connection.execute(text("SELECT id, area_id FROM goal WHERE slug = 'north'")).one()
+        assert goal.area_id == 1
+        milestone = connection.execute(text("SELECT goal_id FROM milestone")).one()
+        assert milestone.goal_id == goal.id
     with Session(engine) as session:
         assert session.get(SchemaVersion, 1).version == CURRENT_SCHEMA_VERSION
 

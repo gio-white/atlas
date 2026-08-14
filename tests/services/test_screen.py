@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -11,15 +11,22 @@ from atlas.services import (
     create_screen_app,
     create_screen_budget,
     create_screen_category,
+    create_screen_device,
+    delete_entry,
+    delete_screen_session,
     export_all,
     get_metric,
     import_all,
     list_areas,
     list_screen_apps,
+    list_screen_sessions,
     log_entry,
+    log_screen_session,
+    screen_dashboard,
     screen_view,
     update_screen_app,
     update_screen_category,
+    update_screen_session,
 )
 
 
@@ -150,4 +157,115 @@ def test_export_round_trips_screen_taxonomy(session):
         assert restored["screen_categories"] == payload["screen_categories"]
         assert restored["screen_apps"] == payload["screen_apps"]
         assert restored["screen_budgets"] == payload["screen_budgets"]
+        assert restored["screen_devices"] == payload["screen_devices"]
+        assert len(restored["screen_sessions"]) == 1
+        assert restored["screen_sessions"][0]["app"] == "instagram"
+        assert restored["screen_sessions"][0]["minutes"] == 30.0
         assert [app.slug for app in list_screen_apps(other)] == ["coding", "instagram", "youtube"]
+
+
+def test_log_entry_on_screen_app_dual_writes_a_duration_session(session):
+    _taxonomy(session)
+    log_entry(session, "instagram", 30.0, occurred_on=date(2026, 8, 14))
+    rows = list_screen_sessions(session)
+    assert len(rows) == 1
+    assert rows[0].minutes == 30.0
+    assert rows[0].started_at is None
+    assert rows[0].app_id is not None
+
+
+def test_log_screen_session_interval_derives_minutes_and_entry(session):
+    _taxonomy(session)
+    create_screen_device(session, "iphone", name="iPhone")
+    start = datetime(2026, 8, 14, 20, 0, tzinfo=UTC)
+    end = datetime(2026, 8, 14, 20, 45, tzinfo=UTC)
+    row = log_screen_session(
+        session,
+        "instagram",
+        started_at=start,
+        ended_at=end,
+        device_slug="iphone",
+    )
+    assert row.minutes == 45.0
+    assert row.started_at.replace(tzinfo=UTC) == start
+    assert row.entry_id is not None
+    view = screen_view(session, as_of=date(2026, 8, 14))
+    assert view.judgments.total == 45.0
+
+
+def test_delete_screen_session_removes_paired_entry(session):
+    _taxonomy(session)
+    row = log_screen_session(session, "instagram", minutes=20.0, occurred_on=date(2026, 8, 14))
+    delete_screen_session(session, row.id)
+    assert list_screen_sessions(session) == []
+    view = screen_view(session, as_of=date(2026, 8, 14))
+    assert view.judgments.total is None
+
+
+def test_delete_entry_removes_paired_session(session):
+    _taxonomy(session)
+    entry = log_entry(session, "instagram", 15.0, occurred_on=date(2026, 8, 14))
+    delete_entry(session, entry.id)
+    assert list_screen_sessions(session) == []
+
+
+def test_update_interval_session_syncs_entry(session):
+    _taxonomy(session)
+    row = log_screen_session(session, "youtube", minutes=10.0, occurred_on=date(2026, 8, 14))
+    start = datetime(2026, 8, 14, 18, 0, tzinfo=UTC)
+    end = datetime(2026, 8, 14, 18, 20, tzinfo=UTC)
+    updated = update_screen_session(session, row.id, started_at=start, ended_at=end)
+    assert updated.minutes == 20.0
+    assert updated.started_at.replace(tzinfo=UTC) == start
+
+
+def test_rejects_only_start_without_end(session):
+    _taxonomy(session)
+    with pytest.raises(ValidationError, match="both be set"):
+        log_screen_session(
+            session,
+            "instagram",
+            started_at=datetime(2026, 8, 14, 12, 0, tzinfo=UTC),
+        )
+
+
+def test_screen_view_clips_interval_across_midnight(session, monkeypatch):
+    monkeypatch.setenv("ATLAS_TZ", "UTC")
+    _taxonomy(session)
+    log_screen_session(
+        session,
+        "instagram",
+        started_at=datetime(2026, 8, 14, 23, 30, tzinfo=UTC),
+        ended_at=datetime(2026, 8, 15, 0, 45, tzinfo=UTC),
+    )
+    today = screen_view(session, as_of=date(2026, 8, 14))
+    tomorrow = screen_view(session, as_of=date(2026, 8, 15))
+    assert today.judgments.total == 30.0
+    assert tomorrow.judgments.total == 45.0
+    assert today.sessions[0].minutes == 30.0
+    assert today.budgets[0].current_value == 30.0
+
+
+def test_screen_dashboard_week_totals_and_budget_insight(session, monkeypatch):
+    monkeypatch.setenv("ATLAS_TZ", "UTC")
+    _taxonomy(session)
+    log_screen_session(session, "instagram", minutes=30.0, occurred_on=date(2026, 8, 11))
+    log_screen_session(session, "youtube", minutes=40.0, occurred_on=date(2026, 8, 12))
+    log_screen_session(session, "coding", minutes=90.0, occurred_on=date(2026, 8, 12))
+    log_screen_session(session, "instagram", minutes=20.0, occurred_on=date(2026, 8, 14))
+    dash = screen_dashboard(session, as_of=date(2026, 8, 14), period=Period.WEEK)
+    assert dash.range_start == date(2026, 8, 10)
+    assert dash.range_end == date(2026, 8, 14)
+    assert dash.total == 180.0
+    assert dash.daily_average == 36.0
+    assert dash.longest_day is not None
+    assert dash.longest_day.date == date(2026, 8, 12)
+    assert dash.score is not None
+    assert len(dash.hours) == 7
+    assert len(dash.hours[0]) == 24
+    assert len(dash.trend) == 8
+    assert dash.hours[0] == [0.0] * 24
+    assert {app.slug for app in dash.apps} == {"instagram", "youtube", "coding"}
+    assert dash.budgets[0].current_value == 20.0
+    kinds = {item.kind.value for item in dash.insights}
+    assert "budget" not in kinds or dash.budgets[0].satisfied is True

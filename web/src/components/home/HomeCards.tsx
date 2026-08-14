@@ -1,9 +1,13 @@
 import {
   BookOpen,
   CheckSquare,
+  Clapperboard,
   Flag,
   Flame,
+  HeartPulse,
   Monitor,
+  Moon,
+  Mountain,
   Plus,
   Sparkles,
   TriangleAlert,
@@ -31,16 +35,53 @@ import {
 } from '@/lib/api'
 import { formatDeltaFraction, formatMinutes } from '@/lib/format'
 import { summarizeGoals } from '@/lib/goalsSummary'
+import type { LifeSection } from '@/lib/sections'
 import { cn } from '@/lib/utils'
+
+const SECTION_ICONS = {
+  sleep: Moon,
+  health: HeartPulse,
+  adventure: Mountain,
+  entertainment: Clapperboard,
+} as const
+
+const SECTION_ACCENT = {
+  sleep: 'text-sleep',
+  health: 'text-health',
+  adventure: 'text-adventure',
+  entertainment: 'text-entertainment',
+} as const
+
+export function LifeSectionCard({ section }: { section: LifeSection }) {
+  const Icon = SECTION_ICONS[section.slug]
+  return (
+    <Card className="flex flex-col">
+      <CardHeader>
+        <div>
+          <CardTitle className="text-base">{section.label}</CardTitle>
+          <CardDescription>{section.description}</CardDescription>
+        </div>
+        <Icon className={cn('size-4', SECTION_ACCENT[section.slug])} aria-hidden />
+      </CardHeader>
+      <p className="text-sm text-muted">Nothing here yet.</p>
+      <Link
+        to={section.path}
+        className={cn(
+          'mt-auto pt-3 text-xs font-medium hover:underline',
+          SECTION_ACCENT[section.slug],
+        )}
+      >
+        Open
+      </Link>
+    </Card>
+  )
+}
 
 export function UpdatesCard({ streakDays, onAdd }: { streakDays: number; onAdd: () => void }) {
   return (
     <Card className="flex flex-col">
       <CardHeader>
         <CardTitle className="text-base">Updates</CardTitle>
-        <Link to="/updates" className="text-xs font-medium text-update hover:underline">
-          View all
-        </Link>
       </CardHeader>
       <p className="text-sm text-muted">Daily check-in</p>
       <Button
@@ -99,7 +140,9 @@ export function ScreenTimeCard({ minutes }: { minutes: number | null }) {
           <CardTitle className="text-base">Screen Time</CardTitle>
           <CardDescription>Today's total</CardDescription>
         </div>
-        <Monitor className="size-4 text-screen" aria-hidden />
+        <Link to="/screen" className="text-xs font-medium text-screen hover:underline">
+          View all
+        </Link>
       </CardHeader>
       <p className="text-3xl font-semibold tracking-tight">
         {minutes === null ? '—' : formatMinutes(minutes)}

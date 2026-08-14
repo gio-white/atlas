@@ -1,10 +1,11 @@
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 
 from atlas.cli.parse import (
     comparator_and_target,
     parse_iso_date,
+    parse_iso_datetime,
     parse_log_value,
     parse_weekdays,
     slugify,
@@ -18,6 +19,14 @@ def test_parse_iso_date():
     assert parse_iso_date(None) is None
     with pytest.raises(ValidationError, match="YYYY-MM-DD"):
         parse_iso_date("13/08/2026")
+
+
+def test_parse_iso_datetime():
+    parsed = parse_iso_datetime("2026-08-14T20:00:00Z")
+    assert parsed == datetime(2026, 8, 14, 20, 0, tzinfo=UTC)
+    assert parse_iso_datetime(None) is None
+    with pytest.raises(ValidationError, match="ISO-8601"):
+        parse_iso_datetime("not-a-datetime")
 
 
 def test_parse_log_value_accepts_numbers_bools_and_text():

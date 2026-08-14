@@ -116,6 +116,8 @@ def test_import_accepts_schema_version_1(session):
     payload.pop("screen_categories")
     payload.pop("screen_apps")
     payload.pop("screen_budgets")
+    payload.pop("screen_devices", None)
+    payload.pop("screen_sessions", None)
     engine = create_memory_engine()
     init_schema(engine)
     with make_session_factory(engine)() as other:
@@ -129,6 +131,8 @@ def test_import_accepts_schema_version_2(session):
     payload = _populated(session)
     payload["schema_version"] = 2
     payload.pop("tasks", None)
+    payload.pop("screen_devices", None)
+    payload.pop("screen_sessions", None)
     engine = create_memory_engine()
     init_schema(engine)
     with make_session_factory(engine)() as other:
@@ -155,3 +159,29 @@ def test_import_accepts_schema_version_3(session):
     assert restored["schema_version"] == CURRENT_SCHEMA_VERSION
     assert restored["goals"][0]["horizon"] in {"long", "medium", "short"}
     assert restored["goals"][0]["parent"] is None
+
+
+def test_import_accepts_goal_without_area(session):
+    payload = _populated(session)
+    payload["goals"][0]["area"] = None
+    engine = create_memory_engine()
+    init_schema(engine)
+    with make_session_factory(engine)() as other:
+        import_all(other, payload)
+        restored = export_all(other)
+    assert restored["goals"][0]["area"] is None
+
+
+def test_import_accepts_schema_version_4(session):
+    payload = _populated(session)
+    payload["schema_version"] = 4
+    payload.pop("screen_devices", None)
+    payload.pop("screen_sessions", None)
+    engine = create_memory_engine()
+    init_schema(engine)
+    with make_session_factory(engine)() as other:
+        import_all(other, payload)
+        restored = export_all(other)
+    assert restored["schema_version"] == CURRENT_SCHEMA_VERSION
+    assert restored["screen_devices"] == []
+    assert restored["screen_sessions"] == []

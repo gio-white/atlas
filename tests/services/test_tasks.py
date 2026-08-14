@@ -42,4 +42,3 @@ def test_task_can_link_to_a_goal(session):
     assert [row.title for row in list_tasks(session, goal_slug="this-week")] == ["Pushups"]
     cleared = update_task(session, task.id, goal_slug=None)
     assert cleared.goal_id is None
-

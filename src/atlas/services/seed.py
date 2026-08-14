@@ -58,6 +58,11 @@ def demo_payload(as_of: date) -> dict[str, Any]:
         "goals": _goals(as_of),
         "milestones": _milestones(as_of),
         "tasks": _tasks(as_of),
+        "screen_categories": _screen_categories(),
+        "screen_apps": _screen_apps(),
+        "screen_devices": _screen_devices(),
+        "screen_budgets": _screen_budgets(start),
+        "screen_sessions": _screen_sessions(start, as_of),
         "entries": _entries(start, as_of),
     }
 
@@ -68,6 +73,7 @@ def _areas() -> list[dict[str, Any]]:
         _area("career", "Career", "Deep work and making things."),
         _area("finance", "Finance", "Runway and buffers."),
         _area("relationships", "Relationships", "People who matter."),
+        _area("screen", "Screen", "Apps, categories, and budgets."),
     ]
 
 
@@ -105,6 +111,60 @@ def _metrics() -> list[dict[str, Any]]:
             direction="higher_is_better",
         ),
         _metric("called-family", "relationships", "bool", "sum", direction="higher_is_better"),
+        _metric(
+            "instagram",
+            "screen",
+            "duration",
+            "sum",
+            unit="min",
+            direction="lower_is_better",
+            name="Instagram",
+        ),
+        _metric(
+            "youtube",
+            "screen",
+            "duration",
+            "sum",
+            unit="min",
+            direction="lower_is_better",
+            name="YouTube",
+        ),
+        _metric(
+            "whatsapp",
+            "screen",
+            "duration",
+            "sum",
+            unit="min",
+            direction="neutral",
+            name="WhatsApp",
+        ),
+        _metric(
+            "vscode",
+            "screen",
+            "duration",
+            "sum",
+            unit="min",
+            direction="higher_is_better",
+            name="VS Code",
+        ),
+        _metric(
+            "chatgpt",
+            "screen",
+            "duration",
+            "sum",
+            unit="min",
+            direction="higher_is_better",
+            name="ChatGPT",
+        ),
+        _metric(
+            "netflix",
+            "screen",
+            "duration",
+            "sum",
+            unit="min",
+            direction="lower_is_better",
+            name="Netflix",
+        ),
     ]
 
 
@@ -133,7 +193,7 @@ def _goals(as_of: date) -> list[dict[str, Any]]:
     return [
         _goal(
             "durable-health",
-            "health",
+            None,
             "Durable health",
             "milestone",
             long_start,
@@ -143,7 +203,7 @@ def _goals(as_of: date) -> list[dict[str, Any]]:
         ),
         _goal(
             "financial-freedom",
-            "finance",
+            None,
             "Financial freedom",
             "milestone",
             long_start,
@@ -306,6 +366,141 @@ def _tasks(as_of: date) -> list[dict[str, Any]]:
     ]
 
 
+def _screen_categories() -> list[dict[str, Any]]:
+    return [
+        _screen_category("entertainment", "Entertainment", "waste"),
+        _screen_category("social", "Social", "waste"),
+        _screen_category("productivity", "Productivity", "useful"),
+        _screen_category("learning", "Learning", "useful"),
+    ]
+
+
+def _screen_apps() -> list[dict[str, Any]]:
+    return [
+        _screen_app("instagram", "Instagram", "social"),
+        _screen_app("youtube", "YouTube", "entertainment"),
+        _screen_app("whatsapp", "WhatsApp", "social"),
+        _screen_app("vscode", "VS Code", "productivity"),
+        _screen_app("chatgpt", "ChatGPT", "learning"),
+        _screen_app("netflix", "Netflix", "entertainment"),
+    ]
+
+
+def _screen_devices() -> list[dict[str, Any]]:
+    return [
+        {"slug": "iphone", "name": "iPhone", "archived_at": None},
+        {"slug": "macbook", "name": "MacBook", "archived_at": None},
+    ]
+
+
+def _screen_budgets(start: date) -> list[dict[str, Any]]:
+    return [
+        {
+            "slug": "waste-cap",
+            "name": "Waste cap",
+            "target_kind": "judgment",
+            "target_slug": "waste",
+            "period": "day",
+            "target_value": 90.0,
+            "comparator": "at_most",
+            "active_from": start.isoformat(),
+            "active_to": None,
+        }
+    ]
+
+
+def _screen_sessions(start: date, as_of: date) -> list[dict[str, Any]]:
+    sessions: list[dict[str, Any]] = []
+    days = list(_days(start, as_of))
+    for index, day in enumerate(days):
+        weekday = day.isoweekday()
+        if weekday <= 5:
+            sessions.append(_interval("vscode", day, 9, 0, 10, 30, device="macbook"))
+            if weekday in {2, 4}:
+                sessions.append(_interval("chatgpt", day, 12, 0, 12, 25, device="macbook"))
+            sessions.append(_interval("youtube", day, 20, 0, 20, 35, device="iphone"))
+            sessions.append(_interval("instagram", day, 20, 40, 21, 0, device="iphone"))
+            if weekday == 5:
+                sessions.append(_interval("netflix", day, 21, 30, 22, 45, device="iphone"))
+        else:
+            sessions.append(_interval("youtube", day, 14, 0, 16, 0, device="iphone"))
+            sessions.append(_interval("instagram", day, 16, 5, 16, 40, device="iphone"))
+            sessions.append(_interval("youtube", day, 21, 0, 22, 20, device="iphone"))
+            sessions.append(_interval("instagram", day, 22, 25, 22, 50, device="iphone"))
+        if weekday == 6 and index % 2 == 0:
+            sessions.append(
+                _interval("youtube", day, 23, 30, 0, 45, device="iphone", next_day=True)
+            )
+        if index in {3, 11, 19, 26}:
+            sessions.append(_duration("whatsapp", day, 12.0 + index % 5, device="iphone"))
+        if index == 8:
+            sessions.append(_duration("instagram", day, 18.0))
+    return sessions
+
+
+def _screen_category(slug: str, name: str, judgment: str) -> dict[str, Any]:
+    return {"slug": slug, "name": name, "judgment": judgment, "archived_at": None}
+
+
+def _screen_app(slug: str, name: str, category: str) -> dict[str, Any]:
+    return {
+        "slug": slug,
+        "name": name,
+        "category": category,
+        "metric": slug,
+        "archived_at": None,
+    }
+
+
+def _interval(
+    app: str,
+    day: date,
+    start_hour: int,
+    start_minute: int,
+    end_hour: int,
+    end_minute: int,
+    *,
+    device: str | None = None,
+    next_day: bool = False,
+) -> dict[str, Any]:
+    started = datetime(day.year, day.month, day.day, start_hour, start_minute, tzinfo=UTC)
+    end_day = day + timedelta(days=1) if next_day else day
+    ended = datetime(end_day.year, end_day.month, end_day.day, end_hour, end_minute, tzinfo=UTC)
+    minutes = (ended - started).total_seconds() / 60.0
+    return {
+        "app": app,
+        "device": device,
+        "started_at": started.isoformat(),
+        "ended_at": ended.isoformat(),
+        "minutes": minutes,
+        "occurred_on": day.isoformat(),
+        "note": None,
+        "source": "import",
+        "created_at": ended.isoformat(),
+    }
+
+
+def _duration(
+    app: str,
+    day: date,
+    minutes: float,
+    *,
+    device: str | None = None,
+) -> dict[str, Any]:
+    created = datetime(day.year, day.month, day.day, 12, 0, tzinfo=UTC)
+    return {
+        "app": app,
+        "device": device,
+        "started_at": None,
+        "ended_at": None,
+        "minutes": minutes,
+        "occurred_on": day.isoformat(),
+        "note": None,
+        "source": "import",
+        "created_at": created.isoformat(),
+    }
+
+
 def _area(slug: str, name: str, description: str) -> dict[str, Any]:
     return {"slug": slug, "name": name, "description": description, "archived_at": None}
 
@@ -318,11 +513,12 @@ def _metric(
     *,
     unit: str | None = None,
     direction: str = "neutral",
+    name: str | None = None,
 ) -> dict[str, Any]:
     return {
         "slug": slug,
         "area": area,
-        "name": slug.replace("-", " ").title(),
+        "name": name if name is not None else slug.replace("-", " ").title(),
         "value_type": value_type,
         "unit": unit,
         "aggregation": aggregation,
@@ -356,7 +552,7 @@ def _habit(
 
 def _goal(
     slug: str,
-    area: str,
+    area: str | None,
     name: str,
     kind: str,
     start_on: date,

@@ -9,8 +9,8 @@ Atlas is a single-user, local-first life-tracking backend. It records what actua
 Consequences of that stance:
 
 - Backfilling an entry for last Tuesday automatically corrects every streak, adherence ratio, and goal percentage that depends on it. There is no recalculation step and nothing to migrate.
-- There is exactly one capture path. Habits and goals point at metrics; they never store their own observations.
-- The HTTP API is the only consumer path. The CLI is an in-process adapter over the same service layer. The React SPA in `web/` is an HTTP client of that API: it has no privileged access and no streaks, adherence, or progress of its own to reimplement.
+- There is exactly one capture path for habits and goals. They point at metrics; they never store their own observations. Screen time is the exception: sessions are stored in `screen_session` and dual-written onto the app's backing entry.
+- The React SPA in `web/` is the only frontend. It is an HTTP client of the API: it has no privileged access and no streaks, adherence, or progress of its own to reimplement. The CLI is an in-process adapter for capture, catalog definition, and admin (`init`, `seed`, `serve`, export/import), not a review UI.
 
 
 
@@ -21,9 +21,9 @@ Integer primary keys are internal. Slugs are the human key and are what the CLI 
 ```mermaid
 flowchart TD
   Area[Area: life aspect] -->|groups| Metric[Metric: what is measured]
-  Area -->|groups| Goal[Goal: outcome by a date]
   Metric -->|has many| Entry[Entry: one observation]
   Habit[Habit: recurring commitment] -->|measured by| Metric
+  Goal[Goal: outcome by a date] -->|optional tag| Area
   Goal -->|measured by| Metric
   Goal -->|has many| Milestone[Milestone: manual checkpoint]
   Goal -->|optional parent| Goal
@@ -31,6 +31,8 @@ flowchart TD
   ScreenCategory[ScreenCategory] -->|judgment| ScreenJudgment[useful waste or neutral]
   ScreenApp[ScreenApp] -->|classified as| ScreenCategory
   ScreenApp -->|backing| Metric
+  ScreenApp -->|has many| ScreenSession[ScreenSession]
+  ScreenSession -->|optional| ScreenDevice[ScreenDevice]
   ScreenBudget[ScreenBudget] -->|caps| ScreenJudgment
   ScreenBudget -->|or caps| ScreenCategory
 ```
@@ -41,7 +43,7 @@ flowchart TD
 
 ### Area
 
-A life aspect that groups metrics and goals: Health, Career, Finance, Relationships.
+A life aspect that groups metrics: Health, Career, Finance, Relationships. Goals may carry an optional area tag; they are not owned by an area.
 
 
 | Field         | Type            | Notes                                                       |
@@ -97,6 +99,51 @@ One observation of a metric. Entries are the only stored facts in Atlas and are 
 
 
 Multiple entries per metric per day are always allowed; the metric's `aggregation` resolves them. There is no uniqueness constraint on `(metric_id, occurred_on)`.
+
+### Goal
+
+An outcome to reach by a date. Goals are a dedicated table, not a child of Area. Two kinds share one table because they share a lifecycle and a due date. Goals form an optional tree: long-term (1+ year north star) → medium-term (months) → short-term (about a week). Parent is optional. Child and parent need not share an area. Area is an optional tag; untagged goals still appear on the north-star board.
+
+| Field            | Type            | Notes                                                                            |
+| ---------------- | --------------- | -------------------------------------------------------------------------------- |
+| `id`             | int             | primary key                                                                      |
+| `area_id`        | int \| None     | optional FK to `Area`; a tag, not ownership                                      |
+| `slug`           | str             | unique                                                                           |
+| `name`           | str             |                                                                                  |
+| `kind`           | enum            | `metric_target | milestone`                                                      |
+| `metric_id`      | int | None      | required when `kind` is `metric_target`                                          |
+| `target_value`   | float | None    | required when `kind` is `metric_target`                                          |
+| `comparator`     | enum | None     | `at_least | at_most | exactly`; required when `kind` is `metric_target`          |
+| `baseline_value` | float | None    | optional explicit starting point; see [goal progress](#goal-progress)            |
+| `measure`        | enum | None     | `latest_value | cumulative_since_start`; required when `kind` is `metric_target` |
+| `start_on`       | date            | inclusive                                                                        |
+| `due_on`         | date            | inclusive                                                                        |
+| `horizon`        | enum            | `long | medium | short` — stored, not re-derived on read                         |
+| `parent_id`      | int | None      | FK to `Goal`; long has none; medium may parent under long; short under medium    |
+| `description`    | str | None      | card copy                                                                        |
+| `status`         | enum            | `active | achieved | paused | abandoned`                                         |
+| `achieved_at`    | datetime | None | UTC                                                                              |
+
+
+`horizon` is chosen by the user or inferred once on create/import from `due_on - start_on`: **≥365 days → long**, **≥28 days → medium**, else **short**. Changing `horizon` is rejected while the goal has children. A goal cannot parent itself.
+
+A `metric_target` goal still requires a metric. The metric must belong to the tagged area only when both area and metric are set.
+
+`measure` distinguishes the two shapes of numeric goal: `latest_value` for "weigh 75 kg" (the current reading is what matters), `cumulative_since_start` for "read 12 books this year" (the running total is what matters).
+
+### Milestone
+
+A manual checkpoint under a goal. Available to both goal kinds, so a `metric_target` goal can still carry qualitative steps.
+
+
+| Field     | Type            | Notes                  |
+| --------- | --------------- | ---------------------- |
+| `id`      | int             | primary key            |
+| `goal_id` | int             | FK to `Goal`           |
+| `name`    | str             |                        |
+| `due_on`  | date | None     |                        |
+| `done_at` | datetime | None | UTC; `None` means open |
+
 
 ### Habit
 
@@ -154,7 +201,7 @@ What you used: Instagram, YouTube, a code editor. One category. One backing dura
 
 A threshold over a **judgment** or a **category**, not over a single metric. "Keep waste under 90 minutes a day" is `target_kind=judgment`, `target_slug=waste`, `comparator=at_most`. An entertainment cap uses `target_kind=category`. App-level caps stay ordinary habits on the app's metric.
 
-`screen_view` merges entries from every member app and runs the existing streak / adherence functions over that list. Totals are never stored.
+`screen_view` and `screen_dashboard` read `screen_session` on read. Capture still dual-writes a backing entry so habits on the app metric keep working. Totals, score, heatmap, and insights are never stored.
 
 
 | Field          | Type            | Notes                                      |
@@ -169,6 +216,39 @@ A threshold over a **judgment** or a **category**, not over a single metric. "Ke
 | `comparator`   | enum            | `at_least \| at_most \| exactly`           |
 | `active_from`  | date            | inclusive                                  |
 | `active_to`    | date \| None    | inclusive; `None` means open-ended         |
+
+
+### ScreenDevice
+
+A device that can host a session: iPhone, MacBook. Optional on each session. Null device is shown as Unknown on the dashboard.
+
+| Field         | Type             | Notes                |
+| ------------- | ---------------- | -------------------- |
+| `id`          | int              | primary key          |
+| `slug`        | str              | unique (`iphone`)    |
+| `name`        | str              |                      |
+| `archived_at` | datetime \| None | UTC                  |
+
+
+### ScreenSession
+
+The stored screen-time fact. Two valid shapes: an **interval** (`started_at` and `ended_at` both set, UTC, `ended_at > started_at`) or **duration-only** (both timestamps null, `minutes > 0`, `occurred_on` set). When the interval is present it is the source: `minutes` is derived as `(ended_at - started_at)` in fractional minutes. Duration-only sessions count toward totals; they do not contribute to hour heatmaps or time-based insights.
+
+Capture (`POST /screen/sessions`, `atlas screen log`) writes the session and a matching backing `entry` on the app metric. Logging to that metric via `POST /entries` / `atlas log` also inserts a duration-only session. Amend and delete keep the pair in sync through optional unique `entry_id`.
+
+| Field         | Type             | Notes                                                                 |
+| ------------- | ---------------- | --------------------------------------------------------------------- |
+| `id`          | int              | primary key                                                           |
+| `app_id`      | int              | FK to `ScreenApp`                                                     |
+| `device_id`   | int \| None      | optional FK to `ScreenDevice`                                         |
+| `started_at`  | datetime \| None | UTC; both null or both set                                            |
+| `ended_at`    | datetime \| None | UTC; must be after `started_at`                                       |
+| `minutes`     | float            | always stored, always `> 0`; derived from the interval when present   |
+| `occurred_on` | date             | local date in `ATLAS_TZ`; from `started_at` when interval is present  |
+| `note`        | str \| None      |                                                                       |
+| `source`      | enum             | `cli \| api \| import`                                                |
+| `created_at`  | datetime         | UTC                                                                   |
+| `entry_id`    | int \| None      | unique FK to the dual-written `Entry`                                 |
 
 
 ### Life catalog
@@ -195,55 +275,9 @@ A one-off work-queue item, not an observation. Completing a task stamps `done_at
 
 Completing a task never changes goal progress. A task may point at any horizon; the goals board weekly column uses linked tasks for this ISO week.
 
-### Goal
-
-An outcome to reach by a date. Two kinds share one table because they share a lifecycle and a due date. Goals form an optional tree: long-term (1+ year north star) → medium-term (months) → short-term (about a week). Parent is optional. Child and parent need not share an area.
-
-
-| Field            | Type            | Notes                                                                            |
-| ---------------- | --------------- | -------------------------------------------------------------------------------- |
-| `id`             | int             | primary key                                                                      |
-| `area_id`        | int             | FK to `Area`                                                                     |
-| `slug`           | str             | unique                                                                           |
-| `name`           | str             |                                                                                  |
-| `kind`           | enum            | `metric_target | milestone`                                                      |
-| `metric_id`      | int | None      | required when `kind` is `metric_target`                                          |
-| `target_value`   | float | None    | required when `kind` is `metric_target`                                          |
-| `comparator`     | enum | None     | `at_least | at_most | exactly`; required when `kind` is `metric_target`          |
-| `baseline_value` | float | None    | optional explicit starting point; see [goal progress](#goal-progress)            |
-| `measure`        | enum | None     | `latest_value | cumulative_since_start`; required when `kind` is `metric_target` |
-| `start_on`       | date            | inclusive                                                                        |
-| `due_on`         | date            | inclusive                                                                        |
-| `horizon`        | enum            | `long | medium | short` — stored, not re-derived on read                         |
-| `parent_id`      | int | None      | FK to `Goal`; long has none; medium may parent under long; short under medium    |
-| `description`    | str | None      | card copy                                                                        |
-| `status`         | enum            | `active | achieved | paused | abandoned`                                         |
-| `achieved_at`    | datetime | None | UTC                                                                              |
-
-
-`horizon` is chosen by the user or inferred once on create/import from `due_on - start_on`: **≥365 days → long**, **≥28 days → medium**, else **short**. Changing `horizon` is rejected while the goal has children. A goal cannot parent itself.
-
-`measure` distinguishes the two shapes of numeric goal: `latest_value` for "weigh 75 kg" (the current reading is what matters), `cumulative_since_start` for "read 12 books this year" (the running total is what matters).
-
-### Milestone
-
-A manual checkpoint under a goal. Available to both goal kinds, so a `metric_target` goal can still carry qualitative steps.
-
-
-| Field     | Type            | Notes                  |
-| --------- | --------------- | ---------------------- |
-| `id`      | int             | primary key            |
-| `goal_id` | int             | FK to `Goal`           |
-| `name`    | str             |                        |
-| `due_on`  | date | None     |                        |
-| `done_at` | datetime | None | UTC; `None` means open |
-
-
-
-
 ### Schema management
 
-Tables are created with `SQLModel.metadata.create_all`. A single-row `schema_version` table records the version (`CURRENT_SCHEMA_VERSION = 4`). `atlas init` creates the parent directory if needed, opens the SQLite file at `ATLAS_DB`, runs `create_all`, and inserts that row when missing. If the row exists with a lower version, `init_schema` runs an explicit migrate then bumps the version. It is safe to run twice. There is no Alembic in the MVP; a schema change ships as an explicit migration step documented in the development log. Schema 2 adds `screen_category`, `screen_app`, and `screen_budget`. Schema 3 adds `task`. Schema 4 adds `Goal.horizon`, `Goal.parent_id`, `Goal.description`, and `Task.goal_id` (ALTER on existing files, then a one-time horizon backfill from the date window). Import accepts schema versions `1`, `2`, `3`, and `4`; older payloads have empty screen and/or task collections, and missing `horizon` is inferred from `due_on - start_on`.
+Tables are created with `SQLModel.metadata.create_all`. A single-row `schema_version` table records the version (`CURRENT_SCHEMA_VERSION = 6`). `atlas init` creates the parent directory if needed, opens the SQLite file at `ATLAS_DB`, runs `create_all`, and inserts that row when missing. If the row exists with a lower version, `init_schema` runs an explicit migrate then bumps the version. It is safe to run twice. There is no Alembic in the MVP; a schema change ships as an explicit migration step documented in the development log. Schema 2 adds `screen_category`, `screen_app`, and `screen_budget`. Schema 3 adds `task`. Schema 4 adds `Goal.horizon`, `Goal.parent_id`, `Goal.description`, and `Task.goal_id` (ALTER on existing files, then a one-time horizon backfill from the date window). Schema 5 adds `screen_device` and `screen_session`, then backfills duration-only sessions from existing entries on screen-app metrics. Schema 6 makes `Goal.area_id` nullable (table rebuild on existing SQLite files). Import accepts schema versions `1` through `6`; older payloads have empty screen, task, device, and/or session collections, and missing `horizon` is inferred from `due_on - start_on`. Missing goal `area` is null. Schema 5 payloads that include `screen_sessions` skip importing backing entries for screen-app metrics (sessions dual-write those entries). Payloads without that key backfill sessions from screen-app entries.
 
 ## Layering
 
@@ -275,11 +309,11 @@ The package lives at `src/atlas/` (src layout), so tests import the installed pa
 | Package             | Responsibility                                                                                                                                                                                             |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `atlas/settings.py` | Configuration resolved from the environment. Stdlib only, so every layer may import it.                                                                                                                    |
-| `atlas/domain/`     | Enums, value objects (`EntryView`, `HabitSpec`, `GoalSpec`, `MilestoneView`, `Bucket`, `GoalProgress`, `ScreenCategorySpec`, `ScreenAppSpec`, `ScreenBudgetSpec`), and the calculation functions: period bucketing, rollups, `current_streak`, `longest_streak`, `adherence`, `goal_progress`, `pace_status`, `infer_horizon`, `parent_horizon_is_valid`, `screen_day_totals`, `member_apps`. Implemented. Pure — no I/O, no session, no wall clock. |
-| `atlas/db/`         | SQLModel tables (`Area`, `Metric`, `Entry`, `Habit`, `Goal`, `Milestone`, `ScreenCategory`, `ScreenApp`, `ScreenBudget`, `SchemaVersion`), engine, session factory, schema creation. Implemented. Unique slugs; `Entry` indexed on `(metric_id, occurred_on)`; `ScreenApp.metric_id` unique. |
+| `atlas/domain/`     | Enums, value objects (`EntryView`, `HabitSpec`, `GoalSpec`, `MilestoneView`, `Bucket`, `GoalProgress`, `ScreenCategorySpec`, `ScreenAppSpec`, `ScreenBudgetSpec`, `ScreenSessionSpec`, `ScreenSessionView`), and the calculation functions: period bucketing, rollups, `current_streak`, `longest_streak`, `adherence`, `goal_progress`, `pace_status`, `infer_horizon`, `parent_horizon_is_valid`, `screen_day_totals`, `member_apps`, `resolve_screen_session`, `clip_interval_hours`, `screen_dashboard_math`. Implemented. Pure — no I/O, no session, no wall clock. |
+| `atlas/db/`         | SQLModel tables (`Area`, `Metric`, `Entry`, `Habit`, `Goal`, `Milestone`, `ScreenCategory`, `ScreenApp`, `ScreenBudget`, `ScreenDevice`, `ScreenSession`, `SchemaVersion`), engine, session factory, schema creation. Implemented. Unique slugs; `Entry` indexed on `(metric_id, occurred_on)`; `ScreenSession` indexed on `(app_id, occurred_on)`; `ScreenApp.metric_id` unique. |
 | `atlas/services/`   | Use cases, each taking an explicit `Session` as its first parameter. Loads rows, hands plain values to `domain`, writes results back. Implemented. |
 | `atlas/api/`        | FastAPI routers: parse, call a service, serialize. Dedicated request/response schemas only where the wire shape must differ from the table (slugs instead of integer FKs). Implemented. Session comes from a factory dependency; CORS allows the Vite dev origins (`http://127.0.0.1:5173`, `http://localhost:5173`). If `web/dist/index.html` exists, GET 404s fall back to that SPA without shadowing API routes. `uv run uvicorn atlas.api.app:app --reload`, `python -m atlas.api`, and `atlas serve` bind to `127.0.0.1` only. |
-| `atlas/cli/`        | Typer commands calling the same services in-process (no HTTP hop), Rich for output. Implemented. Session comes from the factory; commands never query tables. `log` resolves metric slugs by unique prefix, substring, or close match. `seed` loads the demo dataset through `seed_demo`. Review commands share one chrome: a header plus titled Rich panels. `today` and `area` split habits into Daily vs This period (two columns when the terminal is wide enough). Capture commands stay one-line confirmations. |
+| `atlas/cli/`        | Typer commands calling the same services in-process (no HTTP hop). Implemented. Session comes from the factory; commands never query tables. Capture and define commands print one-line confirmations (Rich markup). `log` resolves metric slugs by unique prefix, substring, or close match. `seed` loads the demo dataset through `seed_demo`. There is no CLI review UI; today / week / area / habit / goals dashboards live in the SPA. |
 
 
 Import rules, enforced by review and by the always-applied architecture rule:
@@ -287,13 +321,13 @@ Import rules, enforced by review and by the always-applied architecture rule:
 - `atlas/domain/` must not import `atlas.db`, `atlas.api`, `atlas.cli`, or `atlas.services`.
 - `atlas/api/` and `atlas/cli/` must not open a session, query tables, or call SQLModel/SQLAlchemy APIs. They obtain a session from the factory and pass it into a service.
 - Shared behavior lives in `atlas/services/`, so the API and the CLI cannot diverge.
-- `web/` must not import `atlas.*` or reimplement domain calculations. It is an HTTP client of the API.
+- `web/` must not import `atlas.*` or reimplement domain calculations. It is the only frontend and an HTTP client of the API.
 
 The first of these is machine-enforced. Ruff's `flake8-tidy-imports` bans `atlas.db`, `atlas.services`, `atlas.api`, and `atlas.cli` project-wide, and `[tool.ruff.lint.per-file-ignores]` lifts the ban everywhere except `atlas/domain/`. An import that breaks domain purity fails `uv run ruff check` rather than waiting for review.
 
 ## Derived computations
 
-Nothing in this section is stored. Every definition below is a pure function of entries (plus habit/goal configuration) and an explicit `as_of` date, so results are reproducible and testable without a database.
+Nothing in this section is stored. Every definition below is a pure function of stored facts (entries, or screen sessions) plus configuration and an explicit `as_of` date, so results are reproducible and testable without a database.
 
 ### Period bucketing
 
@@ -406,6 +440,26 @@ The `0.05` tolerance keeps a goal from flickering between `ahead` and `behind` o
 
 Parent progress is never a rollup of children. The goals board column “on track” count is view-level: among non-paused, non-abandoned goals in that horizon, pace in `{on_track, ahead, achieved}` over the column total.
 
+### Screen dashboard
+
+`screen_dashboard_math` is a pure function of `ScreenSessionView` rows, `as_of`, `period`, and an explicit timezone (no wall clock). Interval sessions are the source of truth for when minutes happened: hour buckets and local-day attribution **clip** `started_at`–`ended_at` into each local hour and day in `ATLAS_TZ` (a 23:30–00:45 session contributes 30m to hour 23 on day D and 45m to hour 0 on day D+1). Duration-only sessions add `minutes` on `occurred_on` and are omitted from the heatmap, late-night share, and sequences.
+
+The current range is `bucket_for(as_of, period)` clipped so an in-progress week or month ends at `as_of`. The previous range is like-for-like elapsed days, not a full previous bucket against a partial current one: previous calendar day; previous ISO week Monday through the same weekday; previous calendar month day 1 through the same elapsed day-of-month (capped at the previous month's last day).
+
+- **Total** — sum of attributed minutes in range (`None` if no sessions).
+- **Daily average** — total / elapsed days in the clipped range (zeros included).
+- **Longest day** — `{ date, minutes }` of the max daily sum.
+- **Delta** — `current - previous` minutes, and `(current - previous) / previous` when previous `> 0`, else `null`.
+- **Score** — `round(100 * (useful + 0.5 * neutral) / total)` when total `> 0`, else `null`. Band: `>= 70` good, `>= 40` ok, else poor.
+- **Apps / categories / devices** — ranked by minutes with share of total. Null device is slug `unknown`, name `Unknown`.
+- **Daily series** — one bar per day: useful / waste / neutral / total.
+- **Comparison series** — aligned day index `{ current, previous }`.
+- **Hours** — interval sessions only. Grid: 1×24 (day), 7×24 Monday–Sunday (week), weekday-average × 24 (month).
+- **Trend** — last 8 ISO weeks of daily average ending at `as_of`.
+- **Insights** — derived, not stored. Totals-based: weekend spike (weekend daily avg `>` weekday avg × 1.25), waste share `> 0.4`, improving (`delta_fraction <= -0.1`). Time-based (interval sessions only): late-night minutes overlapping 22:00–05:00 local `> 20%` of interval-attributed minutes; sequences where B starts within 15 minutes of A ending, surfacing the top `(app_a, app_b)` pair. Each insight includes one prescription. Missing or broken waste caps add a budget insight in the service.
+
+`screen_view` (today) and budget status use the same session attribution. Budget member minutes are interval-clipped to the local day, or `occurred_on` for duration-only.
+
 ## Services
 
 Implemented. Every use case takes an explicit `Session` as its first parameter, loads table rows, hands `EntryView` / `HabitSpec` / `GoalSpec` values to `atlas.domain`, and commits its own transaction. Slugs are the lookup key except for entries (integer `id`) and milestone toggle (goal slug + milestone name). When `occurred_on` or `as_of` is omitted, the service uses `Settings.today()`.
@@ -416,26 +470,29 @@ Failures raise `ServiceError` subclasses the API and CLI will map: `NotFoundErro
 | -------- | ---- |
 | `create_area` / `list_areas` / `get_area` / `update_area` / `archive_area` | Areas. Archive stamps `archived_at` (UTC) and hides the row from default lists; areas are never deleted. `update_area` may change name and description. |
 | `create_metric` / `list_metrics` / `get_metric` / `update_metric` / `archive_metric` | Metrics, keyed by slug, created under an area slug. `list_metrics` can filter by area and hides archived metrics and metrics whose area is archived. `update_metric` may change name, unit, and direction, not `value_type` or `aggregation`. |
-| `log_entry` / `amend_entry` / `delete_entry` | Capture and correction. `log_entry` accepts a metric slug and a single `value`; a bool metric with no value stores `true`. Multiple entries per day remain allowed. Logging to an archived metric is rejected; amend and delete still work. |
+| `log_entry` / `amend_entry` / `delete_entry` | Capture and correction. `log_entry` accepts a metric slug and a single `value`; a bool metric with no value stores `true`. Multiple entries per day remain allowed. Logging to an archived metric is rejected; amend and delete still work. Logging to a screen-app metric also inserts a duration-only `screen_session`. |
 | `create_habit` / `list_habits` / `get_habit` / `update_habit` / `habit_status` | Habits. `weekdays` is valid only for `period = day`. Text metrics cannot be habit targets. `habit_status` returns current/longest streak, adherence from `active_from` to `as_of`, the current bucket's rollup, and whether that bucket is scheduled and satisfied. `update_habit` may change name, target, comparator, weekdays, and `active_to`. |
-| `create_goal` / `list_goals` / `get_goal` / `get_goal_detail` / `update_goal` / `goal_progress` / `goals_board` / `toggle_milestone` | Goals. `metric_target` requires metric, target, comparator, and measure, and the metric must belong to the goal's area. `milestone` kind forbids those fields. Optional `MilestoneInput` values can be created with the goal. `horizon` is stored (`long` / `medium` / `short`); omitted on create it is inferred from the date window. `parent` is an optional slug of the previous horizon. `list_goals` can filter by area, status, horizon, and parent slug. `get_goal_detail` includes milestones. `update_goal` may change name, `due_on`, `target_value`, status (`active` / `paused` / `abandoned`; not `achieved`), horizon, parent, and description. Horizon cannot change while children exist. `goal_progress` returns current/baseline/fraction/`target_met` plus `pace_status`, horizon, parent slug, and description. `goals_board` groups non-paused, non-abandoned goals by horizon with column on-track counts and this week's linked tasks. When the target is met and `status` is still `active`, the service sets `status = achieved` and stamps `achieved_at`; it does not reopen an achieved, paused, or abandoned goal. |
+| `create_goal` / `list_goals` / `get_goal` / `get_goal_detail` / `update_goal` / `goal_progress` / `goals_board` / `toggle_milestone` | Goals. Area is an optional tag. `metric_target` requires metric, target, comparator, and measure; the metric must match the tagged area only when both are set. `milestone` kind forbids those fields. Optional `MilestoneInput` values can be created with the goal. `horizon` is stored (`long` / `medium` / `short`); omitted on create it is inferred from the date window. `parent` is an optional slug of the previous horizon. `list_goals` can filter by area, status, horizon, and parent slug (area filter is tagged goals only). `get_goal_detail` includes milestones. `update_goal` may change name, `due_on`, `target_value`, status (`active` / `paused` / `abandoned`; not `achieved`), horizon, parent, description, and area (including clear). Horizon cannot change while children exist. `goal_progress` returns current/baseline/fraction/`target_met` plus `pace_status`, horizon, parent slug, and description. `goals_board` groups non-paused, non-abandoned goals by horizon with column on-track counts and this week's linked tasks. When the target is met and `status` is still `active`, the service sets `status = achieved` and stamps `achieved_at`; it does not reopen an achieved, paused, or abandoned goal. |
 | `create_screen_category` / `list_screen_categories` / `get_screen_category` / `update_screen_category` | Screen categories. First create also inserts area `screen` when missing. `update_screen_category` may change name and judgment; a judgment change updates member metrics' `direction`. |
 | `create_screen_app` / `list_screen_apps` / `get_screen_app` / `update_screen_app` | Screen apps. Create inserts a duration/`sum`/`min` metric in area `screen` with the same slug and a direction from the category judgment. `update_screen_app` may change name (synced onto the metric) and category (direction follows the new category). |
 | `create_screen_budget` / `list_screen_budgets` / `get_screen_budget` / `update_screen_budget` | Screen budgets targeting a judgment or a category. Judgment `target_slug` must be `useful`, `waste`, or `neutral`; category targets must name an existing category. |
-| `screen_view` | Review for `as_of`: minutes per app and category that day, judgment totals, today's sessions, and each budget's current rollup, satisfaction, streak, and adherence over merged member-app entries. |
-| `today_view` / `week_view` / `area_view` / `home_week` / `goals_board` | Review. `today_view` is habits whose current bucket is scheduled, entries with `occurred_on = as_of`, and active goals with progress. `week_view` is the ISO week containing `as_of`, one cell per day per habit. `area_view` is one area's non-archived metrics (latest day's rollup), habits, and non-abandoned goals. `home_week` is the Home Weekly Overview: check-in days, slip totals, screen-app minutes, and tasks completed this ISO week vs last, plus 7-day update and slip series. `goals_board` is the north-star board: three horizon columns plus this week's linked tasks. |
+| `create_screen_device` / `list_screen_devices` / `get_screen_device` / `update_screen_device` | Screen devices. `update_screen_device` may change name. |
+| `log_screen_session` / `list_screen_sessions` / `get_screen_session` / `update_screen_session` / `delete_screen_session` | Screen sessions. Provide `started_at`+`ended_at` or `minutes`. Interval minutes are derived; a client `minutes` must match within `0.01`. Dual-writes a backing entry. Amend/delete keep the pair in sync. |
+| `screen_view` | Review for `as_of`: minutes per app and category that day from sessions (interval-clipped), judgment totals, today's sessions, and each budget's current rollup, satisfaction, streak, and adherence over merged member-app session minutes. |
+| `screen_dashboard` | Period dashboard (`day` / `week` / `month`) from sessions: totals, score, apps, categories, devices, daily and comparison series, hour heatmap, 8-week trend, insights/prescriptions, and budgets. |
+| `today_view` / `week_view` / `area_view` / `home_week` / `goals_board` | Review. `today_view` is habits whose current bucket is scheduled, entries with `occurred_on = as_of`, and active goals with progress. `week_view` is the ISO week containing `as_of`, one cell per day per habit. `area_view` is one area's non-archived metrics (latest day's rollup), habits, and non-abandoned goals **tagged** with that area. `home_week` is the Home Weekly Overview: check-in days, slip totals, screen-app minutes, and tasks completed this ISO week vs last, plus 7-day update and slip series. `goals_board` is the north-star board: three horizon columns plus this week's linked tasks. |
 | `log_update` / `updates_status` | Daily check-in. Ensures area `life`, metric `checkin`, and habit `checkin-daily`, then `log_entry` / `habit_status`. |
 | `log_slip` / `slips_week` | Slip count. Ensures metric `slip`, logs `1`, and returns this-week vs last-week totals plus a 7-day series. |
 | `log_journal` / `journal_day` | Journal text. Ensures metric `journal`, logs a non-empty string, and returns the latest text for `as_of`. |
 | `create_task` / `list_tasks` / `update_task` / `tasks_done_in_week` | Task queue. Optional `goal` slug links a task to a goal. `list_tasks` can filter by bucket and goal. `update_task(done=True)` stamps `done_at`. `tasks_done_in_week` counts completions in the ISO week of `as_of`. |
-| `export_all` / `import_all` | Port. Export is a JSON-serializable dict keyed by slugs, not integer ids (tasks and entries use integer ids on import insert). Import upserts areas, metrics, habits, goals, milestones, screen categories, screen apps, and screen budgets by slug (milestones by goal slug + name), inserts tasks and entries. Goal parents are applied in a second pass so payload order does not matter. `replace=True` deletes user rows first (tasks before goals). `schema_version` must be `1`, `2`, `3`, or `CURRENT_SCHEMA_VERSION` (4). Missing `horizon` is inferred from the date window. |
-| `seed_demo` | Demo dataset. Builds a payload in the export shape dated relative to `as_of` (default `Settings.today()`) and loads it through `import_all`. Four areas (health, career, finance, relationships), metrics covering every `value_type`, daily/weekly/monthly habits including `at_most` and a weekday mask, both goal kinds in a long→medium→short tree, linked weekly tasks, and enough entries for `today_view` / `week_view` / goal progress to be non-empty. Refuses when areas already exist unless `replace=True`. Entries are sourced as `import`. |
+| `export_all` / `import_all` | Port. Export is a JSON-serializable dict keyed by slugs, not integer ids (tasks, entries, and screen sessions use integer ids on import insert). Import upserts areas, metrics, habits, goals, milestones, screen categories, screen apps, screen budgets, and screen devices by slug (milestones by goal slug + name), inserts tasks, entries, and screen sessions. Goal parents are applied in a second pass so payload order does not matter. `replace=True` deletes user rows first (sessions before entries, tasks before goals). `schema_version` must be `1` through `CURRENT_SCHEMA_VERSION` (6). Missing `horizon` is inferred from the date window. Missing goal `area` is null. |
+| `seed_demo` | Demo dataset. Builds a payload in the export shape dated relative to `as_of` (default `Settings.today()`) and loads it through `import_all`. Five areas (health, career, finance, relationships, screen), metrics covering every `value_type`, daily/weekly/monthly habits including `at_most` and a weekday mask, both goal kinds in a long→medium→short tree, linked weekly tasks, screen taxonomy (entertainment / social / productivity / learning), devices, a waste cap, and ~28 days of mostly interval sessions (midnight crossings, a YouTube→Instagram evening chain, plus a few duration-only rows) so `today_view` / `week_view` / goal progress / `screen_dashboard` are non-empty. Refuses when areas already exist unless `replace=True`. Entries and sessions are sourced as `import`. |
 
 Export shape:
 
 ```json
 {
-  "schema_version": 4,
+  "schema_version": 6,
   "areas": [{"slug": "health", "name": "Health", "description": null, "archived_at": null}],
   "metrics": [{"slug": "pushups", "area": "health", "name": "Pushups", "value_type": "count", "unit": "reps", "aggregation": "sum", "direction": "higher_is_better", "archived_at": null}],
   "habits": [{"slug": "pushups-daily", "metric": "pushups", "name": "Pushups Daily", "period": "day", "target_value": 1.0, "comparator": "at_least", "weekdays": null, "active_from": "2026-08-01", "active_to": null}],
@@ -444,6 +501,8 @@ Export shape:
   "screen_categories": [{"slug": "entertainment", "name": "Entertainment", "judgment": "waste", "archived_at": null}],
   "screen_apps": [{"slug": "instagram", "name": "Instagram", "category": "entertainment", "metric": "instagram", "archived_at": null}],
   "screen_budgets": [{"slug": "waste-cap", "name": "Waste cap", "target_kind": "judgment", "target_slug": "waste", "period": "day", "target_value": 90.0, "comparator": "at_most", "active_from": "2026-08-01", "active_to": null}],
+  "screen_devices": [{"slug": "iphone", "name": "iPhone", "archived_at": null}],
+  "screen_sessions": [{"app": "instagram", "device": "iphone", "started_at": "2026-08-14T18:00:00+00:00", "ended_at": "2026-08-14T18:30:00+00:00", "minutes": 30.0, "occurred_on": "2026-08-14", "note": null, "source": "cli", "created_at": "2026-08-14T18:30:00+00:00"}],
   "tasks": [{"title": "Family time", "bucket": "today", "due_on": "2026-08-14", "due_at": null, "priority": "normal", "goal": "workout-this-week", "done_at": null, "created_at": "2026-08-14T12:00:00+00:00"}],
   "entries": [{"metric": "pushups", "occurred_on": "2026-08-10", "occurred_at": null, "value_num": 40.0, "value_bool": null, "value_text": null, "note": "post-travel", "source": "cli", "created_at": "2026-08-10T12:00:00+00:00"}]
 }
@@ -457,7 +516,7 @@ Status is `implemented` only when the endpoint is merged with tests. Everything 
 
 Routers parse the request, call a service, and serialize. Create/list bodies use slugs (`area`, `metric`) rather than integer foreign keys; entries are addressed by integer `id`. `POST /entries` sets `source` to `api`. Service failures map to HTTP status: `NotFoundError` → 404, `AlreadyExistsError` → 409, `ValidationError` → 400. Pydantic request-shape errors remain 422.
 
-Optional filters the services already support are query parameters: `area` on metrics and goals, `metric` on habits, `status` and `horizon` and `parent` on goals, `goal` on tasks, `include_archived` on areas, metrics, and screen categories/apps, `as_of` on status/progress/views including `/screen/view`, `/views/home`, and `/views/goals`, and `replace` on import.
+Optional filters the services already support are query parameters: `area` on metrics and goals, `metric` on habits, `status` and `horizon` and `parent` on goals, `goal` on tasks, `include_archived` on areas, metrics, and screen categories/apps, `as_of` on status/progress/views including `/screen/view`, `/screen/dashboard`, `/views/home`, and `/views/goals`, `period` on `/screen/dashboard`, and `replace` on import.
 
 
 | Method   | Path                     | Purpose                                       | Status      |
@@ -483,7 +542,7 @@ Optional filters the services already support are query parameters: `area` on me
 | `GET`    | `/goals`                 | List goals (`area`, `status`, `horizon`, `parent`) | implemented |
 | `POST`   | `/goals`                 | Create a goal                                 | implemented |
 | `GET`    | `/goals/{slug}`          | Get one goal including milestones             | implemented |
-| `PATCH`  | `/goals/{slug}`          | Update name, due date, target, status, horizon, parent, or description | implemented |
+| `PATCH`  | `/goals/{slug}`          | Update name, due date, target, status, horizon, parent, description, or area | implemented |
 | `GET`    | `/goals/{slug}/progress` | Progress and pace for a goal                  | implemented |
 | `POST`   | `/goals/{slug}/milestones/{name}/toggle` | Toggle a milestone done | implemented |
 | `GET`    | `/views/today`           | What is due today and what is logged          | implemented |
@@ -492,6 +551,7 @@ Optional filters the services already support are query parameters: `area` on me
 | `GET`    | `/views/goals`           | Horizon columns plus this week's linked tasks | implemented |
 | `GET`    | `/views/areas/{slug}`    | One area's metrics, habits, and goals         | implemented |
 | `GET`    | `/screen/view`           | Screen totals, sessions, and budget status    | implemented |
+| `GET`    | `/screen/dashboard`      | Period dashboard (`period`, `as_of`)          | implemented |
 | `GET`    | `/screen/categories`     | List screen categories                        | implemented |
 | `POST`   | `/screen/categories`     | Create a screen category                      | implemented |
 | `GET`    | `/screen/categories/{slug}` | Get one screen category                    | implemented |
@@ -504,6 +564,15 @@ Optional filters the services already support are query parameters: `area` on me
 | `POST`   | `/screen/budgets`        | Create a screen budget                        | implemented |
 | `GET`    | `/screen/budgets/{slug}` | Get one screen budget                         | implemented |
 | `PATCH`  | `/screen/budgets/{slug}` | Update name, target, value, comparator, `active_to` | implemented |
+| `GET`    | `/screen/devices`        | List screen devices                               | implemented |
+| `POST`   | `/screen/devices`        | Create a screen device                            | implemented |
+| `GET`    | `/screen/devices/{slug}` | Get one screen device                             | implemented |
+| `PATCH`  | `/screen/devices/{slug}` | Update name                                       | implemented |
+| `GET`    | `/screen/sessions`       | List screen sessions (`occurred_on`)              | implemented |
+| `POST`   | `/screen/sessions`       | Log a session (interval or duration)              | implemented |
+| `GET`    | `/screen/sessions/{id}`  | Get one screen session                            | implemented |
+| `PATCH`  | `/screen/sessions/{id}`  | Amend a screen session                            | implemented |
+| `DELETE` | `/screen/sessions/{id}`  | Delete a screen session and paired entry          | implemented |
 | `GET`    | `/updates`               | Daily check-in streak (creates life catalog if missing) | implemented |
 | `POST`   | `/updates`               | Log a check-in entry on the `checkin` metric            | implemented |
 | `GET`    | `/slips`                 | This-week vs last-week slip counts and daily series     | implemented |
@@ -521,33 +590,35 @@ There is no authentication. The app binds to localhost only (`127.0.0.1`). CORS 
 
 ## Frontend
 
-The UI is a React SPA in `web/` (Vite, TypeScript, Tailwind, shadcn-style primitives). It consumes the HTTP API only. FastAPI does not render HTML templates. When `web/dist` is present, GET 404s that are not API routes return `index.html`.
+The UI is a React SPA in `web/` (Vite, TypeScript, Tailwind, shadcn-style primitives). It is the only frontend. It consumes the HTTP API only. FastAPI does not render HTML templates. When `web/dist` is present, GET 404s that are not API routes return `index.html`.
 
-Implemented this cycle: night app shell (sidebar + top bar), typed `fetch` client, Home dashboard, Week, Area, Habit, Goals, Catalog, and milestone toggles on goal detail. `/goal` is the four-column north-star board from `GET /views/goals` (long / medium / short plus this week's linked tasks). Goal detail shows parent, children, and linked tasks. Catalog and the create dialog accept horizon, parent, and description; the Home task form can link an optional goal.
+Implemented this cycle: night app shell (sidebar + top bar), typed `fetch` client, Home dashboard, Week, Area, Habit, Goals, Catalog, Screen Time, and milestone toggles on goal detail. `/goal` is the four-column north-star board from `GET /views/goals` (long / medium / short plus this week's linked tasks). Goal detail shows parent, children, and linked tasks. Catalog and the create dialog accept optional area (None), horizon, parent, and description; the Home task form can link an optional goal. `/screen` is the period dashboard from `GET /screen/dashboard` (day / week / month, custom SVG charts, interval or duration capture). The SPA does not recompute streaks, score, or heatmaps.
 
-Visual system is a night dashboard shell: near-black navy canvas, raised cards, Inter body, category accents (update purple, slip orange, screen blue, goal green, quick yellow). Light mode keeps a cream canvas so Catalog and review pages stay readable. Theme is stored as `atlas-theme` and applied in `index.html` before paint; first visit follows `prefers-color-scheme`. Display name is local-only (`atlas-display-name`, default Alex). Capture is a dialog wrapping the existing log form (`POST /entries`), plus typed Quick Add for update, slip, task, goal, and journal. Status uses green / amber / red in both modes. Empty states include a Catalog action; loading uses skeletons; errors use `role="alert"`. Home widgets read live views: Today's Focus and Goals from `/views/today`, Screen Time from `/screen/view`, Updates/Slips/Tasks/Journal from their endpoints, Weekly Overview from `/views/home`. The quote on Home is static copy. Hourly screen bars wait on an hour-bucket API.
+Visual system is a night dashboard shell: near-black navy canvas, raised cards, Inter body, category accents (update purple, slip orange, screen blue, goal green, quick yellow, sleep indigo, health rose, adventure teal, entertainment fuchsia). Light mode keeps a cream canvas so Catalog and review pages stay readable. Theme is stored as `atlas-theme` and applied in `index.html` before paint; first visit follows `prefers-color-scheme`. Display name is local-only (`atlas-display-name`, default Alex). Capture is a dialog wrapping the existing log form (`POST /entries`), plus typed Quick Add for update, slip, task, goal, and journal. Status uses green / amber / red in both modes. Empty states include a Catalog action; loading uses skeletons; errors use `role="alert"`. Home widgets read live views: Today's Focus and Goals from `/views/today`, Screen Time from `/screen/view` (with a View all link to `/screen`), Updates/Slips/Tasks/Journal from their endpoints, Weekly Overview from `/views/home`. Sleep, Health, Adventure, and Entertainment are empty section shells on Home and in the sidebar until those domain cycles land. The quote on Home is static copy.
 
 
 | Path            | Page                                      | Status      |
 | --------------- | ----------------------------------------- | ----------- |
-| `/`             | Home dashboard: greeting, live widget grid, typed Quick Add | implemented |
-| `/week`         | Week grid (also linked from Profile)      | implemented |
-| `/updates`      | Placeholder until the updates domain cycle | implemented |
-| `/slips`        | Placeholder until the slips domain cycle   | implemented |
-| `/screen`       | Placeholder until the screen UI cycle      | implemented |
-| `/tasks`        | Placeholder until the tasks domain cycle   | implemented |
-| `/journal`      | Placeholder until the journal domain cycle | implemented |
+| `/`               | Home dashboard: greeting, life-section shells, live widget grid, typed Quick Add | implemented |
+| `/week`           | Week grid (also linked from Profile)      | implemented |
+| `/sleep`          | Empty Sleep section until the sleep domain cycle | implemented |
+| `/health`         | Empty Health section until the health domain cycle | implemented |
+| `/adventure`      | Empty Adventure section until the adventure domain cycle | implemented |
+| `/entertainment`  | Empty Entertainment section until the entertainment domain cycle | implemented |
+| `/screen`         | Period dashboard: totals, score, charts, heatmap, insights, capture | implemented |
+| `/tasks`          | Placeholder until the tasks domain cycle   | implemented |
+| `/journal`        | Placeholder until the journal domain cycle | implemented |
 | `/area/:slug`   | Area dashboard                            | implemented |
 | `/habit/:slug`  | Habit streak and adherence                | implemented |
 | `/goal`         | Four-column north-star board (long / medium / short / this week's linked tasks) | implemented |
 | `/goal/:slug`   | Goal detail: parent, children, linked tasks, progress, pace, milestone toggles | implemented |
-| `/catalog`      | Create and edit areas, metrics, habits, goals | implemented |
+| `/catalog`      | Create and edit areas, metrics, habits, goals (goal area is optional) | implemented |
 
 Package manager is pnpm (`web/pnpm-lock.yaml`, `packageManager` in `web/package.json`). Biome is the only linter and formatter (`web/biome.json`). Never npm, yarn, ESLint, Prettier, or oxlint. Dev: `cd web && pnpm install && pnpm dev` on `:5173`; Vite proxies API prefixes to `127.0.0.1:8000`. Prod: `cd web && pnpm build` then `atlas serve` serves API and `web/dist` together. Frontend gates: `pnpm lint`, `pnpm test`, `pnpm build`.
 
 ## CLI
 
-Four verbs, deliberately unequal in weight: capture is one line, everything else may cost a few keystrokes. Review commands share a Rich dashboard chrome (header plus titled panels). `atlas today` and `atlas area <slug>` split habits into Daily vs This period (side by side when the terminal is wide enough).
+The CLI is capture, catalog definition, and admin — not a frontend. Review (today, week, area, habit, goals, screen) lives in the web SPA. Capture is one line; define, correct, and port take a few keystrokes. Confirmations are one line.
 
 
 | Command                                        | Purpose                                                                                                                            | Status      |
@@ -558,18 +629,14 @@ Four verbs, deliberately unequal in weight: capture is one line, everything else
 | `atlas area add <slug>`                        | Define an area                                                                                                                     | implemented |
 | `atlas metric add <slug> --area --type --agg`  | Define a metric                                                                                                                    | implemented |
 | `atlas habit add --metric --period --at-least` | Define a habit. Slug is optional and defaults to `{metric}-{period}`. Comparator is exactly one of `--at-least`, `--at-most`, `--exactly`. | implemented |
-| `atlas goal add <name> --metric --target --by` | Define a goal. Area is inferred from the metric when `--area` is omitted; slug is derived from the name. `--at-most` / `--at-least` / `--exactly` are flags; `--cumulative` selects `cumulative_since_start`. `--horizon`, `--parent`, and `--description` are optional. | implemented |
-| `atlas today`                                  | Review dashboard: daily habits (left) and weekly/monthly habits (right) when the terminal is wide enough, otherwise stacked; then logged entries and active goals. `--on` selects the local date. | implemented |
-| `atlas week`                                   | Review dashboard: ISO week habit grid in a Habits panel. `--on` selects a date in the week.                                        | implemented |
-| `atlas area <slug>`                            | Review dashboard: metrics, daily vs period habits, and goals for one area. `--on` selects the local date.                          | implemented |
-| `atlas habit <slug>`                           | Review dashboard: one habit's metric, streak, adherence, and current bucket. `--on` selects the local date.                        | implemented |
-| `atlas goals`                                  | Review dashboard: goals with progress, pace, and horizon. `--area`, `--status`, and `--horizon` filter; `--on` selects the local date. | implemented |
+| `atlas goal add <name> --metric --target --by` | Define a goal. `--area` is optional; inferred from `--metric` when present, otherwise untagged. Slug is derived from the name. `--at-most` / `--at-least` / `--exactly` are flags; `--cumulative` selects `cumulative_since_start`. `--horizon`, `--parent`, and `--description` are optional. | implemented |
 | `atlas entry amend <id>`                       | Correct an entry                                                                                                                   | implemented |
 | `atlas entry rm <id>`                          | Delete an entry                                                                                                                    | implemented |
 | `atlas update`                                 | Log a daily check-in on the well-known `checkin` metric (creates the `life` catalog if missing). `--on` / `--note`. | implemented |
 | `atlas slip`                                   | Log a slip (count 1 on the well-known `slip` metric). `--on` / `--note`. | implemented |
 | `atlas task add <title>`                       | Add a one-off task. `--bucket today\|upcoming\|someday`, `--priority`, `--due`, `--goal`. | implemented |
 | `atlas task done <id>`                         | Stamp `done_at` on a task. | implemented |
+| `atlas screen log <app> [minutes]`             | Record a screen session. Duration: `atlas screen log instagram 30 --on 2026-08-14`. Interval: `atlas screen log instagram --from 2026-08-14T20:00:00+00:00 --to 2026-08-14T20:30:00+00:00`. `--device` / `--note`. | implemented |
 | `atlas journal <text>`                         | Log a journal entry on the well-known `journal` metric. `--on`. | implemented |
 | `atlas export`                                 | Write a JSON export to stdout                                                                                                      | implemented |
 | `atlas import <file>`                          | Load a JSON export. `--replace` clears user rows first.                                                                            | implemented |
@@ -595,11 +662,11 @@ The API is served with `uv run atlas serve` or `uv run uvicorn atlas.api.app:app
 
 ## Development
 
-Python 3.12, managed entirely with `uv`. Every command goes through it: `uv add`, `uv sync`, `uv run pytest`, `uv run ruff check`. Never bare `pip`, `python`, `pytest`, or `ruff`.
+Python 3.12, managed entirely with `uv`. Every command goes through it: `uv add`, `uv sync`, `uv run pytest`, `uv run ruff check`, `uv run ruff format`. Never bare `pip`, `python`, `pytest`, or `ruff`.
 
 The SPA in `web/` is managed entirely with pnpm and Biome. Every install and script goes through `pnpm`. Biome is the linter and the formatter; do not add ESLint, Prettier, or oxlint. Cursor enforces this in `.cursor/rules/frontend.mdc`.
 
-Dependencies are declared in `pyproject.toml` and pinned in `uv.lock`; `uv_build` is the build backend. Ruff and pytest are configured in the same `pyproject.toml`: ruff at line length 100 targeting `py312` with `E`, `F`, `I`, `UP`, `B`, `SIM`, and `TID` selected, pytest with `testpaths = ["tests"]` and `--strict-markers --strict-config`. Frontend dependencies are declared in `web/package.json` and pinned in `web/pnpm-lock.yaml`; Biome is configured in `web/biome.json` (2-space indent, line width 100, single quotes).
+Dependencies are declared in `pyproject.toml` and pinned in `uv.lock`; `uv_build` is the build backend. Ruff and pytest are configured in the same `pyproject.toml`: ruff at line length 100 targeting `py312` with `E`, `F`, `I`, `UP`, `B`, `SIM`, and `TID` selected (and `ruff format` at the same width), pytest with `testpaths = ["tests"]` and `--strict-markers --strict-config`. Frontend dependencies are declared in `web/package.json` and pinned in `web/pnpm-lock.yaml`; Biome is configured in `web/biome.json` (2-space indent, line width 100, single quotes).
 
 Tests by layer:
 
@@ -612,7 +679,7 @@ Tests by layer:
 | `cli`      | Typer's runner where it adds value; prefer service tests |
 
 
-One todo, one commit. Each cycle implements a single todo, gets `uv run ruff check` and `uv run pytest` clean (and `pnpm lint`, `pnpm test`, `pnpm build` when `web/` changes), updates this document, and lands one focused commit.
+Before a commit, `uv run ruff check`, `uv run ruff format --check`, and `uv run pytest` must be clean (and `pnpm lint`, `pnpm test`, `pnpm build` when `web/` changes). A diagnostic is work in this cycle: apply `ruff check --fix` / `ruff format` / `pnpm format` when the tool can, then inspect the rest and edit to match nearby code — do not `# noqa` or leave a known failure. Cursor enforces this in `.cursor/rules/checks.mdc` and `.cursor/skills/fix-checks/SKILL.md`. Update this document in the same cycle as the behavior it describes.
 
 ## Development log
 
@@ -649,4 +716,14 @@ Append-only, one entry per cycle. Newest last.
 - **2026-08-14 —** `home-wire` — Removed dashboard fixtures. Weekly Overview reads `GET /views/home` (check-in days, slips, screen minutes, tasks done, and 7-day series). Quick Add pills call the matching capture APIs or focus the Tasks input.
 - **2026-08-14 —** `goal-hierarchy` — Schema 4: `GoalHorizon` (`long` / `medium` / `short`), optional `parent_id` and `description` on goals, optional `goal_id` on tasks. Parent must be the previous horizon. Progress stays per-goal. `goals_board` / `GET /views/goals` groups columns and this week's linked tasks. Import still accepts schema 1–3 and infers missing horizon from the date window.
 - **2026-08-14 —** `web-goals-board` — `/goal` is the four-column north-star board from `GET /views/goals`. Goal detail shows parent, children, and linked tasks. Catalog and the create dialog take horizon, parent, and description; Home task create can link a goal.
+- **2026-08-14 —** `web-screen` — `/screen` is the period dashboard from `GET /screen/dashboard` (day/week/month in the query string). Custom SVG charts; capture is interval or duration. Home Screen Time links View all. The SPA does not recompute dashboard math.
+- **2026-08-14 —** `screen-seed` — Demo taxonomy (entertainment / social / productivity / learning), apps, iPhone/MacBook, a waste cap, and ~28 days of mostly interval sessions including midnight crossings and a YouTube→Instagram evening chain, plus a few duration-only rows.
+- **2026-08-14 —** `screen-dashboard` — `GET /screen/dashboard` computes period totals, score, series, hour heatmap, devices, and insights/prescriptions on read from `screen_session`. Interval clipping attributes midnight-crossing minutes. `screen_view` and Home focus minutes also read sessions.
+- **2026-08-14 —** `screen-sessions` — Schema 5: `ScreenDevice` and `ScreenSession` (interval `started_at`/`ended_at` or duration-only `minutes`). Capture dual-writes a backing entry. `POST /screen/sessions`, device CRUD, `atlas screen log`. Existing screen-app entries backfill as duration-only sessions. Import accepts schema 1 through `CURRENT_SCHEMA_VERSION`.
+- **2026-08-14 —** `life-sections` — Dropped Updates and Slips from the sidebar and SPA pages; those stay Home widgets. Scaffolded empty Sleep, Health, Adventure, and Entertainment sections (sidebar, Home cards, `/sleep` `/health` `/adventure` `/entertainment`).
+- **2026-08-14 —** `goal-optional-area` — Schema 6: `Goal.area_id` is an optional tag, not ownership. North-star goals need no area; metric_target still requires a metric and same-area is checked only when both are set. Import accepts schema 1–6. Demo long-term north stars are untagged.
+- **2026-08-14 —** `web-optional-area` — Goal create/catalog forms default area to None. `Goal.area` is `string | null` on the client.
+- **2026-08-14 —** `drop-auto-commit` — Removed the one-todo-one-commit rule from `.cursor/rules/tooling.mdc`. Pre-commit lint/test gates and commit-message style remain; agents commit only when asked.
+- **2026-08-14 —** `cli-no-review` — Removed CLI review dashboards (`today`, `week`, `goals`, `area show`, `habit show`) and the Rich panel chrome. The SPA is the only frontend. CLI remains capture, catalog definition, and admin.
+- **2026-08-15 —** `fix-checks` — Applied `ruff format` across `src` and `tests`. Pre-commit gates now include `uv run ruff format --check`. A check finding is work in the same cycle: apply auto-fixes, inspect the rest. Added `.cursor/rules/checks.mdc` and `.cursor/skills/fix-checks/SKILL.md`.
 

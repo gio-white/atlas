@@ -87,6 +87,8 @@ def patch_goal(session: SessionDep, slug: str, body: GoalUpdate) -> GoalOut:
     data = body.model_dump(exclude_unset=True)
     if "parent" in data:
         data["parent_slug"] = data.pop("parent")
+    if "area" in data:
+        data["area_slug"] = data.pop("area")
     goal = update_goal(session, slug, **data)
     return goals_out(session, [goal])[0]
 

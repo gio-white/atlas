@@ -8,9 +8,7 @@ _SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 def normalize_slug(slug: str) -> str:
     stripped = slug.strip().lower()
     if not _SLUG.fullmatch(stripped):
-        raise ValidationError(
-            f"invalid slug {slug!r}; use lowercase letters, digits, and hyphens"
-        )
+        raise ValidationError(f"invalid slug {slug!r}; use lowercase letters, digits, and hyphens")
     return stripped
 
 

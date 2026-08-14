@@ -9,7 +9,7 @@ from atlas.services.clock import resolve_today
 from atlas.services.life import CHECKIN_METRIC_SLUG, ensure_checkin_habit
 from atlas.services.lookups import entries_for_metric, require_metric
 from atlas.services.mapping import entry_view
-from atlas.services.screen import list_screen_apps
+from atlas.services.screen import screen_minutes_in_range
 from atlas.services.slips import slips_week
 from atlas.services.tasks import tasks_done_in_week
 
@@ -91,17 +91,7 @@ def _checkin_series(
 
 
 def _screen_minutes(session: Session, start: date, end: date) -> float:
-    total = 0.0
-    for app in list_screen_apps(session):
-        views = [entry_view(entry) for entry in entries_for_metric(session, app.metric_id)]
-        total += (
-            rollup(
-                [view for view in views if start <= view.occurred_on <= end],
-                Aggregation.SUM,
-            )
-            or 0.0
-        )
-    return total
+    return screen_minutes_in_range(session, start, end)
 
 
 def _delta(this_week: float, last_week: float) -> float | None:

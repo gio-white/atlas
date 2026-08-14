@@ -1,5 +1,5 @@
 import re
-from datetime import date
+from datetime import UTC, date, datetime
 
 from atlas.domain import Comparator, Measure
 from atlas.services import ValidationError
@@ -26,6 +26,18 @@ _WEEKDAYS = {
 }
 _TRUE = {"true", "yes", "y"}
 _FALSE = {"false", "no", "n"}
+
+
+def parse_iso_datetime(value: str | None) -> datetime | None:
+    if value is None or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValidationError(f"invalid datetime {value!r}; use ISO-8601") from exc
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def parse_iso_date(value: str | None) -> date | None:

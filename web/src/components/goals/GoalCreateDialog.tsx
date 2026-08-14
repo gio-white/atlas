@@ -50,7 +50,7 @@ export function GoalCreateDialog({
   )
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
-  const [area, setArea] = useState(areas[0]?.slug ?? '')
+  const [area, setArea] = useState('')
   const [kind, setKind] = useState<GoalKind>('milestone')
   const [metric, setMetric] = useState(numeric[0]?.slug ?? '')
   const [target, setTarget] = useState('')
@@ -66,7 +66,7 @@ export function GoalCreateDialog({
     if (!open) return
     setName('')
     setSlug('')
-    setArea(areas[0]?.slug ?? '')
+    setArea('')
     setKind('milestone')
     setMetric(numeric[0]?.slug ?? '')
     setTarget('')
@@ -75,7 +75,7 @@ export function GoalCreateDialog({
     setParent('')
     setDescription('')
     setError(null)
-  }, [open, areas, numeric])
+  }, [open, numeric])
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -88,7 +88,7 @@ export function GoalCreateDialog({
     try {
       await createGoal({
         slug: resolved,
-        area,
+        area: area || null,
         kind,
         start_on: startOn,
         due_on: dueOn,
@@ -123,7 +123,8 @@ export function GoalCreateDialog({
               label="Area"
               value={area}
               onChange={setArea}
-              options={areas.map((item) => item.slug)}
+              options={['', ...areas.map((item) => item.slug)]}
+              labels={{ '': 'None' }}
             />
             <SelectField
               label="Kind"

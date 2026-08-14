@@ -185,8 +185,7 @@ def test_pace_status_uses_elapsed_time_and_tolerance():
         pace_status(goal, GoalProgress(50, 0, 0.9, False), date(2026, 1, 12)) is PaceStatus.OVERDUE
     )
     assert (
-        pace_status(goal, GoalProgress(75, 80, 1.0, True), date(2026, 1, 12))
-        is PaceStatus.ACHIEVED
+        pace_status(goal, GoalProgress(75, 80, 1.0, True), date(2026, 1, 12)) is PaceStatus.ACHIEVED
     )
 
 

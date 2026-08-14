@@ -1,0 +1,41 @@
+---
+description: Check findings are work — apply suggested fixes, then inspect the rest
+alwaysApply: true
+---
+
+# Check findings are work
+
+A diagnostic from ruff, Biome, pytest, or `pnpm build` is a defect in this cycle, not a note for later. Do not leave a known failure, skip it with `--no-verify`, or paste the output and move on.
+
+## Apply the suggestion when it is the fix
+
+If the tool marks the finding as auto-fixable (`[*]`, `FIXABLE`, `ruff check --fix`, `biome check --write`), apply that fix. Then re-run the same check.
+
+```bash
+# ❌ BAD — report I001 / format drift and continue
+uv run ruff check src tests
+# "19 files would be reformatted"
+
+# ✅ GOOD — apply, then prove it is clean
+uv run ruff check --fix src tests
+uv run ruff format src tests
+uv run ruff check src tests && uv run ruff format --check src tests
+```
+
+Frontend: `pnpm format` (Biome `--write`), then `pnpm lint`.
+
+## Inspect what the fixer cannot touch
+
+Line length, logic, type errors, and failing tests need a real edit that matches the surrounding code — wrap, rename, or rewrite; do not `# noqa` or disable the rule to get a green run.
+
+```python
+# ❌ BAD — silence E501
+raise ValidationError(f"metric {metric.slug!r} does not belong to the goal's area")  # noqa: E501
+
+# ✅ GOOD — wrap to line-length 100, same wording
+raise ValidationError(
+    f"metric {metric.slug!r} does not belong to the goal's area"
+)
+```
+
+Re-run the failing check after the edit. The cycle is done only when the gate is green.

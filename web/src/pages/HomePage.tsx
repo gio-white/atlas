@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   GoalsCard,
+  LifeSectionCard,
   QuickAddCard,
   type QuickKind,
   QuoteCard,
@@ -38,6 +39,7 @@ import {
 } from '@/lib/api'
 import { useShell } from '@/lib/asOf'
 import { greetingForHour } from '@/lib/greeting'
+import { LIFE_SECTIONS } from '@/lib/sections'
 
 export function HomePage() {
   const { asOf, displayName, openLog } = useShell()
@@ -101,6 +103,11 @@ export function HomePage() {
         </h1>
         <p className="mt-1 text-sm text-muted">Focus on progress, not perfection.</p>
       </header>
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {LIFE_SECTIONS.map((section) => (
+          <LifeSectionCard key={section.slug} section={section} />
+        ))}
+      </section>
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <UpdatesCard
           streakDays={updates?.current_streak ?? 0}

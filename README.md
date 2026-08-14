@@ -2,7 +2,7 @@
 
 Personal life-tracking backend. Records what you did, layers habits and goals on top of that record, and computes all progress on read.
 
-This README is how to install and run it. The data model, layering, derived computations, API and CLI surface, and configuration live in [docs/architecture.md](docs/architecture.md).
+This README is how to install and run it. The data model, layering, derived computations, API, CLI, web surface, and configuration live in [docs/architecture.md](docs/architecture.md).
 
 ## Requirements
 
@@ -32,7 +32,7 @@ uv run atlas init
 uv run atlas seed
 ```
 
-`seed` loads a demo dataset dated relative to today so review commands have something to show. It refuses if the database already has areas; pass `--replace` to wipe user data and load it again. `--on YYYY-MM-DD` pins the "today" the demo is built around.
+`seed` loads a demo dataset dated relative to today so the web UI has something to show. It refuses if the database already has areas; pass `--replace` to wipe user data and load it again. `--on YYYY-MM-DD` pins the "today" the demo is built around.
 
 Capture (the hot path):
 
@@ -42,21 +42,11 @@ uv run atlas log meditated
 uv run atlas log weight 78.4 --on 2026-08-10 --note "post-travel"
 ```
 
-Review:
-
-```bash
-uv run atlas today
-uv run atlas week
-uv run atlas area health
-uv run atlas habit pushups-daily
-uv run atlas goals
-```
-
-Define, correct, and port (`export` / `import`) are listed in the [CLI](docs/architecture.md#cli) section of the architecture doc. `uv run atlas --help` prints the same surface.
+Define, correct, and port (`export` / `import`) are listed in the [CLI](docs/architecture.md#cli) section of the architecture doc. `uv run atlas --help` prints the same surface. Review is the web UI, not the CLI.
 
 ## API and web UI
 
-The HTTP API is the only consumer path. It binds to localhost only (`127.0.0.1`); there is no authentication. `atlas serve` runs that API and, after `web/` is built, the React SPA from `web/dist`.
+The HTTP API is the only consumer path for the web UI. It binds to localhost only (`127.0.0.1`); there is no authentication. `atlas serve` runs that API and, after `web/` is built, the React SPA from `web/dist`. The SPA is the only frontend.
 
 ```bash
 uv run atlas serve
@@ -86,8 +76,9 @@ Open <http://127.0.0.1:5173>. After `cd web && pnpm build`, `atlas serve` also s
 
 ```bash
 uv run ruff check
+uv run ruff format --check
 uv run pytest
 cd web && pnpm lint && pnpm test && pnpm build
 ```
 
-Python gates (`ruff`, `pytest`) must pass before a commit. When `web/` changes, `pnpm lint`, `pnpm test`, and `pnpm build` must pass too. See [docs/architecture.md](docs/architecture.md) for layering rules and how streaks, adherence, and goal progress are defined.
+Python gates (`ruff check`, `ruff format --check`, `pytest`) must pass before a commit. When `web/` changes, `pnpm lint`, `pnpm test`, and `pnpm build` must pass too. A check finding is work in the same cycle: apply auto-fixes, then inspect what the fixer cannot touch. See [docs/architecture.md](docs/architecture.md) for layering rules and how streaks, adherence, and goal progress are defined.

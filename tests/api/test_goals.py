@@ -114,3 +114,23 @@ def test_create_goal_with_parent_and_horizon(client, seed_health):
     assert child.json()["horizon"] == "medium"
     listed = client.get("/goals", params={"horizon": "medium"})
     assert [goal["slug"] for goal in listed.json()] == ["bodyweight-75"]
+
+
+def test_create_goal_without_area(client, seed_health):
+    created = client.post(
+        "/goals",
+        json={
+            "slug": "north",
+            "kind": "milestone",
+            "start_on": "2026-01-01",
+            "due_on": "2028-01-01",
+        },
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["area"] is None
+    patched = client.patch("/goals/north", json={"area": "health"})
+    assert patched.status_code == 200
+    assert patched.json()["area"] == "health"
+    cleared = client.patch("/goals/north", json={"area": None})
+    assert cleared.status_code == 200
+    assert cleared.json()["area"] is None

@@ -14,6 +14,8 @@ from atlas.db.models import (
     ScreenApp,
     ScreenBudget,
     ScreenCategory,
+    ScreenDevice,
+    ScreenSession,
     Task,
 )
 from atlas.domain import (
@@ -39,7 +41,9 @@ from atlas.services.lookups import (
     require_area,
     require_goal,
     require_metric,
+    require_screen_app,
     require_screen_category,
+    require_screen_device,
 )
 from atlas.services.slugs import normalize_slug
 
@@ -55,6 +59,8 @@ def export_all(session: Session) -> dict[str, Any]:
     )
     screen_apps = list(session.exec(select(ScreenApp).order_by(ScreenApp.slug)).all())
     screen_budgets = list(session.exec(select(ScreenBudget).order_by(ScreenBudget.slug)).all())
+    screen_devices = list(session.exec(select(ScreenDevice).order_by(ScreenDevice.slug)).all())
+    screen_sessions = list(session.exec(select(ScreenSession).order_by(ScreenSession.id)).all())
     tasks = list(session.exec(select(Task).order_by(Task.id)).all())
     entries = list(session.exec(select(Entry).order_by(Entry.occurred_on, Entry.id)).all())
 
@@ -62,6 +68,8 @@ def export_all(session: Session) -> dict[str, Any]:
     metric_by_id = {metric.id: metric.slug for metric in metrics}
     goal_by_id = {goal.id: goal.slug for goal in goals}
     category_by_id = {category.id: category.slug for category in screen_categories}
+    device_by_id = {device.id: device.slug for device in screen_devices}
+    app_by_id = {app.id: app.slug for app in screen_apps}
 
     return {
         "schema_version": CURRENT_SCHEMA_VERSION,
@@ -75,6 +83,10 @@ def export_all(session: Session) -> dict[str, Any]:
             _export_screen_app(row, category_by_id, metric_by_id) for row in screen_apps
         ],
         "screen_budgets": [_export_screen_budget(row) for row in screen_budgets],
+        "screen_devices": [_export_screen_device(row) for row in screen_devices],
+        "screen_sessions": [
+            _export_screen_session(row, app_by_id, device_by_id) for row in screen_sessions
+        ],
         "tasks": [_export_task(task, goal_by_id) for task in tasks],
         "entries": [_export_entry(entry, metric_by_id) for entry in entries],
     }
@@ -82,10 +94,10 @@ def export_all(session: Session) -> dict[str, Any]:
 
 def import_all(session: Session, payload: dict[str, Any], *, replace: bool = False) -> None:
     version = payload.get("schema_version")
-    if version not in {1, 2, 3, CURRENT_SCHEMA_VERSION}:
+    if version not in set(range(1, CURRENT_SCHEMA_VERSION + 1)):
         raise ValidationError(
             f"unsupported export schema_version {version!r}; "
-            f"expected 1, 2, 3, or {CURRENT_SCHEMA_VERSION}"
+            f"expected 1 through {CURRENT_SCHEMA_VERSION}"
         )
     try:
         if replace:
@@ -116,10 +128,25 @@ def import_all(session: Session, payload: dict[str, Any], *, replace: bool = Fal
         session.flush()
         for raw in payload.get("screen_budgets", []):
             _import_screen_budget(session, raw)
+        session.flush()
+        for raw in payload.get("screen_devices", []):
+            _import_screen_device(session, raw)
+        session.flush()
+        screen_metric_ids = {app.metric_id for app in session.exec(select(ScreenApp)).all()}
+        has_sessions = "screen_sessions" in payload
         for raw in payload.get("tasks", []):
             _import_task(session, raw)
         for raw in payload.get("entries", []):
-            _import_entry(session, raw)
+            metric = require_metric(session, normalize_slug(_require(raw, "metric")))
+            if has_sessions and metric.id in screen_metric_ids:
+                continue
+            _import_entry(session, raw, metric)
+        session.flush()
+        if has_sessions:
+            for raw in payload.get("screen_sessions", []):
+                _import_screen_session(session, raw)
+        else:
+            _backfill_imported_sessions(session)
         session.commit()
     except Exception:
         session.rollback()
@@ -132,6 +159,7 @@ def _clear_user_data(session: Session) -> None:
         session.add(goal)
     session.flush()
     for model in (
+        ScreenSession,
         Entry,
         Milestone,
         Habit,
@@ -139,6 +167,7 @@ def _clear_user_data(session: Session) -> None:
         Goal,
         ScreenBudget,
         ScreenApp,
+        ScreenDevice,
         ScreenCategory,
         Metric,
         Area,
@@ -192,7 +221,7 @@ def _export_goal(
 ) -> dict[str, Any]:
     return {
         "slug": goal.slug,
-        "area": area_by_id[goal.area_id],
+        "area": area_by_id.get(goal.area_id) if goal.area_id is not None else None,
         "name": goal.name,
         "kind": str(goal.kind),
         "metric": metric_by_id.get(goal.metric_id),
@@ -270,6 +299,32 @@ def _export_screen_budget(budget: ScreenBudget) -> dict[str, Any]:
     }
 
 
+def _export_screen_device(device: ScreenDevice) -> dict[str, Any]:
+    return {
+        "slug": device.slug,
+        "name": device.name,
+        "archived_at": _iso_dt(device.archived_at),
+    }
+
+
+def _export_screen_session(
+    row: ScreenSession,
+    app_by_id: dict[int | None, str],
+    device_by_id: dict[int | None, str],
+) -> dict[str, Any]:
+    return {
+        "app": app_by_id[row.app_id],
+        "device": device_by_id.get(row.device_id),
+        "started_at": _iso_dt(row.started_at),
+        "ended_at": _iso_dt(row.ended_at),
+        "minutes": row.minutes,
+        "occurred_on": row.occurred_on.isoformat(),
+        "note": row.note,
+        "source": str(row.source),
+        "created_at": _iso_dt(row.created_at),
+    }
+
+
 def _import_area(session: Session, raw: dict[str, Any]) -> None:
     slug = normalize_slug(_require(raw, "slug"))
     existing = session.exec(select(Area).where(Area.slug == slug)).first()
@@ -332,21 +387,22 @@ def _import_habit(session: Session, raw: dict[str, Any]) -> None:
 
 def _import_goal(session: Session, raw: dict[str, Any]) -> None:
     slug = normalize_slug(_require(raw, "slug"))
-    area = require_area(session, normalize_slug(_require(raw, "area")))
+    area_raw = raw.get("area")
+    area_id = require_area(session, normalize_slug(area_raw)).id if area_raw else None
     metric_slug = raw.get("metric")
     metric_id = require_metric(session, normalize_slug(metric_slug)).id if metric_slug else None
     existing = session.exec(select(Goal).where(Goal.slug == slug)).first()
     if existing is None:
         existing = Goal(
             slug=slug,
-            area_id=area.id,
+            area_id=area_id,
             name=_require(raw, "name"),
             kind=GoalKind(_require(raw, "kind")),
             start_on=_parse_date(_require(raw, "start_on")),
             due_on=_parse_date(_require(raw, "due_on")),
         )
         session.add(existing)
-    existing.area_id = area.id
+    existing.area_id = area_id
     existing.name = raw.get("name", existing.name)
     existing.kind = GoalKind(raw.get("kind", existing.kind))
     existing.metric_id = metric_id
@@ -379,9 +435,7 @@ def _import_goal_parent(session: Session, raw: dict[str, Any]) -> None:
     child_horizon = GoalHorizon(goal.horizon)
     parent_horizon = GoalHorizon(parent.horizon)
     if not parent_horizon_is_valid(child_horizon, parent_horizon):
-        raise ValidationError(
-            f"goal {slug!r} cannot parent under {parent.slug!r}"
-        )
+        raise ValidationError(f"goal {slug!r} cannot parent under {parent.slug!r}")
     if parent.id == goal.id:
         raise ValidationError("a goal cannot be its own parent")
     goal.parent_id = parent.id
@@ -466,6 +520,84 @@ def _import_screen_budget(session: Session, raw: dict[str, Any]) -> None:
     existing.active_to = _parse_date(active_to) if active_to else None
 
 
+def _import_screen_device(session: Session, raw: dict[str, Any]) -> None:
+    slug = normalize_slug(_require(raw, "slug"))
+    existing = session.exec(select(ScreenDevice).where(ScreenDevice.slug == slug)).first()
+    if existing is None:
+        existing = ScreenDevice(slug=slug, name=_require(raw, "name"))
+        session.add(existing)
+    existing.name = raw.get("name", existing.name)
+    existing.archived_at = _parse_datetime(raw.get("archived_at"))
+
+
+def _import_screen_session(session: Session, raw: dict[str, Any]) -> None:
+    app = require_screen_app(session, normalize_slug(_require(raw, "app")))
+    device_slug = raw.get("device")
+    device_id = (
+        require_screen_device(session, normalize_slug(device_slug)).id if device_slug else None
+    )
+    metric = require_metric(session, app.slug)
+    created_at = _parse_datetime(raw.get("created_at")) or datetime.now(UTC)
+    started_at = _parse_datetime(raw.get("started_at"))
+    ended_at = _parse_datetime(raw.get("ended_at"))
+    minutes = float(_require(raw, "minutes"))
+    occurred_on = _parse_date(_require(raw, "occurred_on"))
+    entry = Entry(
+        metric_id=metric.id,
+        occurred_on=occurred_on,
+        occurred_at=started_at,
+        value_num=minutes,
+        note=raw.get("note"),
+        source=Source(raw.get("source", Source.IMPORT)),
+        created_at=created_at,
+    )
+    session.add(entry)
+    session.flush()
+    session.add(
+        ScreenSession(
+            app_id=app.id,
+            device_id=device_id,
+            started_at=started_at,
+            ended_at=ended_at,
+            minutes=minutes,
+            occurred_on=occurred_on,
+            note=raw.get("note"),
+            source=Source(raw.get("source", Source.IMPORT)),
+            created_at=created_at,
+            entry_id=entry.id,
+        )
+    )
+
+
+def _backfill_imported_sessions(session: Session) -> None:
+    apps = list(session.exec(select(ScreenApp)).all())
+    metric_to_app = {app.metric_id: app for app in apps}
+    if not metric_to_app:
+        return
+    linked = {
+        row.entry_id
+        for row in session.exec(select(ScreenSession)).all()
+        if row.entry_id is not None
+    }
+    for entry in session.exec(select(Entry)).all():
+        if entry.id in linked or entry.metric_id not in metric_to_app:
+            continue
+        if entry.value_num is None or entry.value_num <= 0:
+            continue
+        app = metric_to_app[entry.metric_id]
+        session.add(
+            ScreenSession(
+                app_id=app.id,
+                minutes=entry.value_num,
+                occurred_on=entry.occurred_on,
+                note=entry.note,
+                source=entry.source,
+                created_at=entry.created_at,
+                entry_id=entry.id,
+            )
+        )
+
+
 def _export_task(task: Task, goal_by_id: dict[int | None, str]) -> dict[str, Any]:
     return {
         "title": task.title,
@@ -498,22 +630,24 @@ def _import_task(session: Session, raw: dict[str, Any]) -> None:
     )
 
 
-def _import_entry(session: Session, raw: dict[str, Any]) -> None:
-    metric = require_metric(session, normalize_slug(_require(raw, "metric")))
+def _import_entry(session: Session, raw: dict[str, Any], metric: Metric | None = None) -> Entry:
+    if metric is None:
+        metric = require_metric(session, normalize_slug(_require(raw, "metric")))
     created_at = _parse_datetime(raw.get("created_at")) or datetime.now(UTC)
-    session.add(
-        Entry(
-            metric_id=metric.id,
-            occurred_on=_parse_date(_require(raw, "occurred_on")),
-            occurred_at=_parse_datetime(raw.get("occurred_at")),
-            value_num=raw.get("value_num"),
-            value_bool=raw.get("value_bool"),
-            value_text=raw.get("value_text"),
-            note=raw.get("note"),
-            source=Source(raw.get("source", Source.IMPORT)),
-            created_at=created_at,
-        )
+    entry = Entry(
+        metric_id=metric.id,
+        occurred_on=_parse_date(_require(raw, "occurred_on")),
+        occurred_at=_parse_datetime(raw.get("occurred_at")),
+        value_num=raw.get("value_num"),
+        value_bool=raw.get("value_bool"),
+        value_text=raw.get("value_text"),
+        note=raw.get("note"),
+        source=Source(raw.get("source", Source.IMPORT)),
+        created_at=created_at,
     )
+    session.add(entry)
+    session.flush()
+    return entry
 
 
 def _require(raw: dict[str, Any], key: str) -> Any:

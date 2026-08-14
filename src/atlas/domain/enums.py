@@ -85,6 +85,21 @@ class ScreenBudgetTargetKind(StrEnum):
     CATEGORY = "category"
 
 
+class ScreenScoreBand(StrEnum):
+    GOOD = "good"
+    OK = "ok"
+    POOR = "poor"
+
+
+class ScreenInsightKind(StrEnum):
+    WEEKEND_SPIKE = "weekend_spike"
+    WASTE_SHARE = "waste_share"
+    LATE_NIGHT = "late_night"
+    IMPROVING = "improving"
+    SEQUENCE = "sequence"
+    BUDGET = "budget"
+
+
 class TaskBucket(StrEnum):
     TODAY = "today"
     UPCOMING = "upcoming"

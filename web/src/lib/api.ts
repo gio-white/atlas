@@ -58,7 +58,7 @@ export type Habit = {
 export type Goal = {
   id: number
   slug: string
-  area: string
+  area: string | null
   name: string
   kind: GoalKind
   metric: string | null
@@ -184,6 +184,15 @@ export type HomeWeek = {
 }
 
 export type ScreenJudgment = 'useful' | 'waste' | 'neutral'
+export type ScreenScoreBand = 'good' | 'ok' | 'poor'
+export type ScreenInsightKind =
+  | 'weekend_spike'
+  | 'waste_share'
+  | 'late_night'
+  | 'improving'
+  | 'sequence'
+  | 'budget'
+export type ScreenBudgetTargetKind = 'judgment' | 'category'
 
 export type ScreenJudgmentTotals = {
   useful: number | null
@@ -192,9 +201,176 @@ export type ScreenJudgmentTotals = {
   total: number | null
 }
 
+export type ScreenAppRow = {
+  slug: string
+  name: string
+  category: string
+  metric: string
+  minutes: number | null
+  archived_at: string | null
+}
+
+export type ScreenCategoryRow = {
+  slug: string
+  name: string
+  judgment: ScreenJudgment
+  minutes: number | null
+  apps: ScreenAppRow[]
+  archived_at: string | null
+}
+
+export type ScreenSessionRow = {
+  id: number
+  app: string
+  category: string
+  metric: string
+  occurred_on: string
+  minutes: number | null
+  note: string | null
+}
+
+export type ScreenBudgetStatus = {
+  slug: string
+  name: string
+  target_kind: ScreenBudgetTargetKind
+  target_slug: string
+  period: Period
+  target_value: number
+  comparator: Comparator
+  current_value: number | null
+  satisfied: boolean
+  scheduled: boolean
+  current_streak: number
+  longest_streak: number
+  adherence: number | null
+  as_of: string
+}
+
 export type ScreenView = {
   as_of: string
+  categories: ScreenCategoryRow[]
   judgments: ScreenJudgmentTotals
+  sessions: ScreenSessionRow[]
+  budgets: ScreenBudgetStatus[]
+}
+
+export type ScreenAppShare = {
+  slug: string
+  name: string
+  category: string
+  category_name: string
+  judgment: ScreenJudgment
+  minutes: number
+  share: number
+}
+
+export type ScreenCategoryShare = {
+  slug: string
+  name: string
+  judgment: ScreenJudgment
+  minutes: number
+  share: number
+  apps: ScreenAppShare[]
+}
+
+export type ScreenDeviceShare = {
+  slug: string
+  name: string
+  minutes: number
+  share: number
+}
+
+export type ScreenDayBar = {
+  date: string
+  useful: number
+  waste: number
+  neutral: number
+  total: number
+}
+
+export type ScreenComparisonPoint = {
+  current: number
+  previous: number
+}
+
+export type ScreenTrendPoint = {
+  week_start: string
+  daily_average: number | null
+}
+
+export type ScreenLongestDay = {
+  date: string
+  minutes: number
+}
+
+export type ScreenInsight = {
+  kind: ScreenInsightKind
+  summary: string
+  prescription: string
+}
+
+export type ScreenDashboard = {
+  period: Period
+  as_of: string
+  range_start: string
+  range_end: string
+  previous_start: string
+  previous_end: string
+  total: number | null
+  daily_average: number | null
+  longest_day: ScreenLongestDay | null
+  delta_minutes: number | null
+  delta_fraction: number | null
+  score: number | null
+  score_band: ScreenScoreBand | null
+  judgments: ScreenJudgmentTotals
+  apps: ScreenAppShare[]
+  categories: ScreenCategoryShare[]
+  devices: ScreenDeviceShare[]
+  daily: ScreenDayBar[]
+  comparison: ScreenComparisonPoint[]
+  hours: number[][]
+  trend: ScreenTrendPoint[]
+  insights: ScreenInsight[]
+  budgets: ScreenBudgetStatus[]
+}
+
+export type ScreenCategory = {
+  id: number
+  slug: string
+  name: string
+  judgment: ScreenJudgment
+  archived_at: string | null
+}
+
+export type ScreenApp = {
+  id: number
+  slug: string
+  name: string
+  category: string
+  metric: string
+  archived_at: string | null
+}
+
+export type ScreenDevice = {
+  id: number
+  slug: string
+  name: string
+  archived_at: string | null
+}
+
+export type ScreenSessionRecord = {
+  id: number
+  app: string
+  device: string | null
+  started_at: string | null
+  ended_at: string | null
+  minutes: number
+  occurred_on: string
+  note: string | null
+  source: Source
+  created_at: string
+  entry_id: number | null
 }
 
 export type UpdatesStatus = {
@@ -378,6 +554,61 @@ export function getScreenView(asOf?: string): Promise<ScreenView> {
   return request(`/screen/view${queryString({ as_of: asOf })}`)
 }
 
+export function getScreenDashboard(period: Period, asOf?: string): Promise<ScreenDashboard> {
+  return request(`/screen/dashboard${queryString({ period, as_of: asOf })}`)
+}
+
+export function listScreenCategories(includeArchived = false): Promise<ScreenCategory[]> {
+  return request(
+    `/screen/categories${queryString({ include_archived: includeArchived || undefined })}`,
+  )
+}
+
+export function createScreenCategory(body: {
+  slug: string
+  judgment: ScreenJudgment
+  name?: string | null
+}): Promise<ScreenCategory> {
+  return request('/screen/categories', { method: 'POST', body: JSON.stringify(body) })
+}
+
+export function listScreenApps(includeArchived = false): Promise<ScreenApp[]> {
+  return request(`/screen/apps${queryString({ include_archived: includeArchived || undefined })}`)
+}
+
+export function createScreenApp(body: {
+  slug: string
+  category: string
+  name?: string | null
+}): Promise<ScreenApp> {
+  return request('/screen/apps', { method: 'POST', body: JSON.stringify(body) })
+}
+
+export function listScreenDevices(includeArchived = false): Promise<ScreenDevice[]> {
+  return request(
+    `/screen/devices${queryString({ include_archived: includeArchived || undefined })}`,
+  )
+}
+
+export function createScreenDevice(body: {
+  slug: string
+  name?: string | null
+}): Promise<ScreenDevice> {
+  return request('/screen/devices', { method: 'POST', body: JSON.stringify(body) })
+}
+
+export function logScreenSession(body: {
+  app: string
+  minutes?: number | null
+  started_at?: string | null
+  ended_at?: string | null
+  occurred_on?: string | null
+  device?: string | null
+  note?: string | null
+}): Promise<ScreenSessionRecord> {
+  return request('/screen/sessions', { method: 'POST', body: JSON.stringify(body) })
+}
+
 export function getUpdates(asOf?: string): Promise<UpdatesStatus> {
   return request(`/updates${queryString({ as_of: asOf })}`)
 }
@@ -555,7 +786,7 @@ export function updateHabit(
 
 export function createGoal(body: {
   slug: string
-  area: string
+  area?: string | null
   kind: GoalKind
   start_on: string
   due_on: string
@@ -587,6 +818,7 @@ export function updateGoal(
     horizon?: GoalHorizon
     parent?: string | null
     description?: string | null
+    area?: string | null
   },
 ): Promise<Goal> {
   return request(`/goals/${encodeURIComponent(slug)}`, {
