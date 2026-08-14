@@ -156,6 +156,77 @@ export type WeekView = {
   habits: WeekHabit[]
 }
 
+export type HomeWeek = {
+  as_of: string
+  week_start: string
+  week_end: string
+  updates: number
+  updates_last_week: number
+  updates_delta: number | null
+  slips: number
+  slips_last_week: number
+  slips_delta: number | null
+  focus_minutes: number
+  focus_minutes_last_week: number
+  focus_delta: number | null
+  tasks_done: number
+  tasks_done_last_week: number
+  tasks_delta: number | null
+  series_updates: number[]
+  series_slips: number[]
+}
+
+export type ScreenJudgment = 'useful' | 'waste' | 'neutral'
+
+export type ScreenJudgmentTotals = {
+  useful: number | null
+  waste: number | null
+  neutral: number | null
+  total: number | null
+}
+
+export type ScreenView = {
+  as_of: string
+  judgments: ScreenJudgmentTotals
+}
+
+export type UpdatesStatus = {
+  as_of: string
+  checked_in: boolean
+  current_streak: number
+  longest_streak: number
+}
+
+export type SlipsWeek = {
+  as_of: string
+  week_start: string
+  week_end: string
+  this_week: number
+  last_week: number
+  delta_fraction: number | null
+  series: number[]
+}
+
+export type TaskBucket = 'today' | 'upcoming' | 'someday'
+export type TaskPriority = 'high' | 'normal' | 'low'
+
+export type TaskItem = {
+  id: number
+  title: string
+  bucket: TaskBucket
+  due_on: string | null
+  due_at: string | null
+  priority: TaskPriority
+  done_at: string | null
+  created_at: string
+}
+
+export type JournalDay = {
+  as_of: string
+  text: string | null
+  entry_id: number | null
+}
+
 export type MetricSnapshot = {
   slug: string
   name: string
@@ -250,6 +321,77 @@ export function getToday(asOf?: string): Promise<TodayView> {
 
 export function getWeek(asOf?: string): Promise<WeekView> {
   return request(`/views/week${queryString({ as_of: asOf })}`)
+}
+
+export function getHomeWeek(asOf?: string): Promise<HomeWeek> {
+  return request(`/views/home${queryString({ as_of: asOf })}`)
+}
+
+export function getScreenView(asOf?: string): Promise<ScreenView> {
+  return request(`/screen/view${queryString({ as_of: asOf })}`)
+}
+
+export function getUpdates(asOf?: string): Promise<UpdatesStatus> {
+  return request(`/updates${queryString({ as_of: asOf })}`)
+}
+
+export function logUpdate(body?: {
+  occurred_on?: string | null
+  note?: string | null
+}): Promise<Entry> {
+  return request('/updates', { method: 'POST', body: JSON.stringify(body ?? {}) })
+}
+
+export function getSlips(asOf?: string): Promise<SlipsWeek> {
+  return request(`/slips${queryString({ as_of: asOf })}`)
+}
+
+export function logSlip(body?: {
+  occurred_on?: string | null
+  note?: string | null
+}): Promise<Entry> {
+  return request('/slips', { method: 'POST', body: JSON.stringify(body ?? {}) })
+}
+
+export function listTasks(filters?: {
+  bucket?: TaskBucket
+  include_done?: boolean
+}): Promise<TaskItem[]> {
+  return request(
+    `/tasks${queryString({ bucket: filters?.bucket, include_done: filters?.include_done })}`,
+  )
+}
+
+export function createTask(body: {
+  title: string
+  bucket?: TaskBucket
+  due_on?: string | null
+  due_at?: string | null
+  priority?: TaskPriority
+}): Promise<TaskItem> {
+  return request('/tasks', { method: 'POST', body: JSON.stringify(body) })
+}
+
+export function updateTask(
+  id: number,
+  body: Partial<{
+    title: string
+    bucket: TaskBucket
+    due_on: string | null
+    due_at: string | null
+    priority: TaskPriority
+    done: boolean
+  }>,
+): Promise<TaskItem> {
+  return request(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
+}
+
+export function getJournal(asOf?: string): Promise<JournalDay> {
+  return request(`/journal${queryString({ as_of: asOf })}`)
+}
+
+export function logJournal(body: { text: string; occurred_on?: string | null }): Promise<Entry> {
+  return request('/journal', { method: 'POST', body: JSON.stringify(body) })
 }
 
 export function getAreaView(slug: string, asOf?: string): Promise<AreaView> {

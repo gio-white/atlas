@@ -43,3 +43,5 @@ pnpm and Biome only. See `.cursor/rules/frontend.mdc`. Never `npm` / `yarn` / ES
 ## One todo, one commit
 
 Each assigned plan todo is one cycle: implement, lint, test, update `docs/architecture.md`, then a single focused commit. Stop after that commit so the change can be reviewed before the next todo starts. Do not batch multiple todos into one commit.
+
+Commit messages are the subject and body only. Never add Cursor attribution: no `Co-authored-by: Cursor`, `Made with Cursor`, `Coded by Cursor`, `--trailer`, or any similar branding. Do not pass git trailers when committing.

@@ -8,7 +8,7 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from atlas.db.models import SchemaVersion
 
-CURRENT_SCHEMA_VERSION = 2
+CURRENT_SCHEMA_VERSION = 3
 
 
 def create_engine_for(db_path: Path) -> Engine:

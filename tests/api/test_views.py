@@ -70,3 +70,18 @@ def test_area_view_groups_metrics_habits_and_goals(client, seed_health):
     assert {metric["slug"] for metric in body["metrics"]} == {"meditated", "pushups", "weight"}
     assert [habit["slug"] for habit in body["habits"]] == ["pushups-daily"]
     assert [goal["slug"] for goal in body["goals"]] == ["bodyweight-75"]
+
+
+def test_home_week_view(client):
+    client.post("/updates", json={"occurred_on": "2026-08-10"})
+    client.post("/slips", json={"occurred_on": "2026-08-11"})
+    response = client.get("/views/home", params={"as_of": "2026-08-14"})
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["week_start"] == "2026-08-10"
+    assert body["updates"] == 1
+    assert body["slips"] == 1
+    assert body["series_updates"][0] == 1.0
+    assert body["series_slips"][1] == 1.0
+    assert body["focus_minutes"] == 0
+    assert body["tasks_done"] == 0

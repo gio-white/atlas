@@ -77,3 +77,15 @@ class ScreenJudgment(StrEnum):
 class ScreenBudgetTargetKind(StrEnum):
     JUDGMENT = "judgment"
     CATEGORY = "category"
+
+
+class TaskBucket(StrEnum):
+    TODAY = "today"
+    UPCOMING = "upcoming"
+    SOMEDAY = "someday"
+
+
+class TaskPriority(StrEnum):
+    HIGH = "high"
+    NORMAL = "normal"
+    LOW = "low"

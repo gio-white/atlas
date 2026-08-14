@@ -17,6 +17,8 @@ from atlas.domain.enums import (
     ScreenBudgetTargetKind,
     ScreenJudgment,
     Source,
+    TaskBucket,
+    TaskPriority,
     ValueType,
 )
 from atlas.domain.goals import PACE_TOLERANCE, goal_progress, pace_status
@@ -70,6 +72,8 @@ __all__ = [
     "ScreenCategorySpec",
     "ScreenJudgment",
     "Source",
+    "TaskBucket",
+    "TaskPriority",
     "ValueType",
     "add_minutes",
     "adherence",

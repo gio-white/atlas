@@ -14,6 +14,8 @@ from atlas.domain import (
     ScreenBudgetTargetKind,
     ScreenJudgment,
     Source,
+    TaskBucket,
+    TaskPriority,
     ValueType,
 )
 
@@ -136,6 +138,19 @@ class ScreenBudget(SQLModel, table=True):
     comparator: Comparator
     active_from: date
     active_to: date | None = None
+
+
+class Task(SQLModel, table=True):
+    __tablename__ = "task"
+
+    id: int | None = Field(default=None, primary_key=True)
+    title: str
+    bucket: TaskBucket
+    due_on: date | None = None
+    due_at: datetime | None = None
+    priority: TaskPriority = TaskPriority.NORMAL
+    done_at: datetime | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class SchemaVersion(SQLModel, table=True):

@@ -80,6 +80,7 @@ def test_export_round_trips_through_a_fresh_database(session):
     assert restored["screen_categories"] == payload["screen_categories"]
     assert restored["screen_apps"] == payload["screen_apps"]
     assert restored["screen_budgets"] == payload["screen_budgets"]
+    assert restored["tasks"] == payload["tasks"]
     assert len(restored["entries"]) == len(payload["entries"])
     assert restored["entries"][0]["metric"] == "pushups"
     assert restored["entries"][0]["value_num"] == 40.0
@@ -122,3 +123,16 @@ def test_import_accepts_schema_version_1(session):
         restored = export_all(other)
     assert restored["schema_version"] == CURRENT_SCHEMA_VERSION
     assert restored["screen_categories"] == []
+
+
+def test_import_accepts_schema_version_2(session):
+    payload = _populated(session)
+    payload["schema_version"] = 2
+    payload.pop("tasks", None)
+    engine = create_memory_engine()
+    init_schema(engine)
+    with make_session_factory(engine)() as other:
+        import_all(other, payload)
+        restored = export_all(other)
+    assert restored["schema_version"] == CURRENT_SCHEMA_VERSION
+    assert restored["tasks"] == []

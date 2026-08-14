@@ -1,5 +1,6 @@
 import json
 
+from atlas.db import CURRENT_SCHEMA_VERSION
 from tests.cli.conftest import invoke, seed_health
 
 
@@ -25,7 +26,7 @@ def test_export_and_import_round_trip(runner, tmp_path):
 
     exported = invoke(runner, ["export"])
     payload = json.loads(exported.output)
-    assert payload["schema_version"] == 2
+    assert payload["schema_version"] == CURRENT_SCHEMA_VERSION
     assert [area["slug"] for area in payload["areas"]] == ["health"]
     assert {metric["slug"] for metric in payload["metrics"]} == {
         "meditated",

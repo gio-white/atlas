@@ -12,6 +12,7 @@ from atlas.db.models import (
     ScreenApp,
     ScreenBudget,
     ScreenCategory,
+    Task,
 )
 from atlas.domain import Period
 from atlas.services.errors import AlreadyExistsError, NotFoundError, ValidationError
@@ -70,6 +71,13 @@ def require_entry(session: Session, entry_id: int) -> Entry:
     row = session.get(Entry, entry_id)
     if row is None:
         raise NotFoundError("entry", entry_id)
+    return row
+
+
+def require_task(session: Session, task_id: int) -> Task:
+    row = session.get(Task, task_id)
+    if row is None:
+        raise NotFoundError("task", task_id)
     return row
 
 

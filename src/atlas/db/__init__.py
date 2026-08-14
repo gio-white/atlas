@@ -17,6 +17,7 @@ from atlas.db.models import (
     ScreenApp,
     ScreenBudget,
     ScreenCategory,
+    Task,
 )
 
 __all__ = [
@@ -31,6 +32,7 @@ __all__ = [
     "ScreenApp",
     "ScreenBudget",
     "ScreenCategory",
+    "Task",
     "create_engine_for",
     "create_memory_engine",
     "init_db",

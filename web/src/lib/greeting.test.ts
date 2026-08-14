@@ -1,0 +1,14 @@
+import { describe, expect, it } from 'vitest'
+
+import { greetingForHour } from './greeting'
+
+describe('greetingForHour', () => {
+  it('splits the day into morning, afternoon, and evening', () => {
+    expect(greetingForHour(0)).toBe('morning')
+    expect(greetingForHour(11)).toBe('morning')
+    expect(greetingForHour(12)).toBe('afternoon')
+    expect(greetingForHour(16)).toBe('afternoon')
+    expect(greetingForHour(17)).toBe('evening')
+    expect(greetingForHour(23)).toBe('evening')
+  })
+})

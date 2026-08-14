@@ -32,7 +32,16 @@ from atlas.cli.parse import (
 )
 from atlas.cli.session import cli_session, fail
 from atlas.db import init_db
-from atlas.domain import Aggregation, Direction, GoalKind, GoalStatus, Period, ValueType
+from atlas.domain import (
+    Aggregation,
+    Direction,
+    GoalKind,
+    GoalStatus,
+    Period,
+    TaskBucket,
+    TaskPriority,
+    ValueType,
+)
 from atlas.services import (
     amend_entry,
     area_view,
@@ -40,6 +49,7 @@ from atlas.services import (
     create_goal,
     create_habit,
     create_metric,
+    create_task,
     delete_entry,
     export_all,
     get_metric,
@@ -49,8 +59,12 @@ from atlas.services import (
     list_areas,
     list_goals,
     log_entry,
+    log_journal,
+    log_slip,
+    log_update,
     seed_demo,
     today_view,
+    update_task,
     week_view,
 )
 from atlas.settings import load_settings
@@ -71,12 +85,14 @@ habit_app = typer.Typer(
 )
 goal_app = typer.Typer(no_args_is_help=True, add_completion=False, help="Define goals.")
 entry_app = typer.Typer(no_args_is_help=True, add_completion=False, help="Amend or delete entries.")
+task_app = typer.Typer(no_args_is_help=True, add_completion=False, help="Capture one-off tasks.")
 
 app.add_typer(area_app, name="area")
 app.add_typer(metric_app, name="metric")
 app.add_typer(habit_app, name="habit")
 app.add_typer(goal_app, name="goal")
 app.add_typer(entry_app, name="entry")
+app.add_typer(task_app, name="task")
 
 
 @app.callback()
@@ -128,6 +144,39 @@ def log(
             note=note,
         )
         print_logged(slug, entry)
+
+
+@app.command("update")
+def checkin(
+    on: Annotated[str | None, typer.Option("--on")] = None,
+    note: Annotated[str | None, typer.Option("--note")] = None,
+) -> None:
+    """Record today's check-in (the Updates widget)."""
+    with cli_session() as session:
+        entry = log_update(session, occurred_on=parse_iso_date(on), note=note)
+        print_logged("checkin", entry)
+
+
+@app.command()
+def slip(
+    on: Annotated[str | None, typer.Option("--on")] = None,
+    note: Annotated[str | None, typer.Option("--note")] = None,
+) -> None:
+    """Record a slip (count of 1 on the well-known slip metric)."""
+    with cli_session() as session:
+        entry = log_slip(session, occurred_on=parse_iso_date(on), note=note)
+        print_logged("slip", entry)
+
+
+@app.command()
+def journal(
+    text: Annotated[str, typer.Argument()],
+    on: Annotated[str | None, typer.Option("--on")] = None,
+) -> None:
+    """Record a journal entry on the well-known journal metric."""
+    with cli_session() as session:
+        entry = log_journal(session, text, occurred_on=parse_iso_date(on))
+        print_logged("journal", entry)
 
 
 @area_app.command("add")
@@ -329,6 +378,33 @@ def entry_rm(entry_id: Annotated[int, typer.Argument(metavar="ID")]) -> None:
     with cli_session() as session:
         delete_entry(session, entry_id)
         print_deleted(entry_id)
+
+
+@task_app.command("add")
+def task_add(
+    title: Annotated[str, typer.Argument()],
+    bucket: Annotated[TaskBucket, typer.Option("--bucket")] = TaskBucket.TODAY,
+    priority: Annotated[TaskPriority, typer.Option("--priority")] = TaskPriority.NORMAL,
+    due: Annotated[str | None, typer.Option("--due")] = None,
+) -> None:
+    """Add a one-off task."""
+    with cli_session() as session:
+        task = create_task(
+            session,
+            title,
+            bucket=bucket,
+            due_on=parse_iso_date(due),
+            priority=priority,
+        )
+        typer.echo(f"created task #{task.id} {task.title}")
+
+
+@task_app.command("done")
+def task_done(task_id: Annotated[int, typer.Argument(metavar="ID")]) -> None:
+    """Mark a task complete."""
+    with cli_session() as session:
+        task = update_task(session, task_id, done=True)
+        typer.echo(f"done task #{task.id} {task.title}")
 
 
 @app.command("export")

@@ -21,6 +21,8 @@ from atlas.services.habits import (
     list_habits,
     update_habit,
 )
+from atlas.services.home import HomeWeek, home_week
+from atlas.services.journal import JournalDay, journal_day, log_journal
 from atlas.services.metrics import (
     archive_metric,
     create_metric,
@@ -47,6 +49,9 @@ from atlas.services.screen import (
     update_screen_category,
 )
 from atlas.services.seed import SeedSummary, demo_payload, seed_demo
+from atlas.services.slips import SlipsWeek, log_slip, slips_week
+from atlas.services.tasks import create_task, list_tasks, tasks_done_in_week, update_task
+from atlas.services.updates import UpdatesStatus, log_update, updates_status
 from atlas.services.views import (
     AreaView,
     LoggedEntry,
@@ -66,6 +71,8 @@ __all__ = [
     "GoalDetail",
     "GoalProgressReport",
     "HabitStatus",
+    "HomeWeek",
+    "JournalDay",
     "LoggedEntry",
     "MetricSnapshot",
     "MilestoneInput",
@@ -74,7 +81,9 @@ __all__ = [
     "ScreenBudgetStatus",
     "ScreenView",
     "ServiceError",
+    "SlipsWeek",
     "TodayView",
+    "UpdatesStatus",
     "ValidationError",
     "WeekDayCell",
     "WeekHabit",
@@ -90,6 +99,7 @@ __all__ = [
     "create_screen_app",
     "create_screen_budget",
     "create_screen_category",
+    "create_task",
     "delete_entry",
     "demo_payload",
     "export_all",
@@ -103,7 +113,9 @@ __all__ = [
     "get_screen_category",
     "goal_progress",
     "habit_status",
+    "home_week",
     "import_all",
+    "journal_day",
     "list_areas",
     "list_goals",
     "list_habits",
@@ -111,9 +123,15 @@ __all__ = [
     "list_screen_apps",
     "list_screen_budgets",
     "list_screen_categories",
+    "list_tasks",
     "log_entry",
+    "log_journal",
+    "log_slip",
+    "log_update",
     "screen_view",
     "seed_demo",
+    "slips_week",
+    "tasks_done_in_week",
     "today_view",
     "toggle_milestone",
     "update_area",
@@ -123,5 +141,7 @@ __all__ = [
     "update_screen_app",
     "update_screen_budget",
     "update_screen_category",
+    "update_task",
+    "updates_status",
     "week_view",
 ]

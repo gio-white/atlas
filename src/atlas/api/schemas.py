@@ -14,6 +14,8 @@ from atlas.domain import (
     ScreenBudgetTargetKind,
     ScreenJudgment,
     Source,
+    TaskBucket,
+    TaskPriority,
     ValueType,
 )
 
@@ -295,6 +297,28 @@ class WeekViewOut(BaseModel):
     habits: list[WeekHabitOut]
 
 
+class HomeWeekOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    as_of: date
+    week_start: date
+    week_end: date
+    updates: float
+    updates_last_week: float
+    updates_delta: float | None
+    slips: float
+    slips_last_week: float
+    slips_delta: float | None
+    focus_minutes: float
+    focus_minutes_last_week: float
+    focus_delta: float | None
+    tasks_done: float
+    tasks_done_last_week: float
+    tasks_delta: float | None
+    series_updates: list[float]
+    series_slips: list[float]
+
+
 class MetricSnapshotOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -473,3 +497,89 @@ class ScreenViewOut(BaseModel):
     judgments: ScreenJudgmentTotalsOut
     sessions: list[ScreenSessionOut]
     budgets: list[ScreenBudgetStatusOut]
+
+
+class UpdateCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    occurred_on: date | None = None
+    note: str | None = None
+
+
+class UpdatesStatusOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    as_of: date
+    checked_in: bool
+    current_streak: int
+    longest_streak: int
+
+
+class SlipCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    occurred_on: date | None = None
+    note: str | None = None
+
+
+class SlipsWeekOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    as_of: date
+    week_start: date
+    week_end: date
+    this_week: float
+    last_week: float
+    delta_fraction: float | None
+    series: list[float]
+
+
+class TaskCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str
+    bucket: TaskBucket = TaskBucket.TODAY
+    due_on: date | None = None
+    due_at: datetime | None = None
+    priority: TaskPriority = TaskPriority.NORMAL
+
+
+class TaskUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str | None = None
+    bucket: TaskBucket | None = None
+    due_on: date | None = None
+    due_at: datetime | None = None
+    priority: TaskPriority | None = None
+    done: bool | None = None
+
+
+class TaskOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    bucket: TaskBucket
+    due_on: date | None
+    due_at: datetime | None
+    priority: TaskPriority
+    done_at: datetime | None
+    created_at: datetime
+
+
+class JournalCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    text: str
+    occurred_on: date | None = None
+
+
+class JournalDayOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    as_of: date
+    text: str | None
+    entry_id: int | None
+
+

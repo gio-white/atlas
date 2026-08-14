@@ -14,6 +14,7 @@ from atlas.db.models import (
     ScreenApp,
     ScreenBudget,
     ScreenCategory,
+    Task,
 )
 from atlas.domain import (
     Aggregation,
@@ -26,6 +27,8 @@ from atlas.domain import (
     ScreenBudgetTargetKind,
     ScreenJudgment,
     Source,
+    TaskBucket,
+    TaskPriority,
     ValueType,
 )
 from atlas.services.errors import ValidationError
@@ -49,6 +52,7 @@ def export_all(session: Session) -> dict[str, Any]:
     )
     screen_apps = list(session.exec(select(ScreenApp).order_by(ScreenApp.slug)).all())
     screen_budgets = list(session.exec(select(ScreenBudget).order_by(ScreenBudget.slug)).all())
+    tasks = list(session.exec(select(Task).order_by(Task.id)).all())
     entries = list(session.exec(select(Entry).order_by(Entry.occurred_on, Entry.id)).all())
 
     area_by_id = {area.id: area.slug for area in areas}
@@ -68,15 +72,17 @@ def export_all(session: Session) -> dict[str, Any]:
             _export_screen_app(row, category_by_id, metric_by_id) for row in screen_apps
         ],
         "screen_budgets": [_export_screen_budget(row) for row in screen_budgets],
+        "tasks": [_export_task(task) for task in tasks],
         "entries": [_export_entry(entry, metric_by_id) for entry in entries],
     }
 
 
 def import_all(session: Session, payload: dict[str, Any], *, replace: bool = False) -> None:
     version = payload.get("schema_version")
-    if version not in {1, CURRENT_SCHEMA_VERSION}:
+    if version not in {1, 2, CURRENT_SCHEMA_VERSION}:
         raise ValidationError(
-            f"unsupported export schema_version {version!r}; expected 1 or {CURRENT_SCHEMA_VERSION}"
+            f"unsupported export schema_version {version!r}; "
+            f"expected 1, 2, or {CURRENT_SCHEMA_VERSION}"
         )
     try:
         if replace:
@@ -104,6 +110,8 @@ def import_all(session: Session, payload: dict[str, Any], *, replace: bool = Fal
         session.flush()
         for raw in payload.get("screen_budgets", []):
             _import_screen_budget(session, raw)
+        for raw in payload.get("tasks", []):
+            _import_task(session, raw)
         for raw in payload.get("entries", []):
             _import_entry(session, raw)
         session.commit()
@@ -121,6 +129,7 @@ def _clear_user_data(session: Session) -> None:
         ScreenBudget,
         ScreenApp,
         ScreenCategory,
+        Task,
         Metric,
         Area,
     ):
@@ -416,6 +425,34 @@ def _import_screen_budget(session: Session, raw: dict[str, Any]) -> None:
     existing.active_from = _parse_date(raw.get("active_from", existing.active_from.isoformat()))
     active_to = raw.get("active_to")
     existing.active_to = _parse_date(active_to) if active_to else None
+
+
+def _export_task(task: Task) -> dict[str, Any]:
+    return {
+        "title": task.title,
+        "bucket": str(task.bucket),
+        "due_on": task.due_on.isoformat() if task.due_on is not None else None,
+        "due_at": _iso_dt(task.due_at),
+        "priority": str(task.priority),
+        "done_at": _iso_dt(task.done_at),
+        "created_at": _iso_dt(task.created_at),
+    }
+
+
+def _import_task(session: Session, raw: dict[str, Any]) -> None:
+    created_at = _parse_datetime(raw.get("created_at")) or datetime.now(UTC)
+    due_on = raw.get("due_on")
+    session.add(
+        Task(
+            title=_require(raw, "title"),
+            bucket=TaskBucket(_require(raw, "bucket")),
+            due_on=_parse_date(due_on) if due_on else None,
+            due_at=_parse_datetime(raw.get("due_at")),
+            priority=TaskPriority(raw.get("priority", TaskPriority.NORMAL)),
+            done_at=_parse_datetime(raw.get("done_at")),
+            created_at=created_at,
+        )
+    )
 
 
 def _import_entry(session: Session, raw: dict[str, Any]) -> None:

@@ -169,6 +169,27 @@ A threshold over a **judgment** or a **category**, not over a single metric. "Ke
 | `active_to`    | date \| None    | inclusive; `None` means open-ended         |
 
 
+### Life catalog
+
+The Home Updates, Slips, and Journal widgets use well-known rows in the existing tables, created on first use like the `screen` area. Area `life`. Metric `checkin` (`bool`, `sum`) with habit `checkin-daily`. Metric `slip` (`count`, `sum`, `lower_is_better`). Metric `journal` (`text`, `last`). Check-ins, slips, and journal notes are ordinary entries; streak comes from `habit_status`; weekly slip totals and the sparkline series are computed in `slips_week`; today's journal text is the latest `journal` entry on `as_of`.
+
+### Task
+
+A one-off work-queue item, not an observation. Completing a task stamps `done_at`; it does not write an entry. Addressed by integer id, like entries.
+
+
+| Field        | Type             | Notes                          |
+| ------------ | ---------------- | ------------------------------ |
+| `id`         | int              | primary key                    |
+| `title`      | str              |                                |
+| `bucket`     | enum             | `today \| upcoming \| someday` |
+| `due_on`     | date \| None     | optional local date            |
+| `due_at`     | datetime \| None | optional precise time (UTC)    |
+| `priority`   | enum             | `high \| normal \| low`        |
+| `done_at`    | datetime \| None | UTC; `None` means open         |
+| `created_at` | datetime         | UTC                            |
+
+
 ### Goal
 
 An outcome to reach by a date. Two kinds share one table because they share a lifecycle and a due date.
@@ -212,7 +233,7 @@ A manual checkpoint under a goal. Available to both goal kinds, so a `metric_tar
 
 ### Schema management
 
-Tables are created with `SQLModel.metadata.create_all`. A single-row `schema_version` table records the version (`CURRENT_SCHEMA_VERSION = 2`). `atlas init` creates the parent directory if needed, opens the SQLite file at `ATLAS_DB`, runs `create_all`, and inserts that row when missing. If the row exists with a lower version, `init_schema` bumps it after `create_all` (additive tables only). It is safe to run twice. There is no Alembic in the MVP; a schema change ships as an explicit migration step documented in the development log. Schema 2 adds `screen_category`, `screen_app`, and `screen_budget`. Import accepts schema versions `1` and `2`; version 1 payloads have empty screen collections.
+Tables are created with `SQLModel.metadata.create_all`. A single-row `schema_version` table records the version (`CURRENT_SCHEMA_VERSION = 3`). `atlas init` creates the parent directory if needed, opens the SQLite file at `ATLAS_DB`, runs `create_all`, and inserts that row when missing. If the row exists with a lower version, `init_schema` bumps it after `create_all` (additive tables only). It is safe to run twice. There is no Alembic in the MVP; a schema change ships as an explicit migration step documented in the development log. Schema 2 adds `screen_category`, `screen_app`, and `screen_budget`. Schema 3 adds `task`. Import accepts schema versions `1`, `2`, and `3`; older payloads have empty screen and/or task collections.
 
 ## Layering
 
@@ -390,15 +411,19 @@ Failures raise `ServiceError` subclasses the API and CLI will map: `NotFoundErro
 | `create_screen_app` / `list_screen_apps` / `get_screen_app` / `update_screen_app` | Screen apps. Create inserts a duration/`sum`/`min` metric in area `screen` with the same slug and a direction from the category judgment. `update_screen_app` may change name (synced onto the metric) and category (direction follows the new category). |
 | `create_screen_budget` / `list_screen_budgets` / `get_screen_budget` / `update_screen_budget` | Screen budgets targeting a judgment or a category. Judgment `target_slug` must be `useful`, `waste`, or `neutral`; category targets must name an existing category. |
 | `screen_view` | Review for `as_of`: minutes per app and category that day, judgment totals, today's sessions, and each budget's current rollup, satisfaction, streak, and adherence over merged member-app entries. |
-| `today_view` / `week_view` / `area_view` | Review. `today_view` is habits whose current bucket is scheduled, entries with `occurred_on = as_of`, and active goals with progress. `week_view` is the ISO week containing `as_of`, one cell per day per habit. `area_view` is one area's non-archived metrics (latest day's rollup), habits, and non-abandoned goals. |
-| `export_all` / `import_all` | Port. Export is a JSON-serializable dict keyed by slugs, not integer ids. Import upserts areas, metrics, habits, goals, milestones, screen categories, screen apps, and screen budgets by slug (milestones by goal slug + name) and always inserts entries. `replace=True` deletes user rows first. `schema_version` must be `1` or `CURRENT_SCHEMA_VERSION` (2). |
+| `today_view` / `week_view` / `area_view` / `home_week` | Review. `today_view` is habits whose current bucket is scheduled, entries with `occurred_on = as_of`, and active goals with progress. `week_view` is the ISO week containing `as_of`, one cell per day per habit. `area_view` is one area's non-archived metrics (latest day's rollup), habits, and non-abandoned goals. `home_week` is the Home Weekly Overview: check-in days, slip totals, screen-app minutes, and tasks completed this ISO week vs last, plus 7-day update and slip series. |
+| `log_update` / `updates_status` | Daily check-in. Ensures area `life`, metric `checkin`, and habit `checkin-daily`, then `log_entry` / `habit_status`. |
+| `log_slip` / `slips_week` | Slip count. Ensures metric `slip`, logs `1`, and returns this-week vs last-week totals plus a 7-day series. |
+| `log_journal` / `journal_day` | Journal text. Ensures metric `journal`, logs a non-empty string, and returns the latest text for `as_of`. |
+| `create_task` / `list_tasks` / `update_task` / `tasks_done_in_week` | Task queue. `update_task(done=True)` stamps `done_at`. `tasks_done_in_week` counts completions in the ISO week of `as_of`. |
+| `export_all` / `import_all` | Port. Export is a JSON-serializable dict keyed by slugs, not integer ids (tasks and entries use integer ids on import insert). Import upserts areas, metrics, habits, goals, milestones, screen categories, screen apps, and screen budgets by slug (milestones by goal slug + name), inserts tasks and entries. `replace=True` deletes user rows first. `schema_version` must be `1`, `2`, or `CURRENT_SCHEMA_VERSION` (3). |
 | `seed_demo` | Demo dataset. Builds a payload in the export shape dated relative to `as_of` (default `Settings.today()`) and loads it through `import_all`. Four areas (health, career, finance, relationships), metrics covering every `value_type`, daily/weekly/monthly habits including `at_most` and a weekday mask, both goal kinds, and enough entries for `today_view` / `week_view` / goal progress to be non-empty. Refuses when areas already exist unless `replace=True`. Entries are sourced as `import`. |
 
 Export shape:
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "areas": [{"slug": "health", "name": "Health", "description": null, "archived_at": null}],
   "metrics": [{"slug": "pushups", "area": "health", "name": "Pushups", "value_type": "count", "unit": "reps", "aggregation": "sum", "direction": "higher_is_better", "archived_at": null}],
   "habits": [{"slug": "pushups-daily", "metric": "pushups", "name": "Pushups Daily", "period": "day", "target_value": 1.0, "comparator": "at_least", "weekdays": null, "active_from": "2026-08-01", "active_to": null}],
@@ -407,6 +432,7 @@ Export shape:
   "screen_categories": [{"slug": "entertainment", "name": "Entertainment", "judgment": "waste", "archived_at": null}],
   "screen_apps": [{"slug": "instagram", "name": "Instagram", "category": "entertainment", "metric": "instagram", "archived_at": null}],
   "screen_budgets": [{"slug": "waste-cap", "name": "Waste cap", "target_kind": "judgment", "target_slug": "waste", "period": "day", "target_value": 90.0, "comparator": "at_most", "active_from": "2026-08-01", "active_to": null}],
+  "tasks": [{"title": "Family time", "bucket": "today", "due_on": "2026-08-14", "due_at": null, "priority": "normal", "done_at": null, "created_at": "2026-08-14T12:00:00+00:00"}],
   "entries": [{"metric": "pushups", "occurred_on": "2026-08-10", "occurred_at": null, "value_num": 40.0, "value_bool": null, "value_text": null, "note": "post-travel", "source": "cli", "created_at": "2026-08-10T12:00:00+00:00"}]
 }
 ```
@@ -419,7 +445,7 @@ Status is `implemented` only when the endpoint is merged with tests. Everything 
 
 Routers parse the request, call a service, and serialize. Create/list bodies use slugs (`area`, `metric`) rather than integer foreign keys; entries are addressed by integer `id`. `POST /entries` sets `source` to `api`. Service failures map to HTTP status: `NotFoundError` → 404, `AlreadyExistsError` → 409, `ValidationError` → 400. Pydantic request-shape errors remain 422.
 
-Optional filters the services already support are query parameters: `area` on metrics and goals, `metric` on habits, `status` on goals, `include_archived` on areas, metrics, and screen categories/apps, `as_of` on status/progress/views including `/screen/view`, and `replace` on import.
+Optional filters the services already support are query parameters: `area` on metrics and goals, `metric` on habits, `status` on goals, `include_archived` on areas, metrics, and screen categories/apps, `as_of` on status/progress/views including `/screen/view` and `/views/home`, and `replace` on import.
 
 
 | Method   | Path                     | Purpose                                       | Status      |
@@ -450,6 +476,7 @@ Optional filters the services already support are query parameters: `area` on me
 | `POST`   | `/goals/{slug}/milestones/{name}/toggle` | Toggle a milestone done | implemented |
 | `GET`    | `/views/today`           | What is due today and what is logged          | implemented |
 | `GET`    | `/views/week`            | The current week across habits                | implemented |
+| `GET`    | `/views/home`            | Weekly Overview totals and update/slip series | implemented |
 | `GET`    | `/views/areas/{slug}`    | One area's metrics, habits, and goals         | implemented |
 | `GET`    | `/screen/view`           | Screen totals, sessions, and budget status    | implemented |
 | `GET`    | `/screen/categories`     | List screen categories                        | implemented |
@@ -464,6 +491,15 @@ Optional filters the services already support are query parameters: `area` on me
 | `POST`   | `/screen/budgets`        | Create a screen budget                        | implemented |
 | `GET`    | `/screen/budgets/{slug}` | Get one screen budget                         | implemented |
 | `PATCH`  | `/screen/budgets/{slug}` | Update name, target, value, comparator, `active_to` | implemented |
+| `GET`    | `/updates`               | Daily check-in streak (creates life catalog if missing) | implemented |
+| `POST`   | `/updates`               | Log a check-in entry on the `checkin` metric            | implemented |
+| `GET`    | `/slips`                 | This-week vs last-week slip counts and daily series     | implemented |
+| `POST`   | `/slips`                 | Log a slip (count 1 on the `slip` metric)               | implemented |
+| `GET`    | `/tasks`                 | List tasks (`bucket`, `include_done`)                   | implemented |
+| `POST`   | `/tasks`                 | Create a task                                           | implemented |
+| `PATCH`  | `/tasks/{id}`            | Update title, bucket, due, priority, or `done`          | implemented |
+| `GET`    | `/journal`               | Today's journal text (creates life catalog if missing)  | implemented |
+| `POST`   | `/journal`               | Log a text entry on the `journal` metric                | implemented |
 | `GET`    | `/export`                | Full JSON export                              | implemented |
 | `POST`   | `/import`                | Full JSON import                              | implemented |
 
@@ -474,15 +510,20 @@ There is no authentication. The app binds to localhost only (`127.0.0.1`). CORS 
 
 The UI is a React SPA in `web/` (Vite, TypeScript, Tailwind, shadcn-style primitives). It consumes the HTTP API only. FastAPI does not render HTML templates. When `web/dist` is present, GET 404s that are not API routes return `index.html`.
 
-Implemented this cycle: app shell, typed `fetch` client, Today, Week, Area, Habit, Goals, Catalog, and milestone toggles on goal detail.
+Implemented this cycle: night app shell (sidebar + top bar), typed `fetch` client, Home dashboard, Week, Area, Habit, Goals, Catalog, and milestone toggles on goal detail.
 
-Visual system follows UI UX Pro Max **Soft UI Evolution**: warm cream canvas (`#FFFBEB`) in light mode and slate navy (`#0F172A`) in dark mode, streak amber, habit/CTA green, Lora headings and Raleway body, soft card shadows, dense dashboard spacing. A sun/moon control in the sticky header toggles the theme; the choice is stored in `localStorage` (`atlas-theme`) and applied before paint to avoid a flash. First visit follows `prefers-color-scheme`. Status uses green / amber / red in both modes. Empty states include a Catalog action; loading uses skeletons; errors use `role="alert"`.
+Visual system is a night dashboard shell: near-black navy canvas, raised cards, Inter body, category accents (update purple, slip orange, screen blue, goal green, quick yellow). Light mode keeps a cream canvas so Catalog and review pages stay readable. Theme is stored as `atlas-theme` and applied in `index.html` before paint; first visit follows `prefers-color-scheme`. Display name is local-only (`atlas-display-name`, default Alex). Capture is a dialog wrapping the existing log form (`POST /entries`), plus typed Quick Add for update, slip, task, goal, and journal. Status uses green / amber / red in both modes. Empty states include a Catalog action; loading uses skeletons; errors use `role="alert"`. Home widgets read live views: Today's Focus and Goals from `/views/today`, Screen Time from `/screen/view`, Updates/Slips/Tasks/Journal from their endpoints, Weekly Overview from `/views/home`. The quote on Home is static copy. Hourly screen bars wait on an hour-bucket API.
 
 
 | Path            | Page                                      | Status      |
 | --------------- | ----------------------------------------- | ----------- |
-| `/`             | Today: habits due, log, entries, goal pace | implemented |
-| `/week`         | Week grid                                 | implemented |
+| `/`             | Home dashboard: greeting, live widget grid, typed Quick Add | implemented |
+| `/week`         | Week grid (also linked from Profile)      | implemented |
+| `/updates`      | Placeholder until the updates domain cycle | implemented |
+| `/slips`        | Placeholder until the slips domain cycle   | implemented |
+| `/screen`       | Placeholder until the screen UI cycle      | implemented |
+| `/tasks`        | Placeholder until the tasks domain cycle   | implemented |
+| `/journal`      | Placeholder until the journal domain cycle | implemented |
 | `/area/:slug`   | Area dashboard                            | implemented |
 | `/habit/:slug`  | Habit streak and adherence                | implemented |
 | `/goal`         | Goals with progress and pace              | implemented |
@@ -512,6 +553,11 @@ Four verbs, deliberately unequal in weight: capture is one line, everything else
 | `atlas goals`                                  | Review dashboard: goals with progress and pace. `--area` and `--status` filter; `--on` selects the local date.                     | implemented |
 | `atlas entry amend <id>`                       | Correct an entry                                                                                                                   | implemented |
 | `atlas entry rm <id>`                          | Delete an entry                                                                                                                    | implemented |
+| `atlas update`                                 | Log a daily check-in on the well-known `checkin` metric (creates the `life` catalog if missing). `--on` / `--note`. | implemented |
+| `atlas slip`                                   | Log a slip (count 1 on the well-known `slip` metric). `--on` / `--note`. | implemented |
+| `atlas task add <title>`                       | Add a one-off task. `--bucket today\|upcoming\|someday`, `--priority`, `--due`. | implemented |
+| `atlas task done <id>`                         | Stamp `done_at` on a task. | implemented |
+| `atlas journal <text>`                         | Log a journal entry on the well-known `journal` metric. `--on`. | implemented |
 | `atlas export`                                 | Write a JSON export to stdout                                                                                                      | implemented |
 | `atlas import <file>`                          | Load a JSON export. `--replace` clears user rows first.                                                                            | implemented |
 | `atlas serve`                                  | Serve the HTTP API and, when `web/dist` exists, the SPA on `127.0.0.1:8000`.                                                       | implemented |
@@ -581,4 +627,11 @@ Append-only, one entry per cycle. Newest last.
 - **2026-08-14 —** `web-ui-ux` — Restyled the SPA with UI UX Pro Max Soft UI Evolution: cream canvas, amber streaks, green CTAs, Lora/Raleway, sticky nav with Lucide icons, progress bars, skeleton loading, and empty states that point at Catalog.
 - **2026-08-14 —** `web-dark-mode` — Light/dark themes via semantic CSS tokens and a sticky header sun/moon toggle. Preference is stored as `atlas-theme` and applied in `index.html` before paint; first visit follows the OS color scheme.
 - **2026-08-14 —** `screen-model` — Screen taxonomy: `ScreenCategory` (judgment useful/waste/neutral), `ScreenApp` (backing duration metric), `ScreenBudget` (judgment or category cap). Schema version 2. `screen_view` sums minutes on read and reuses streak/adherence over merged entries. HTTP routes under `/screen`. Sessions remain `POST /entries`. Import still accepts schema 1.
+- **2026-08-14 —** `night-shell` — Replaced the sticky top nav with a night sidebar shell: Home / Updates / Slips / Screen Time / Goals / Tasks / Journal, + New Entry dialog, profile name in `localStorage`, settings (theme, catalog, week, as-of date). Stub pages for destinations that do not have a domain cycle yet. Inter + category accent tokens.
+- **2026-08-14 —** `home-widgets` — Home (`/`) is the night dashboard grid. Today's Focus and Goals read `/views/today`; Screen Time reads `/screen/view`. Updates, Slips, Tasks, Quote, and chart series use a typed fixture until those domain cycles land. Capture stays in the New Entry dialog.
+- **2026-08-14 —** `updates-domain` — Well-known `life` area, `checkin` bool metric, and `checkin-daily` habit. `POST /updates` / `atlas update` wrap `log_entry`; `GET /updates` returns streak from `habit_status`. The Home Updates card reads that view.
+- **2026-08-14 —** `slips-domain` — Well-known `slip` count metric. `POST /slips` / `atlas slip` wrap `log_entry`; `GET /slips` returns this-week vs last-week totals and a 7-day series. The Home Slips card reads that view.
+- **2026-08-14 —** `tasks-domain` — Task table (schema 3): today/upcoming/someday queue with priority and `done_at`. HTTP `GET/POST/PATCH /tasks`, `atlas task add` / `atlas task done`. Home Tasks widget is live. Import still accepts schema 1 and 2.
+- **2026-08-14 —** `journal-domain` — Well-known `journal` text metric. `POST /journal` / `atlas journal` wrap `log_entry`; `GET /journal` returns the latest text for `as_of`. Quick Add Goal opens `/goal`; Quick Add Journal opens a capture dialog.
+- **2026-08-14 —** `home-wire` — Removed dashboard fixtures. Weekly Overview reads `GET /views/home` (check-in days, slips, screen minutes, tasks done, and 7-day series). Quick Add pills call the matching capture APIs or focus the Tasks input.
 

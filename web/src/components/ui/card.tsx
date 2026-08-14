@@ -19,9 +19,7 @@ function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
 }
 
 function CardTitle({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) {
-  return (
-    <h2 className={cn('font-serif text-lg font-medium tracking-tight', className)} {...props} />
-  )
+  return <h2 className={cn('text-lg font-semibold tracking-tight', className)} {...props} />
 }
 
 function CardDescription({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {

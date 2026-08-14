@@ -14,7 +14,7 @@ export function PageHeader({
   return (
     <header className="flex flex-col gap-1">
       {kicker !== undefined && <p className="font-mono text-xs text-muted">{kicker}</p>}
-      <h1 className="font-serif text-2xl font-medium tracking-tight text-ink">{title}</h1>
+      <h1 className="text-2xl font-semibold tracking-tight text-ink">{title}</h1>
       {description !== undefined && <p className="text-sm text-muted">{description}</p>}
     </header>
   )

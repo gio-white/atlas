@@ -12,9 +12,23 @@ const apiPrefixes = [
   '/goals',
   '/entries',
   '/views',
+  '/screen',
+  '/updates',
+  '/slips',
+  '/tasks',
+  '/journal',
   '/export',
   '/import',
 ]
+
+function proxy() {
+  return {
+    target: API,
+    bypass(req: { headers: { accept?: string } }) {
+      if (req.headers.accept?.includes('text/html')) return '/index.html'
+    },
+  }
+}
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -25,7 +39,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    proxy: Object.fromEntries(apiPrefixes.map((prefix) => [prefix, API])),
+    proxy: Object.fromEntries(apiPrefixes.map((prefix) => [prefix, proxy()])),
   },
   test: {
     environment: 'node',
