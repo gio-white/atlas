@@ -1,17 +1,33 @@
-from atlas.services.areas import archive_area, create_area, get_area, list_areas
+from atlas.services.areas import archive_area, create_area, get_area, list_areas, update_area
 from atlas.services.entries import amend_entry, delete_entry, log_entry
 from atlas.services.errors import AlreadyExistsError, NotFoundError, ServiceError, ValidationError
 from atlas.services.goals import (
+    GoalDetail,
     GoalProgressReport,
     MilestoneInput,
     create_goal,
     get_goal,
+    get_goal_detail,
     goal_progress,
     list_goals,
     toggle_milestone,
+    update_goal,
 )
-from atlas.services.habits import HabitStatus, create_habit, get_habit, habit_status, list_habits
-from atlas.services.metrics import archive_metric, create_metric, get_metric, list_metrics
+from atlas.services.habits import (
+    HabitStatus,
+    create_habit,
+    get_habit,
+    habit_status,
+    list_habits,
+    update_habit,
+)
+from atlas.services.metrics import (
+    archive_metric,
+    create_metric,
+    get_metric,
+    list_metrics,
+    update_metric,
+)
 from atlas.services.port import export_all, import_all
 from atlas.services.seed import SeedSummary, demo_payload, seed_demo
 from atlas.services.views import (
@@ -30,6 +46,7 @@ from atlas.services.views import (
 __all__ = [
     "AlreadyExistsError",
     "AreaView",
+    "GoalDetail",
     "GoalProgressReport",
     "HabitStatus",
     "LoggedEntry",
@@ -56,6 +73,7 @@ __all__ = [
     "export_all",
     "get_area",
     "get_goal",
+    "get_goal_detail",
     "get_habit",
     "get_metric",
     "goal_progress",
@@ -69,5 +87,9 @@ __all__ = [
     "seed_demo",
     "today_view",
     "toggle_milestone",
+    "update_area",
+    "update_goal",
+    "update_habit",
+    "update_metric",
     "week_view",
 ]

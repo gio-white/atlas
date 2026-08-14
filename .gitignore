@@ -5,3 +5,7 @@ __pycache__/
 .ruff_cache/
 *.db
 *.db-journal
+web/node_modules/
+web/dist/
+web/package-lock.json
+web/yarn.lock

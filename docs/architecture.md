@@ -10,7 +10,7 @@ Consequences of that stance:
 
 - Backfilling an entry for last Tuesday automatically corrects every streak, adherence ratio, and goal percentage that depends on it. There is no recalculation step and nothing to migrate.
 - There is exactly one capture path. Habits and goals point at metrics; they never store their own observations.
-- The HTTP API is the only consumer path. The CLI is an in-process adapter over the same service layer, so a future frontend has no privileged access and no behavior of its own to reimplement.
+- The HTTP API is the only consumer path. The CLI is an in-process adapter over the same service layer. The React SPA in `web/` is an HTTP client of that API: it has no privileged access and no streaks, adherence, or progress of its own to reimplement.
 
 
 
@@ -161,8 +161,9 @@ Tables are created with `SQLModel.metadata.create_all`. A single-row `schema_ver
 
 ```mermaid
 flowchart LR
+  SPA[React SPA] -->|HTTP JSON| API[FastAPI routers]
   CLI[Typer CLI] --> Services[services: use cases]
-  API[FastAPI routers] --> Services
+  API --> Services
   Services --> Domain[domain: pure logic]
   Services --> DB[db: SQLModel + SQLite]
   DB --> Domain
@@ -178,6 +179,8 @@ db → domain
 domain → (stdlib / typing only)
 ```
 
+`web/` is not a Python package and is not in this import graph. It talks to the API over HTTP only.
+
 The package lives at `src/atlas/` (src layout), so tests import the installed package rather than the repo root and a packaging mistake fails loudly instead of passing by accident.
 
 
@@ -187,7 +190,7 @@ The package lives at `src/atlas/` (src layout), so tests import the installed pa
 | `atlas/domain/`     | Enums, value objects (`EntryView`, `HabitSpec`, `GoalSpec`, `MilestoneView`, `Bucket`, `GoalProgress`), and the calculation functions: period bucketing, rollups, `current_streak`, `longest_streak`, `adherence`, `goal_progress`, `pace_status`. Implemented. Pure — no I/O, no session, no wall clock. |
 | `atlas/db/`         | SQLModel tables (`Area`, `Metric`, `Entry`, `Habit`, `Goal`, `Milestone`, `SchemaVersion`), engine, session factory, schema creation. Implemented. Unique slugs; `Entry` indexed on `(metric_id, occurred_on)`. |
 | `atlas/services/`   | Use cases, each taking an explicit `Session` as its first parameter. Loads rows, hands plain values to `domain`, writes results back. Implemented. |
-| `atlas/api/`        | FastAPI routers: parse, call a service, serialize. Dedicated request/response schemas only where the wire shape must differ from the table (slugs instead of integer FKs). Implemented. Session comes from a factory dependency; `uv run uvicorn atlas.api.app:app --reload` and `python -m atlas.api` bind to `127.0.0.1` only. |
+| `atlas/api/`        | FastAPI routers: parse, call a service, serialize. Dedicated request/response schemas only where the wire shape must differ from the table (slugs instead of integer FKs). Implemented. Session comes from a factory dependency; CORS allows the Vite dev origins (`http://127.0.0.1:5173`, `http://localhost:5173`). If `web/dist/index.html` exists, GET 404s fall back to that SPA without shadowing API routes. `uv run uvicorn atlas.api.app:app --reload`, `python -m atlas.api`, and `atlas serve` bind to `127.0.0.1` only. |
 | `atlas/cli/`        | Typer commands calling the same services in-process (no HTTP hop), Rich for output. Implemented. Session comes from the factory; commands never query tables. `log` resolves metric slugs by unique prefix, substring, or close match. `seed` loads the demo dataset through `seed_demo`. Review commands share one chrome: a header plus titled Rich panels. `today` and `area` split habits into Daily vs This period (two columns when the terminal is wide enough). Capture commands stay one-line confirmations. |
 
 
@@ -196,6 +199,7 @@ Import rules, enforced by review and by the always-applied architecture rule:
 - `atlas/domain/` must not import `atlas.db`, `atlas.api`, `atlas.cli`, or `atlas.services`.
 - `atlas/api/` and `atlas/cli/` must not open a session, query tables, or call SQLModel/SQLAlchemy APIs. They obtain a session from the factory and pass it into a service.
 - Shared behavior lives in `atlas/services/`, so the API and the CLI cannot diverge.
+- `web/` must not import `atlas.*` or reimplement domain calculations. It is an HTTP client of the API.
 
 The first of these is machine-enforced. Ruff's `flake8-tidy-imports` bans `atlas.db`, `atlas.services`, `atlas.api`, and `atlas.cli` project-wide, and `[tool.ruff.lint.per-file-ignores]` lifts the ban everywhere except `atlas/domain/`. An import that breaks domain purity fails `uv run ruff check` rather than waiting for review.
 
@@ -320,11 +324,11 @@ Failures raise `ServiceError` subclasses the API and CLI will map: `NotFoundErro
 
 | Function | Role |
 | -------- | ---- |
-| `create_area` / `list_areas` / `get_area` / `archive_area` | Areas. Archive stamps `archived_at` (UTC) and hides the row from default lists; areas are never deleted. |
-| `create_metric` / `list_metrics` / `get_metric` / `archive_metric` | Metrics, keyed by slug, created under an area slug. `list_metrics` can filter by area and hides archived metrics and metrics whose area is archived. |
+| `create_area` / `list_areas` / `get_area` / `update_area` / `archive_area` | Areas. Archive stamps `archived_at` (UTC) and hides the row from default lists; areas are never deleted. `update_area` may change name and description. |
+| `create_metric` / `list_metrics` / `get_metric` / `update_metric` / `archive_metric` | Metrics, keyed by slug, created under an area slug. `list_metrics` can filter by area and hides archived metrics and metrics whose area is archived. `update_metric` may change name, unit, and direction, not `value_type` or `aggregation`. |
 | `log_entry` / `amend_entry` / `delete_entry` | Capture and correction. `log_entry` accepts a metric slug and a single `value`; a bool metric with no value stores `true`. Multiple entries per day remain allowed. Logging to an archived metric is rejected; amend and delete still work. |
-| `create_habit` / `list_habits` / `get_habit` / `habit_status` | Habits. `weekdays` is valid only for `period = day`. Text metrics cannot be habit targets. `habit_status` returns current/longest streak, adherence from `active_from` to `as_of`, the current bucket's rollup, and whether that bucket is scheduled and satisfied. |
-| `create_goal` / `list_goals` / `get_goal` / `goal_progress` / `toggle_milestone` | Goals. `metric_target` requires metric, target, comparator, and measure, and the metric must belong to the goal's area. `milestone` kind forbids those fields. Optional `MilestoneInput` values can be created with the goal. `goal_progress` returns current/baseline/fraction/`target_met` plus `pace_status`. When the target is met and `status` is still `active`, the service sets `status = achieved` and stamps `achieved_at`; it does not reopen an achieved, paused, or abandoned goal. |
+| `create_habit` / `list_habits` / `get_habit` / `update_habit` / `habit_status` | Habits. `weekdays` is valid only for `period = day`. Text metrics cannot be habit targets. `habit_status` returns current/longest streak, adherence from `active_from` to `as_of`, the current bucket's rollup, and whether that bucket is scheduled and satisfied. `update_habit` may change name, target, comparator, weekdays, and `active_to`. |
+| `create_goal` / `list_goals` / `get_goal` / `get_goal_detail` / `update_goal` / `goal_progress` / `toggle_milestone` | Goals. `metric_target` requires metric, target, comparator, and measure, and the metric must belong to the goal's area. `milestone` kind forbids those fields. Optional `MilestoneInput` values can be created with the goal. `get_goal_detail` includes milestones. `update_goal` may change name, `due_on`, `target_value`, and status (`active` / `paused` / `abandoned`; not `achieved`). `goal_progress` returns current/baseline/fraction/`target_met` plus `pace_status`. When the target is met and `status` is still `active`, the service sets `status = achieved` and stamps `achieved_at`; it does not reopen an achieved, paused, or abandoned goal. |
 | `today_view` / `week_view` / `area_view` | Review. `today_view` is habits whose current bucket is scheduled, entries with `occurred_on = as_of`, and active goals with progress. `week_view` is the ISO week containing `as_of`, one cell per day per habit. `area_view` is one area's non-archived metrics (latest day's rollup), habits, and non-abandoned goals. |
 | `export_all` / `import_all` | Port. Export is a JSON-serializable dict keyed by slugs, not integer ids. Import upserts areas, metrics, habits, goals, and milestones by slug (milestones by goal slug + name) and always inserts entries. `replace=True` deletes user rows first. `schema_version` must equal `CURRENT_SCHEMA_VERSION` (1). |
 | `seed_demo` | Demo dataset. Builds a payload in the export shape dated relative to `as_of` (default `Settings.today()`) and loads it through `import_all`. Four areas (health, career, finance, relationships), metrics covering every `value_type`, daily/weekly/monthly habits including `at_most` and a weekday mask, both goal kinds, and enough entries for `today_view` / `week_view` / goal progress to be non-empty. Refuses when areas already exist unless `replace=True`. Entries are sourced as `import`. |
@@ -361,14 +365,25 @@ Optional filters the services already support are query parameters: `area` on me
 | `DELETE` | `/entries/{id}`          | Delete an entry                               | implemented |
 | `GET`    | `/areas`                 | List areas                                    | implemented |
 | `POST`   | `/areas`                 | Create an area                                | implemented |
+| `GET`    | `/areas/{slug}`          | Get one area                                  | implemented |
+| `PATCH`  | `/areas/{slug}`          | Update name and description                   | implemented |
+| `POST`   | `/areas/{slug}/archive`  | Archive an area                               | implemented |
 | `GET`    | `/metrics`               | List metrics, filterable by area              | implemented |
 | `POST`   | `/metrics`               | Create a metric                               | implemented |
+| `GET`    | `/metrics/{slug}`        | Get one metric                                | implemented |
+| `PATCH`  | `/metrics/{slug}`        | Update name, unit, and direction              | implemented |
+| `POST`   | `/metrics/{slug}/archive`| Archive a metric                              | implemented |
 | `GET`    | `/habits`                | List habits                                   | implemented |
 | `POST`   | `/habits`                | Create a habit                                | implemented |
+| `GET`    | `/habits/{slug}`         | Get one habit                                 | implemented |
+| `PATCH`  | `/habits/{slug}`         | Update name, target, comparator, weekdays, `active_to` | implemented |
 | `GET`    | `/habits/{slug}/status`  | Streaks and adherence for a habit             | implemented |
 | `GET`    | `/goals`                 | List goals                                    | implemented |
 | `POST`   | `/goals`                 | Create a goal                                 | implemented |
+| `GET`    | `/goals/{slug}`          | Get one goal including milestones             | implemented |
+| `PATCH`  | `/goals/{slug}`          | Update name, due date, target, or status (`active`/`paused`/`abandoned`) | implemented |
 | `GET`    | `/goals/{slug}/progress` | Progress and pace for a goal                  | implemented |
+| `POST`   | `/goals/{slug}/milestones/{name}/toggle` | Toggle a milestone done | implemented |
 | `GET`    | `/views/today`           | What is due today and what is logged          | implemented |
 | `GET`    | `/views/week`            | The current week across habits                | implemented |
 | `GET`    | `/views/areas/{slug}`    | One area's metrics, habits, and goals         | implemented |
@@ -376,7 +391,26 @@ Optional filters the services already support are query parameters: `area` on me
 | `POST`   | `/import`                | Full JSON import                              | implemented |
 
 
-There is no authentication. The app binds to localhost only (`127.0.0.1`). Tests use FastAPI `TestClient` against `create_app(session_factory=...)` with in-memory SQLite; they never start a live server.
+There is no authentication. The app binds to localhost only (`127.0.0.1`). CORS allows the Vite dev server origins so the SPA on `:5173` can call the API on `:8000`; production is same-origin and does not need CORS. Tests use FastAPI `TestClient` against `create_app(session_factory=...)` with in-memory SQLite; they never start a live server.
+
+## Frontend
+
+The UI is a React SPA in `web/` (Vite, TypeScript, Tailwind, shadcn-style primitives). It consumes the HTTP API only. FastAPI does not render HTML templates. When `web/dist` is present, GET 404s that are not API routes return `index.html`.
+
+Implemented this cycle: app shell, typed `fetch` client, Today, Week, Area, Habit, Goals, Catalog, and milestone toggles on goal detail.
+
+
+| Path            | Page                                      | Status      |
+| --------------- | ----------------------------------------- | ----------- |
+| `/`             | Today: habits due, log, entries, goal pace | implemented |
+| `/week`         | Week grid                                 | implemented |
+| `/area/:slug`   | Area dashboard                            | implemented |
+| `/habit/:slug`  | Habit streak and adherence                | implemented |
+| `/goal`         | Goals with progress and pace              | implemented |
+| `/goal/:slug`   | Goal detail, progress, pace, milestone toggles | implemented |
+| `/catalog`      | Create and edit areas, metrics, habits, goals | implemented |
+
+Package manager is pnpm (`web/pnpm-lock.yaml`, `packageManager` in `web/package.json`). Biome is the only linter and formatter (`web/biome.json`). Never npm, yarn, ESLint, Prettier, or oxlint. Dev: `cd web && pnpm install && pnpm dev` on `:5173`; Vite proxies API prefixes to `127.0.0.1:8000`. Prod: `cd web && pnpm build` then `atlas serve` serves API and `web/dist` together. Frontend gates: `pnpm lint`, `pnpm test`, `pnpm build`.
 
 ## CLI
 
@@ -401,6 +435,7 @@ Four verbs, deliberately unequal in weight: capture is one line, everything else
 | `atlas entry rm <id>`                          | Delete an entry                                                                                                                    | implemented |
 | `atlas export`                                 | Write a JSON export to stdout                                                                                                      | implemented |
 | `atlas import <file>`                          | Load a JSON export. `--replace` clears user rows first.                                                                            | implemented |
+| `atlas serve`                                  | Serve the HTTP API and, when `web/dist` exists, the SPA on `127.0.0.1:8000`.                                                       | implemented |
 
 
 
@@ -418,13 +453,15 @@ Four verbs, deliberately unequal in weight: capture is one line, everything else
 
 Resolving the path is deliberately side-effect free: the database file and its parent directory are created by the engine module, not by reading configuration.
 
-The API is served with `uv run uvicorn atlas.api.app:app --reload`, bound to `127.0.0.1`. Single user, no auth, no remote exposure.
+The API is served with `uv run atlas serve` or `uv run uvicorn atlas.api.app:app --reload`, bound to `127.0.0.1`. Single user, no auth, no remote exposure. CORS is limited to the Vite origins above.
 
 ## Development
 
 Python 3.12, managed entirely with `uv`. Every command goes through it: `uv add`, `uv sync`, `uv run pytest`, `uv run ruff check`. Never bare `pip`, `python`, `pytest`, or `ruff`.
 
-Dependencies are declared in `pyproject.toml` and pinned in `uv.lock`; `uv_build` is the build backend. Ruff and pytest are configured in the same `pyproject.toml`: ruff at line length 100 targeting `py312` with `E`, `F`, `I`, `UP`, `B`, `SIM`, and `TID` selected, pytest with `testpaths = ["tests"]` and `--strict-markers --strict-config`.
+The SPA in `web/` is managed entirely with pnpm and Biome. Every install and script goes through `pnpm`. Biome is the linter and the formatter; do not add ESLint, Prettier, or oxlint. Cursor enforces this in `.cursor/rules/frontend.mdc`.
+
+Dependencies are declared in `pyproject.toml` and pinned in `uv.lock`; `uv_build` is the build backend. Ruff and pytest are configured in the same `pyproject.toml`: ruff at line length 100 targeting `py312` with `E`, `F`, `I`, `UP`, `B`, `SIM`, and `TID` selected, pytest with `testpaths = ["tests"]` and `--strict-markers --strict-config`. Frontend dependencies are declared in `web/package.json` and pinned in `web/pnpm-lock.yaml`; Biome is configured in `web/biome.json` (2-space indent, line width 100, single quotes).
 
 Tests by layer:
 
@@ -437,7 +474,7 @@ Tests by layer:
 | `cli`      | Typer's runner where it adds value; prefer service tests |
 
 
-One todo, one commit. Each cycle implements a single todo, gets `uv run ruff check` and `uv run pytest` clean, updates this document, and lands one focused commit.
+One todo, one commit. Each cycle implements a single todo, gets `uv run ruff check` and `uv run pytest` clean (and `pnpm lint`, `pnpm test`, `pnpm build` when `web/` changes), updates this document, and lands one focused commit.
 
 ## Development log
 
@@ -455,4 +492,11 @@ Append-only, one entry per cycle. Newest last.
 - **2026-08-13 —** `cli-dashboard` — Restyled `atlas today` as a Rich dashboard: shared panel/column helpers in `format.py`, daily habits as a left checklist, weekly/monthly habits (e.g. family calls) on the right, logged entries and goals below. Console width follows the terminal. Capture output unchanged.
 - **2026-08-13 —** `cli-review-chrome` — Applied the same header-and-panel chrome to `week`, `area`, `habit show`, and `goals`. Area review splits habits into Daily vs This period like `today`.
 - **2026-08-13 —** `cli-tests-docs` — CLI review tests assert dashboard panel titles and that `atlas today` shows a daily habit beside a weekly/monthly habit. Architecture CLI section documents the shared chrome.
+- **2026-08-13 —** `api-host` — CORS for the Vite origins, optional `web/dist` SPA mount with a catch-all that does not shadow API routes, and `atlas serve`. The React app itself is not in this cycle.
+- **2026-08-13 —** `web-scaffold` — Scaffolded `web/`: Vite, React, TypeScript, Tailwind, shadcn-style primitives, React Router, typed API client, and the app shell. Review and catalog pages are placeholders.
+- **2026-08-13 —** `web-today` — Today page: scheduled habits with streaks, log form (`POST /entries`), amend/delete for today's entries, and goal pace chips. Bool habits can one-click log.
+- **2026-08-13 —** `web-week-area` — Week grid, area dashboard, habit status, goals list, and goal detail (progress/pace). Milestone toggles wait on the catalog API.
+- **2026-08-13 —** `api-catalog` — GET by slug, archive, PATCH for areas/metrics/habits/goals, goal detail with milestones, and milestone toggle on the HTTP API.
+- **2026-08-13 —** `web-catalog` — Catalog UI to create/edit/archive areas, metrics, habits, and goals. Goal detail toggles milestones through the API.
+- **2026-08-14 —** `web-tooling` — Frontend uses pnpm and Biome only. Replaced npm/oxlint with `pnpm-lock.yaml` and `web/biome.json`. Added `.cursor/rules/frontend.mdc` (and a pointer in `tooling.mdc`) so agents keep using pnpm and Biome.
 

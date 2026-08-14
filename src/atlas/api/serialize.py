@@ -2,7 +2,7 @@ from typing import Any
 
 from sqlmodel import Session
 
-from atlas.api.schemas import EntryOut, GoalOut, HabitOut, MetricOut
+from atlas.api.schemas import EntryOut, GoalDetailOut, GoalOut, HabitOut, MetricOut, MilestoneOut
 from atlas.domain import (
     Aggregation,
     Comparator,
@@ -121,3 +121,21 @@ def goals_out(session: Session, goals: list[Any]) -> list[GoalOut]:
         )
         for goal in goals
     ]
+
+
+def milestone_out(milestone: Any) -> MilestoneOut:
+    return MilestoneOut(name=milestone.name, due_on=milestone.due_on, done_at=milestone.done_at)
+
+
+def goal_detail_out(session: Session, detail: Any) -> GoalDetailOut:
+    areas = area_slug_by_id(session)
+    metrics = metric_slug_by_id(session)
+    base = goal_out(
+        detail.goal,
+        areas[detail.goal.area_id],
+        metrics.get(detail.goal.metric_id) if detail.goal.metric_id is not None else None,
+    )
+    return GoalDetailOut(
+        **base.model_dump(),
+        milestones=[milestone_out(item) for item in detail.milestones],
+    )

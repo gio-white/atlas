@@ -7,6 +7,8 @@ from atlas.services.errors import ValidationError
 from atlas.services.lookups import ensure_unique_slug, not_archived, require_area
 from atlas.services.slugs import display_name, normalize_slug
 
+_UNSET = object()
+
 
 def create_area(
     session: Session,
@@ -44,6 +46,28 @@ def archive_area(session: Session, slug: str) -> Area:
     if area.archived_at is not None:
         raise ValidationError(f"area {area.slug!r} is already archived")
     area.archived_at = datetime.now(UTC)
+    session.add(area)
+    session.commit()
+    session.refresh(area)
+    return area
+
+
+def update_area(
+    session: Session,
+    slug: str,
+    *,
+    name: str | None = None,
+    description: str | None | object = _UNSET,
+) -> Area:
+    area = require_area(session, normalize_slug(slug))
+    if name is not None:
+        if not isinstance(name, str) or not name.strip():
+            raise ValidationError("name must be a non-empty string")
+        area.name = name
+    if description is not _UNSET:
+        if description is not None and not isinstance(description, str):
+            raise ValidationError("description must be a string or None")
+        area.description = description
     session.add(area)
     session.commit()
     session.refresh(area)

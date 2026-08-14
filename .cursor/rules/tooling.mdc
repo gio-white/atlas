@@ -36,6 +36,10 @@ Before every commit, both must pass:
 
 Fix failures in the same cycle. Do not commit with failing lint or tests.
 
+## Frontend (`web/`)
+
+pnpm and Biome only. See `.cursor/rules/frontend.mdc`. Never `npm` / `yarn` / ESLint / Prettier / oxlint in `web/`.
+
 ## One todo, one commit
 
 Each assigned plan todo is one cycle: implement, lint, test, update `docs/architecture.md`, then a single focused commit. Stop after that commit so the change can be reviewed before the next todo starts. Do not batch multiple todos into one commit.

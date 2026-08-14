@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 
 from sqlmodel import Session, select
 
@@ -29,6 +29,8 @@ from atlas.services.lookups import (
 )
 from atlas.services.mapping import entry_view, habit_spec
 from atlas.services.slugs import display_name, normalize_slug
+
+_UNSET = object()
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,6 +99,46 @@ def list_habits(session: Session, *, metric_slug: str | None = None) -> list[Hab
 
 def get_habit(session: Session, slug: str) -> Habit:
     return require_habit(session, normalize_slug(slug))
+
+
+def update_habit(
+    session: Session,
+    slug: str,
+    *,
+    name: str | None = None,
+    target_value: float | None = None,
+    comparator: Comparator | None = None,
+    weekdays: Sequence[int] | None | object = _UNSET,
+    active_to: date | None | object = _UNSET,
+) -> Habit:
+    habit = require_habit(session, normalize_slug(slug))
+    if name is not None:
+        if not isinstance(name, str) or not name.strip():
+            raise ValidationError("name must be a non-empty string")
+        habit.name = name
+    if target_value is not None:
+        habit.target_value = float(target_value)
+    if comparator is not None:
+        habit.comparator = comparator
+    if weekdays is not _UNSET:
+        if weekdays is not None and not isinstance(weekdays, Sequence):
+            raise ValidationError("weekdays must be a list of ISO weekdays or None")
+        habit.weekdays = normalize_weekdays(
+            None if weekdays is None else [int(day) for day in weekdays],
+            Period(habit.period),
+        )
+    if active_to is not _UNSET:
+        if active_to is not None and (
+            isinstance(active_to, datetime) or not isinstance(active_to, date)
+        ):
+            raise ValidationError("active_to must be a date or None")
+        if isinstance(active_to, date) and active_to < habit.active_from:
+            raise ValidationError("active_to must be on or after active_from")
+        habit.active_to = active_to
+    session.add(habit)
+    session.commit()
+    session.refresh(habit)
+    return habit
 
 
 def habit_status(session: Session, slug: str, *, as_of: date | None = None) -> HabitStatus:

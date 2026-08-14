@@ -1,9 +1,9 @@
 from fastapi import APIRouter
 
 from atlas.api.deps import SessionDep
-from atlas.api.schemas import MetricCreate, MetricOut
+from atlas.api.schemas import MetricCreate, MetricOut, MetricUpdate
 from atlas.api.serialize import metrics_out
-from atlas.services import create_metric, list_metrics
+from atlas.services import archive_metric, create_metric, get_metric, list_metrics, update_metric
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])
 
@@ -33,3 +33,19 @@ def post_metric(session: SessionDep, body: MetricCreate) -> MetricOut:
         direction=body.direction,
     )
     return metrics_out(session, [metric])[0]
+
+
+@router.get("/{slug}", response_model=MetricOut)
+def get_metric_by_slug(session: SessionDep, slug: str) -> MetricOut:
+    return metrics_out(session, [get_metric(session, slug)])[0]
+
+
+@router.patch("/{slug}", response_model=MetricOut)
+def patch_metric(session: SessionDep, slug: str, body: MetricUpdate) -> MetricOut:
+    metric = update_metric(session, slug, **body.model_dump(exclude_unset=True))
+    return metrics_out(session, [metric])[0]
+
+
+@router.post("/{slug}/archive", response_model=MetricOut)
+def post_archive_metric(session: SessionDep, slug: str) -> MetricOut:
+    return metrics_out(session, [archive_metric(session, slug)])[0]

@@ -14,6 +14,8 @@ from atlas.services.lookups import (
 )
 from atlas.services.slugs import display_name, normalize_slug
 
+_UNSET = object()
+
 
 def create_metric(
     session: Session,
@@ -73,6 +75,31 @@ def archive_metric(session: Session, slug: str) -> Metric:
     if metric.archived_at is not None:
         raise ValidationError(f"metric {metric.slug!r} is already archived")
     metric.archived_at = datetime.now(UTC)
+    session.add(metric)
+    session.commit()
+    session.refresh(metric)
+    return metric
+
+
+def update_metric(
+    session: Session,
+    slug: str,
+    *,
+    name: str | None = None,
+    unit: str | None | object = _UNSET,
+    direction: Direction | None = None,
+) -> Metric:
+    metric = require_metric(session, normalize_slug(slug))
+    if name is not None:
+        if not isinstance(name, str) or not name.strip():
+            raise ValidationError("name must be a non-empty string")
+        metric.name = name
+    if unit is not _UNSET:
+        if unit is not None and not isinstance(unit, str):
+            raise ValidationError("unit must be a string or None")
+        metric.unit = unit
+    if direction is not None:
+        metric.direction = direction
     session.add(metric)
     session.commit()
     session.refresh(metric)

@@ -3,10 +3,25 @@ from datetime import date
 from fastapi import APIRouter
 
 from atlas.api.deps import SessionDep
-from atlas.api.schemas import GoalCreate, GoalOut, GoalProgressOut
-from atlas.api.serialize import goals_out
+from atlas.api.schemas import (
+    GoalCreate,
+    GoalDetailOut,
+    GoalOut,
+    GoalProgressOut,
+    GoalUpdate,
+    MilestoneOut,
+)
+from atlas.api.serialize import goal_detail_out, goals_out, milestone_out
 from atlas.domain import GoalStatus
-from atlas.services import MilestoneInput, create_goal, goal_progress, list_goals
+from atlas.services import (
+    MilestoneInput,
+    create_goal,
+    get_goal_detail,
+    goal_progress,
+    list_goals,
+    toggle_milestone,
+    update_goal,
+)
 
 router = APIRouter(prefix="/goals", tags=["goals"])
 
@@ -52,3 +67,25 @@ def get_goal_progress(
     as_of: date | None = None,
 ) -> GoalProgressOut:
     return GoalProgressOut.model_validate(goal_progress(session, slug, as_of=as_of))
+
+
+@router.get("/{slug}", response_model=GoalDetailOut)
+def get_goal_by_slug(session: SessionDep, slug: str) -> GoalDetailOut:
+    return goal_detail_out(session, get_goal_detail(session, slug))
+
+
+@router.patch("/{slug}", response_model=GoalOut)
+def patch_goal(session: SessionDep, slug: str, body: GoalUpdate) -> GoalOut:
+    goal = update_goal(session, slug, **body.model_dump(exclude_unset=True))
+    return goals_out(session, [goal])[0]
+
+
+@router.post("/{slug}/milestones/{name}/toggle", response_model=MilestoneOut)
+def post_toggle_milestone(
+    session: SessionDep,
+    slug: str,
+    name: str,
+    done: bool | None = None,
+    as_of: date | None = None,
+) -> MilestoneOut:
+    return milestone_out(toggle_milestone(session, slug, name, done=done, as_of=as_of))
