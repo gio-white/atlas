@@ -2,9 +2,11 @@ from datetime import date
 
 from atlas.domain import Comparator, GoalKind, Measure, Period
 from atlas.services import (
+    archive_metric,
     area_view,
     create_goal,
     create_habit,
+    habit_calendar,
     log_entry,
     today_view,
     week_view,
@@ -61,6 +63,65 @@ def test_week_view_covers_the_iso_week(session):
     assert by_day[date(2026, 8, 11)].value is None
     assert by_day[date(2026, 8, 11)].satisfied is False
     assert by_day[date(2026, 8, 12)].value == 20.0
+
+
+def test_habit_calendar_week_matches_week_view(session):
+    seed_daily_pushups(session)
+    log_pushups(session, date(2026, 8, 10), 10)
+
+    calendar = habit_calendar(session, period=Period.WEEK, as_of=date(2026, 8, 13))
+    week = week_view(session, as_of=date(2026, 8, 13))
+
+    assert calendar.period is Period.WEEK
+    assert calendar.range_start == week.week_start == date(2026, 8, 10)
+    assert calendar.range_end == week.week_end == date(2026, 8, 16)
+    assert [habit.slug for habit in calendar.habits] == [habit.slug for habit in week.habits]
+    assert calendar.habits[0].days == week.habits[0].days
+
+
+def test_habit_calendar_month_spans_the_calendar_month(session):
+    seed_daily_pushups(session)
+    log_pushups(session, date(2026, 8, 13), 10)
+
+    calendar = habit_calendar(session, period=Period.MONTH, as_of=date(2026, 8, 13))
+
+    assert calendar.range_start == date(2026, 8, 1)
+    assert calendar.range_end == date(2026, 8, 31)
+    assert len(calendar.habits[0].days) == 31
+    by_day = {cell.day: cell for cell in calendar.habits[0].days}
+    assert by_day[date(2026, 8, 13)].value == 10.0
+    assert by_day[date(2026, 8, 13)].satisfied is True
+    assert by_day[date(2026, 8, 14)].satisfied is None
+
+
+def test_habit_calendar_omits_archived_metric(session):
+    seed_daily_pushups(session)
+    archive_metric(session, "pushups")
+
+    calendar = habit_calendar(session, period=Period.WEEK, as_of=date(2026, 8, 13))
+
+    assert calendar.habits == []
+
+
+def test_habit_calendar_day_leaves_weekly_satisfied_open(session):
+    seed_health(session)
+    create_habit(
+        session,
+        "pushups-weekly",
+        metric_slug="pushups",
+        period=Period.WEEK,
+        target_value=3.0,
+        comparator=Comparator.AT_LEAST,
+        active_from=date(2026, 8, 1),
+    )
+    log_pushups(session, date(2026, 8, 13), 10)
+
+    calendar = habit_calendar(session, period=Period.DAY, as_of=date(2026, 8, 13))
+
+    assert calendar.range_start == calendar.range_end == date(2026, 8, 13)
+    assert len(calendar.habits[0].days) == 1
+    assert calendar.habits[0].days[0].value == 10.0
+    assert calendar.habits[0].days[0].satisfied is None
 
 
 def test_area_view_groups_metrics_habits_and_goals(session):

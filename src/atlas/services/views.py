@@ -77,6 +77,15 @@ class WeekView:
 
 
 @dataclass(frozen=True, slots=True)
+class HabitsCalendar:
+    as_of: date
+    period: Period
+    range_start: date
+    range_end: date
+    habits: list[WeekHabit]
+
+
+@dataclass(frozen=True, slots=True)
 class MetricSnapshot:
     slug: str
     name: str
@@ -115,16 +124,31 @@ def today_view(session: Session, *, as_of: date | None = None) -> TodayView:
 
 
 def week_view(session: Session, *, as_of: date | None = None) -> WeekView:
+    calendar = habit_calendar(session, period=Period.WEEK, as_of=as_of)
+    return WeekView(
+        as_of=calendar.as_of,
+        week_start=calendar.range_start,
+        week_end=calendar.range_end,
+        habits=calendar.habits,
+    )
+
+
+def habit_calendar(
+    session: Session,
+    *,
+    period: Period = Period.WEEK,
+    as_of: date | None = None,
+) -> HabitsCalendar:
     as_of = resolve_today(as_of)
-    week = bucket_for(as_of, Period.WEEK)
+    window = bucket_for(as_of, period)
     habits: list[WeekHabit] = []
     for habit, metric in active_habits(session):
         spec = habit_spec(habit, metric)
         status = habit_status(session, habit.slug, as_of=as_of)
         views = [entry_view(entry) for entry in entries_for_metric(session, metric.id)]
         days: list[WeekDayCell] = []
-        cursor = week.start
-        while cursor <= week.end:
+        cursor = window.start
+        while cursor <= window.end:
             day_bucket = bucket_for(cursor, Period.DAY)
             if spec.period is Period.DAY:
                 scheduled = is_scheduled(spec, day_bucket, as_of)
@@ -158,7 +182,13 @@ def week_view(session: Session, *, as_of: date | None = None) -> WeekView:
                 days=days,
             )
         )
-    return WeekView(as_of=as_of, week_start=week.start, week_end=week.end, habits=habits)
+    return HabitsCalendar(
+        as_of=as_of,
+        period=period,
+        range_start=window.start,
+        range_end=window.end,
+        habits=habits,
+    )
 
 
 def area_view(session: Session, slug: str, *, as_of: date | None = None) -> AreaView:

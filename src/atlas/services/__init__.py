@@ -92,6 +92,7 @@ from atlas.services.tasks import create_task, list_tasks, tasks_done_in_week, up
 from atlas.services.updates import UpdatesStatus, log_update, updates_status
 from atlas.services.views import (
     AreaView,
+    HabitsCalendar,
     LoggedEntry,
     MetricSnapshot,
     TodayView,
@@ -99,6 +100,7 @@ from atlas.services.views import (
     WeekHabit,
     WeekView,
     area_view,
+    habit_calendar,
     today_view,
     week_view,
 )
@@ -115,6 +117,7 @@ __all__ = [
     "GoalsBoard",
     "HabitStatus",
     "HabitsBoard",
+    "HabitsCalendar",
     "HomeWeek",
     "JournalDay",
     "LoggedEntry",
@@ -170,6 +173,7 @@ __all__ = [
     "get_title_image",
     "goal_progress",
     "goals_board",
+    "habit_calendar",
     "habit_status",
     "habit_statuses",
     "habits_board",

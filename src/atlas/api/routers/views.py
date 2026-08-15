@@ -7,11 +7,21 @@ from atlas.api.schemas import (
     AreaViewOut,
     GoalsBoardOut,
     HabitsBoardOut,
+    HabitsCalendarOut,
     HomeWeekOut,
     TodayViewOut,
     WeekViewOut,
 )
-from atlas.services import area_view, goals_board, habits_board, home_week, today_view, week_view
+from atlas.domain import Period
+from atlas.services import (
+    area_view,
+    goals_board,
+    habit_calendar,
+    habits_board,
+    home_week,
+    today_view,
+    week_view,
+)
 
 router = APIRouter(prefix="/views", tags=["views"])
 
@@ -34,6 +44,15 @@ def get_home(session: SessionDep, as_of: date | None = None) -> HomeWeekOut:
 @router.get("/goals", response_model=GoalsBoardOut)
 def get_goals_board(session: SessionDep, as_of: date | None = None) -> GoalsBoardOut:
     return GoalsBoardOut.model_validate(goals_board(session, as_of=as_of))
+
+
+@router.get("/habits/calendar", response_model=HabitsCalendarOut)
+def get_habits_calendar(
+    session: SessionDep,
+    period: Period = Period.WEEK,
+    as_of: date | None = None,
+) -> HabitsCalendarOut:
+    return HabitsCalendarOut.model_validate(habit_calendar(session, period=period, as_of=as_of))
 
 
 @router.get("/habits", response_model=HabitsBoardOut)

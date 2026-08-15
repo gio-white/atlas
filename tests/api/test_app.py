@@ -24,6 +24,7 @@ IMPLEMENTED_PATHS = frozenset(
         "/views/home",
         "/views/goals",
         "/views/habits",
+        "/views/habits/calendar",
         "/views/areas/{slug}",
         "/screen/view",
         "/screen/dashboard",

@@ -163,6 +163,14 @@ export type WeekView = {
   habits: WeekHabit[]
 }
 
+export type HabitsCalendar = {
+  as_of: string
+  period: Period
+  range_start: string
+  range_end: string
+  habits: WeekHabit[]
+}
+
 export type HomeWeek = {
   as_of: string
   week_start: string
@@ -640,6 +648,10 @@ export function getGoalsBoard(asOf?: string): Promise<GoalsBoard> {
 
 export function getHabitsBoard(asOf?: string): Promise<HabitsBoard> {
   return request(`/views/habits${queryString({ as_of: asOf })}`)
+}
+
+export function getHabitsCalendar(period: Period, asOf?: string): Promise<HabitsCalendar> {
+  return request(`/views/habits/calendar${queryString({ period, as_of: asOf })}`)
 }
 
 export function getToday(asOf?: string): Promise<TodayView> {

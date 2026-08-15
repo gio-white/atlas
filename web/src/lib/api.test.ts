@@ -6,6 +6,7 @@ import {
   getEntertainmentDashboard,
   getGoalsBoard,
   getHabitsBoard,
+  getHabitsCalendar,
   getScreenDashboard,
   getToday,
   logEntry,
@@ -74,6 +75,29 @@ describe('request helpers', () => {
     await getHabitsBoard('2026-08-13')
 
     expect(fetchMock).toHaveBeenCalledWith('/views/habits?as_of=2026-08-13', expect.any(Object))
+    vi.unstubAllGlobals()
+  })
+
+  it('getHabitsCalendar sends period and as_of', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        as_of: '2026-08-13',
+        period: 'month',
+        range_start: '2026-08-01',
+        range_end: '2026-08-31',
+        habits: [],
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getHabitsCalendar('month', '2026-08-13')
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/views/habits/calendar?period=month&as_of=2026-08-13',
+      expect.any(Object),
+    )
     vi.unstubAllGlobals()
   })
 

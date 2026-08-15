@@ -45,6 +45,36 @@ def test_week_view_covers_the_iso_week(client, seed_health):
     assert by_day["2026-08-11"]["satisfied"] is False
 
 
+def test_habits_calendar_week_matches_week_view(client, seed_health):
+    _seed_daily_pushups(client)
+    client.post("/entries", json={"metric": "pushups", "value": 10, "occurred_on": "2026-08-10"})
+
+    week = client.get("/views/week", params={"as_of": "2026-08-13"})
+    calendar = client.get(
+        "/views/habits/calendar",
+        params={"period": "week", "as_of": "2026-08-13"},
+    )
+    assert calendar.status_code == 200, calendar.text
+    body = calendar.json()
+    assert body["period"] == "week"
+    assert body["range_start"] == week.json()["week_start"]
+    assert body["range_end"] == week.json()["week_end"]
+    assert body["habits"] == week.json()["habits"]
+
+
+def test_habits_calendar_month_spans_august(client, seed_health):
+    _seed_daily_pushups(client)
+    response = client.get(
+        "/views/habits/calendar",
+        params={"period": "month", "as_of": "2026-08-13"},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["range_start"] == "2026-08-01"
+    assert body["range_end"] == "2026-08-31"
+    assert len(body["habits"][0]["days"]) == 31
+
+
 def test_area_view_groups_metrics_habits_and_goals(client, seed_health):
     _seed_daily_pushups(client)
     client.post(

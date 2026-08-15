@@ -1,17 +1,26 @@
 import { Check, Minus, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
-import type { WeekDayCell, WeekView } from '@/lib/api'
+import type { WeekDayCell, WeekHabit } from '@/lib/api'
 import { weekdayLabel } from '@/lib/dates'
 import { formatComparator } from '@/lib/format'
+import { HABIT_PERIOD_META } from '@/lib/habitsSummary'
 
-export function WeekGrid({ view, search }: { view: WeekView; search: string }) {
-  const headings = view.habits[0]?.days ?? []
+export function WeekGrid({
+  habits,
+  search,
+  compact = false,
+}: {
+  habits: WeekHabit[]
+  search: string
+  compact?: boolean
+}) {
+  const headings = habits[0]?.days ?? []
 
-  if (view.habits.length === 0) {
+  if (habits.length === 0) {
     return (
       <p className="text-sm text-muted">
-        No habits this week. Add one on the Habits board to see the grid fill in.
+        No habits in this window. Add one on the Habits board to see the grid fill in.
       </p>
     )
   }
@@ -27,14 +36,20 @@ export function WeekGrid({ view, search }: { view: WeekView; search: string }) {
                 key={cell.day}
                 className="px-1 pb-2 text-center font-mono text-xs font-medium text-muted"
               >
-                <div>{weekdayLabel(cell.day)}</div>
-                <div>{cell.day.slice(8)}</div>
+                {compact ? (
+                  <div>{cell.day.slice(8)}</div>
+                ) : (
+                  <>
+                    <div>{weekdayLabel(cell.day)}</div>
+                    <div>{cell.day.slice(8)}</div>
+                  </>
+                )}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {view.habits.map((habit) => (
+          {habits.map((habit) => (
             <tr key={habit.slug} className="border-t border-line">
               <td className="py-3 pr-3">
                 <Link
@@ -44,8 +59,8 @@ export function WeekGrid({ view, search }: { view: WeekView; search: string }) {
                   {habit.name}
                 </Link>
                 <div className="font-mono text-xs text-muted">
-                  {formatComparator(habit.comparator)} {habit.target_value} · {habit.period} ·{' '}
-                  {habit.current_streak}
+                  {formatComparator(habit.comparator)} {habit.target_value} ·{' '}
+                  {HABIT_PERIOD_META[habit.period].label} · streak {habit.current_streak}
                 </div>
               </td>
               {habit.days.map((cell) => (

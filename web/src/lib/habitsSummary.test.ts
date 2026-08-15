@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import type { HabitStatus } from './api'
-import { groupHabitsByPeriod, summarizeHabits } from './habitsSummary'
+import {
+  bucketProgress,
+  flattenHabits,
+  groupHabitsByPeriod,
+  parseHabitPeriod,
+  summarizeHabits,
+} from './habitsSummary'
 
 function habit(
   overrides: Partial<HabitStatus> & Pick<HabitStatus, 'slug' | 'period'>,
@@ -21,6 +27,35 @@ function habit(
     ...overrides,
   }
 }
+
+describe('parseHabitPeriod', () => {
+  it('defaults to week and accepts day, week, month', () => {
+    expect(parseHabitPeriod(null)).toBe('week')
+    expect(parseHabitPeriod('day')).toBe('day')
+    expect(parseHabitPeriod('month')).toBe('month')
+    expect(parseHabitPeriod('nope')).toBe('week')
+  })
+})
+
+describe('flattenHabits', () => {
+  it('concatenates day, week, and month columns', () => {
+    const rows = flattenHabits({
+      day: [habit({ slug: 'daily', period: 'day' })],
+      week: [habit({ slug: 'weekly', period: 'week' })],
+      month: [habit({ slug: 'monthly', period: 'month' })],
+    })
+    expect(rows.map((item) => item.slug)).toEqual(['daily', 'weekly', 'monthly'])
+  })
+})
+
+describe('bucketProgress', () => {
+  it('clamps current over target', () => {
+    expect(bucketProgress(3, 6)).toBeCloseTo(0.5)
+    expect(bucketProgress(9, 6)).toBe(1)
+    expect(bucketProgress(null, 6)).toBeNull()
+    expect(bucketProgress(1, 0)).toBeNull()
+  })
+})
 
 describe('groupHabitsByPeriod', () => {
   it('groups habits into day, week, and month', () => {
