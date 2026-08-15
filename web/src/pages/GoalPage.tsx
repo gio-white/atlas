@@ -1,8 +1,11 @@
+import { Plus } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 
 import { PaceBadge } from '@/components/PaceBadge'
 import { HomeLink, PageLoading, PageUnavailable, ProgressBar } from '@/components/PageState'
+import { TaskCreateDialog } from '@/components/tasks/TaskCreateDialog'
+import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   ApiError,
@@ -20,6 +23,7 @@ import {
 import { useAsOf } from '@/lib/asOf'
 import { formatPercent } from '@/lib/format'
 import { HORIZON_META } from '@/lib/horizons'
+import { withGoalParam } from '@/lib/tasks'
 
 export function GoalPage() {
   const { slug } = useParams()
@@ -29,20 +33,24 @@ export function GoalPage() {
   const [report, setReport] = useState<GoalProgress | null>(null)
   const [detail, setDetail] = useState<GoalDetail | null>(null)
   const [children, setChildren] = useState<Goal[]>([])
+  const [goals, setGoals] = useState<Goal[]>([])
   const [tasks, setTasks] = useState<TaskItem[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [createOpen, setCreateOpen] = useState(false)
 
   const refresh = useCallback(async () => {
     if (slug === undefined) return
-    const [progress, goal, childRows, taskRows] = await Promise.all([
+    const [progress, goal, childRows, catalog, taskRows] = await Promise.all([
       getGoalProgress(slug, asOf),
       getGoal(slug),
       listGoals({ parent: slug }),
+      listGoals(),
       listTasks({ goal: slug, include_done: true }),
     ])
     setReport(progress)
     setDetail(goal)
     setChildren(childRows)
+    setGoals(catalog)
     setTasks(taskRows)
   }, [slug, asOf])
 
@@ -184,11 +192,27 @@ export function GoalPage() {
           </ul>
         </Card>
       )}
-      {tasks.length > 0 && (
-        <Card>
-          <CardHeader>
+      <Card>
+        <CardHeader>
+          <div>
             <CardTitle>Linked tasks</CardTitle>
-          </CardHeader>
+            <CardDescription className="mt-1">
+              <Link
+                className="underline"
+                to={{ pathname: '/tasks', search: withGoalParam(search, slug ?? null) }}
+              >
+                View on the queue
+              </Link>
+            </CardDescription>
+          </div>
+          <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
+            <Plus className="size-4" aria-hidden />
+            Add task
+          </Button>
+        </CardHeader>
+        {tasks.length === 0 ? (
+          <p className="text-sm text-muted">No tasks linked to this goal yet.</p>
+        ) : (
           <ul className="flex flex-col gap-2">
             {tasks.map((task) => (
               <li key={task.id}>
@@ -212,8 +236,15 @@ export function GoalPage() {
               </li>
             ))}
           </ul>
-        </Card>
-      )}
+        )}
+      </Card>
+      <TaskCreateDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        goals={goals}
+        defaultGoal={slug}
+        onCreated={refresh}
+      />
     </div>
   )
 }

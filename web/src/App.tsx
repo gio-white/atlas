@@ -12,6 +12,7 @@ import { HomePage } from '@/pages/HomePage'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
 import { ScreenPage } from '@/pages/ScreenPage'
 import { SectionPage } from '@/pages/SectionPage'
+import { TasksPage } from '@/pages/TasksPage'
 import { WeekPage } from '@/pages/WeekPage'
 
 export default function App() {
@@ -30,7 +31,7 @@ export default function App() {
           ))}
           <Route path="entertainment" element={<EntertainmentPage />} />
           <Route path="screen" element={<ScreenPage />} />
-          <Route path="tasks" element={<PlaceholderPage title="Tasks" />} />
+          <Route path="tasks" element={<TasksPage />} />
           <Route path="journal" element={<PlaceholderPage title="Journal" />} />
           <Route path="area/:slug" element={<AreaPage />} />
           <Route path="habit/:slug" element={<HabitPage />} />
