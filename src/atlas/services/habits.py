@@ -4,7 +4,7 @@ from datetime import date, datetime
 
 from sqlmodel import Session, select
 
-from atlas.db.models import Habit, Metric
+from atlas.db.models import Area, Habit, Metric
 from atlas.domain import (
     Comparator,
     Period,
@@ -48,6 +48,17 @@ class HabitStatus:
     satisfied: bool
     scheduled: bool
     as_of: date
+
+
+@dataclass(frozen=True, slots=True)
+class HabitsBoard:
+    as_of: date
+    scheduled: int
+    satisfied: int
+    fraction: float | None
+    day: list[HabitStatus]
+    week: list[HabitStatus]
+    month: list[HabitStatus]
 
 
 def create_habit(
@@ -146,6 +157,43 @@ def habit_status(session: Session, slug: str, *, as_of: date | None = None) -> H
     habit = require_habit(session, normalize_slug(slug))
     metric = metric_by_id(session, habit.metric_id)
     return _status_for(session, habit, metric, as_of)
+
+
+def habit_statuses(session: Session, *, as_of: date | None = None) -> list[HabitStatus]:
+    as_of = resolve_today(as_of)
+    return [_status_for(session, habit, metric, as_of) for habit, metric in active_habits(session)]
+
+
+def habits_board(session: Session, *, as_of: date | None = None) -> HabitsBoard:
+    as_of = resolve_today(as_of)
+    statuses = habit_statuses(session, as_of=as_of)
+    scheduled_rows = [status for status in statuses if status.scheduled]
+    satisfied_rows = [status for status in scheduled_rows if status.satisfied]
+    scheduled = len(scheduled_rows)
+    satisfied = len(satisfied_rows)
+    fraction = None if scheduled == 0 else satisfied / scheduled
+    return HabitsBoard(
+        as_of=as_of,
+        scheduled=scheduled,
+        satisfied=satisfied,
+        fraction=fraction,
+        day=[status for status in statuses if status.period is Period.DAY],
+        week=[status for status in statuses if status.period is Period.WEEK],
+        month=[status for status in statuses if status.period is Period.MONTH],
+    )
+
+
+def active_habits(session: Session) -> list[tuple[Habit, Metric]]:
+    rows: list[tuple[Habit, Metric]] = []
+    for habit in session.exec(select(Habit).order_by(Habit.slug)).all():
+        metric = metric_by_id(session, habit.metric_id)
+        if metric.archived_at is not None:
+            continue
+        area = session.get(Area, metric.area_id)
+        if area is None or area.archived_at is not None:
+            continue
+        rows.append((habit, metric))
+    return rows
 
 
 def _status_for(session: Session, habit: Habit, metric: Metric, as_of: date) -> HabitStatus:

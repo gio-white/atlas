@@ -5,6 +5,7 @@ import {
   Clapperboard,
   Compass,
   Flag,
+  Flame,
   HeartPulse,
   Home,
   Menu,
@@ -43,6 +44,7 @@ const NAV = [
   })),
   { to: '/screen', label: 'Screen Time', icon: Monitor },
   { to: '/goal', label: 'Goals', icon: Flag },
+  { to: '/habit', label: 'Habits', icon: Flame },
   { to: '/tasks', label: 'Tasks', icon: CheckSquare },
   { to: '/journal', label: 'Journal', icon: BookOpen },
 ] as const

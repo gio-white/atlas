@@ -11,7 +11,7 @@ export function WeekGrid({ view, search }: { view: WeekView; search: string }) {
   if (view.habits.length === 0) {
     return (
       <p className="text-sm text-muted">
-        No habits this week. Add one in Catalog to see the grid fill in.
+        No habits this week. Add one on the Habits board to see the grid fill in.
       </p>
     )
   }
@@ -61,7 +61,7 @@ export function WeekGrid({ view, search }: { view: WeekView; search: string }) {
   )
 }
 
-function DayDot({ cell }: { cell: WeekDayCell }) {
+export function DayDot({ cell }: { cell: WeekDayCell }) {
   if (!cell.scheduled) {
     return (
       <span

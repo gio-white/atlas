@@ -380,6 +380,18 @@ class GoalsBoardOut(BaseModel):
     week: GoalBoardWeekOut
 
 
+class HabitsBoardOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    as_of: date
+    scheduled: int
+    satisfied: int
+    fraction: float | None
+    day: list[HabitStatusOut]
+    week: list[HabitStatusOut]
+    month: list[HabitStatusOut]
+
+
 class MetricSnapshotOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

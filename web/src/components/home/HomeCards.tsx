@@ -287,12 +287,21 @@ export function TodaysFocusCard({
           <CardDescription>
             {habits.length === 0
               ? 'No habits scheduled.'
-              : `${habits.length} task${habits.length === 1 ? '' : 's'} planned.`}
+              : `${habits.length} habit${habits.length === 1 ? '' : 's'} scheduled.`}
           </CardDescription>
         </div>
+        <Link to="/habit" className="text-xs font-medium text-goal hover:underline">
+          View all
+        </Link>
       </CardHeader>
       {habits.length === 0 ? (
-        <p className="text-sm text-muted">Define a habit in Catalog, then come back.</p>
+        <p className="text-sm text-muted">
+          Define a habit on the{' '}
+          <Link to="/habit" className="underline hover:text-ink">
+            Habits
+          </Link>{' '}
+          board, then come back.
+        </p>
       ) : (
         <ul className="flex flex-col gap-2">
           {habits.map((habit) => (

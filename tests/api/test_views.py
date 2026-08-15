@@ -120,3 +120,31 @@ def test_goals_board_view(client, seed_health):
     assert [goal["slug"] for goal in body["short"]["goals"]] == ["workout-week"]
     assert body["week"]["total"] == 1
     assert body["week"]["tasks"][0]["goal"] == "workout-week"
+
+
+def test_habits_board_view(client, seed_health):
+    _seed_daily_pushups(client)
+    created = client.post(
+        "/habits",
+        json={
+            "slug": "pushups-weekly",
+            "metric": "pushups",
+            "period": "week",
+            "target_value": 3,
+            "comparator": "at_least",
+            "active_from": "2026-08-01",
+        },
+    )
+    assert created.status_code == 201, created.text
+    client.post("/entries", json={"metric": "pushups", "value": 1, "occurred_on": "2026-08-13"})
+
+    response = client.get("/views/habits", params={"as_of": "2026-08-13"})
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["as_of"] == "2026-08-13"
+    assert [habit["slug"] for habit in body["day"]] == ["pushups-daily"]
+    assert [habit["slug"] for habit in body["week"]] == ["pushups-weekly"]
+    assert body["month"] == []
+    assert body["scheduled"] == 2
+    assert body["satisfied"] == 1
+    assert body["day"][0]["current_streak"] == 1

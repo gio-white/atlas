@@ -5,6 +5,7 @@ import {
   type ApiError,
   getEntertainmentDashboard,
   getGoalsBoard,
+  getHabitsBoard,
   getScreenDashboard,
   getToday,
   logEntry,
@@ -51,6 +52,28 @@ describe('request helpers', () => {
     await getGoalsBoard('2026-08-13')
 
     expect(fetchMock).toHaveBeenCalledWith('/views/goals?as_of=2026-08-13', expect.any(Object))
+    vi.unstubAllGlobals()
+  })
+
+  it('getHabitsBoard appends as_of', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        as_of: '2026-08-13',
+        scheduled: 0,
+        satisfied: 0,
+        fraction: null,
+        day: [],
+        week: [],
+        month: [],
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getHabitsBoard('2026-08-13')
+
+    expect(fetchMock).toHaveBeenCalledWith('/views/habits?as_of=2026-08-13', expect.any(Object))
     vi.unstubAllGlobals()
   })
 

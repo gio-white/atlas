@@ -3,7 +3,14 @@ from datetime import date
 import pytest
 
 from atlas.domain import Aggregation, Comparator, Period, ValueType
-from atlas.services import ValidationError, create_habit, create_metric, habit_status
+from atlas.services import (
+    ValidationError,
+    archive_metric,
+    create_habit,
+    create_metric,
+    habit_status,
+    habits_board,
+)
 from tests.services.helpers import log_pushups, seed_daily_pushups, seed_health
 
 
@@ -111,3 +118,49 @@ def test_in_progress_day_does_not_break_the_streak(session):
 
     assert status.current_streak == 2
     assert status.satisfied is False
+
+
+def test_habits_board_groups_by_period_and_summarizes(session):
+    seed_daily_pushups(session)
+    create_habit(
+        session,
+        "pushups-weekly",
+        metric_slug="pushups",
+        period=Period.WEEK,
+        target_value=3.0,
+        comparator=Comparator.AT_LEAST,
+        active_from=date(2026, 8, 1),
+    )
+    create_habit(
+        session,
+        "weigh-in",
+        metric_slug="weight",
+        period=Period.MONTH,
+        target_value=1.0,
+        comparator=Comparator.AT_LEAST,
+        active_from=date(2026, 8, 1),
+    )
+    log_pushups(session, date(2026, 8, 13), value=1.0)
+
+    board = habits_board(session, as_of=date(2026, 8, 13))
+
+    assert [habit.slug for habit in board.day] == ["pushups-daily"]
+    assert [habit.slug for habit in board.week] == ["pushups-weekly"]
+    assert [habit.slug for habit in board.month] == ["weigh-in"]
+    assert board.scheduled == 3
+    assert board.satisfied == 1
+    assert board.fraction == pytest.approx(1 / 3)
+    assert board.day[0].current_streak == 1
+
+
+def test_habits_board_omits_archived_metric(session):
+    seed_daily_pushups(session)
+    archive_metric(session, "pushups")
+
+    board = habits_board(session, as_of=date(2026, 8, 13))
+
+    assert board.day == []
+    assert board.week == []
+    assert board.month == []
+    assert board.scheduled == 0
+    assert board.fraction is None
