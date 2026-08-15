@@ -428,6 +428,16 @@ export type GoalsBoard = {
   week: GoalBoardWeek
 }
 
+export type HabitsBoard = {
+  as_of: string
+  scheduled: number
+  satisfied: number
+  fraction: number | null
+  day: HabitStatus[]
+  week: HabitStatus[]
+  month: HabitStatus[]
+}
+
 export type JournalDay = {
   as_of: string
   text: string | null
@@ -626,6 +636,10 @@ export function listGoals(filters?: {
 
 export function getGoalsBoard(asOf?: string): Promise<GoalsBoard> {
   return request(`/views/goals${queryString({ as_of: asOf })}`)
+}
+
+export function getHabitsBoard(asOf?: string): Promise<HabitsBoard> {
+  return request(`/views/habits${queryString({ as_of: asOf })}`)
 }
 
 export function getToday(asOf?: string): Promise<TodayView> {

@@ -3,7 +3,7 @@ from datetime import date, timedelta
 
 from sqlmodel import Session, select
 
-from atlas.db.models import Area, Entry, Goal, Habit, Metric
+from atlas.db.models import Entry, Goal, Habit, Metric
 from atlas.domain import (
     Aggregation,
     Comparator,
@@ -16,7 +16,7 @@ from atlas.domain import (
 )
 from atlas.services.clock import resolve_today
 from atlas.services.goals import GoalProgressReport, goal_progress
-from atlas.services.habits import HabitStatus, habit_status
+from atlas.services.habits import HabitStatus, active_habits, habit_status, habit_statuses
 from atlas.services.lookups import (
     entries_for_metric,
     metric_by_id,
@@ -99,7 +99,7 @@ class AreaView:
 
 def today_view(session: Session, *, as_of: date | None = None) -> TodayView:
     as_of = resolve_today(as_of)
-    habits = [status for status in (_habit_statuses(session, as_of)) if status.scheduled]
+    habits = [status for status in habit_statuses(session, as_of=as_of) if status.scheduled]
     goals = [
         goal_progress(session, goal.slug, as_of=as_of)
         for goal in session.exec(
@@ -118,7 +118,7 @@ def week_view(session: Session, *, as_of: date | None = None) -> WeekView:
     as_of = resolve_today(as_of)
     week = bucket_for(as_of, Period.WEEK)
     habits: list[WeekHabit] = []
-    for habit, metric in _active_habits(session):
+    for habit, metric in active_habits(session):
         spec = habit_spec(habit, metric)
         status = habit_status(session, habit.slug, as_of=as_of)
         views = [entry_view(entry) for entry in entries_for_metric(session, metric.id)]
@@ -195,25 +195,6 @@ def area_view(session: Session, slug: str, *, as_of: date | None = None) -> Area
         habits=habits,
         goals=goals,
     )
-
-
-def _habit_statuses(session: Session, as_of: date) -> list[HabitStatus]:
-    return [
-        habit_status(session, habit.slug, as_of=as_of) for habit, _metric in _active_habits(session)
-    ]
-
-
-def _active_habits(session: Session) -> list[tuple[Habit, Metric]]:
-    rows: list[tuple[Habit, Metric]] = []
-    for habit in session.exec(select(Habit).order_by(Habit.slug)).all():
-        metric = metric_by_id(session, habit.metric_id)
-        if metric.archived_at is not None:
-            continue
-        area = session.get(Area, metric.area_id)
-        if area is None or area.archived_at is not None:
-            continue
-        rows.append((habit, metric))
-    return rows
 
 
 def _logged_on(session: Session, as_of: date) -> list[LoggedEntry]:

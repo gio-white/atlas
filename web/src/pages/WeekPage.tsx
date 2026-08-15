@@ -48,9 +48,9 @@ export function WeekPage() {
       {view.habits.length === 0 ? (
         <EmptyState
           title="No habits this week"
-          hint="Add a habit in Catalog to fill the grid."
-          actionLabel="Open catalog"
-          actionTo="/catalog"
+          hint="Add a habit on the Habits board to fill the grid."
+          actionLabel="Open habits"
+          actionTo="/habit"
         />
       ) : (
         <WeekGrid view={view} search={params.toString()} />

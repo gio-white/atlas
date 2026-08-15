@@ -38,10 +38,13 @@ from atlas.services.goals import (
     update_goal,
 )
 from atlas.services.habits import (
+    HabitsBoard,
     HabitStatus,
     create_habit,
     get_habit,
     habit_status,
+    habit_statuses,
+    habits_board,
     list_habits,
     update_habit,
 )
@@ -111,6 +114,7 @@ __all__ = [
     "GoalProgressReport",
     "GoalsBoard",
     "HabitStatus",
+    "HabitsBoard",
     "HomeWeek",
     "JournalDay",
     "LoggedEntry",
@@ -167,6 +171,8 @@ __all__ = [
     "goal_progress",
     "goals_board",
     "habit_status",
+    "habit_statuses",
+    "habits_board",
     "home_week",
     "import_all",
     "journal_day",
