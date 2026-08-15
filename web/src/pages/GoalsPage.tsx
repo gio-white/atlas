@@ -320,7 +320,7 @@ function WeekColumn({
         ))}
       </ul>
       <Button asChild variant="ghost" size="sm" className="mt-auto">
-        <Link to={{ pathname: '/', search }}>View all tasks</Link>
+        <Link to={{ pathname: '/tasks', search }}>View all tasks</Link>
       </Button>
     </section>
   )

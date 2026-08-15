@@ -358,6 +358,9 @@ export function TasksCard({
     <Card className="flex flex-col">
       <CardHeader>
         <CardTitle className="text-base">Tasks</CardTitle>
+        <Link to="/tasks" className="text-xs font-medium text-goal hover:underline">
+          View all
+        </Link>
       </CardHeader>
       <div
         className="mb-3 flex gap-1 rounded-lg bg-raised p-1"
