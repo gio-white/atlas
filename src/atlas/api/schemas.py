@@ -315,6 +315,16 @@ class WeekViewOut(BaseModel):
     habits: list[WeekHabitOut]
 
 
+class HabitsCalendarOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    as_of: date
+    period: Period
+    range_start: date
+    range_end: date
+    habits: list[WeekHabitOut]
+
+
 class HomeWeekOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

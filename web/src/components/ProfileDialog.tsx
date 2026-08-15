@@ -83,7 +83,7 @@ export function ProfileDialog({
               </Link>
             </Button>
             <Button asChild type="button" variant="ghost">
-              <Link to="/week" onClick={() => onOpenChange(false)}>
+              <Link to="/habit?period=week" onClick={() => onOpenChange(false)}>
                 Week
               </Link>
             </Button>

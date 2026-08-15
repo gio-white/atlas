@@ -5,44 +5,59 @@ import { HomeLink, PageLoading, PageUnavailable } from '@/components/PageState'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { DayDot } from '@/components/WeekGrid'
+import { WeekGrid } from '@/components/WeekGrid'
 import {
   ApiError,
   getHabitStatus,
-  getWeek,
+  getHabitsCalendar,
   type HabitStatus,
+  type HabitsCalendar,
   listMetrics,
   logEntry,
   type Metric,
-  type WeekHabit,
+  type Period,
 } from '@/lib/api'
 import { useAsOf, useShell } from '@/lib/asOf'
-import { weekdayLabel } from '@/lib/dates'
 import { formatComparator, formatPercent } from '@/lib/format'
+import { HABIT_PERIOD_META, parseHabitPeriod } from '@/lib/habitsSummary'
+import { cn } from '@/lib/utils'
+
+const VIEW_PERIODS: { id: Period; label: string }[] = [
+  { id: 'day', label: 'Day' },
+  { id: 'week', label: 'Week' },
+  { id: 'month', label: 'Month' },
+]
+
+const CALENDAR_TITLE: Record<Period, string> = {
+  day: 'This day',
+  week: 'This week',
+  month: 'This month',
+}
 
 export function HabitPage() {
   const { slug } = useParams()
   const asOf = useAsOf()
   const { openLog } = useShell()
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const search = params.toString()
+  const period = parseHabitPeriod(params.get('period'))
   const [status, setStatus] = useState<HabitStatus | null>(null)
-  const [weekHabit, setWeekHabit] = useState<WeekHabit | null>(null)
+  const [calendar, setCalendar] = useState<HabitsCalendar | null>(null)
   const [metrics, setMetrics] = useState<Metric[]>([])
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
   const refresh = useCallback(async () => {
     if (slug === undefined) return
-    const [nextStatus, week, nextMetrics] = await Promise.all([
+    const [nextStatus, nextCalendar, nextMetrics] = await Promise.all([
       getHabitStatus(slug, asOf),
-      getWeek(asOf),
+      getHabitsCalendar(period, asOf),
       listMetrics(),
     ])
     setStatus(nextStatus)
-    setWeekHabit(week.habits.find((habit) => habit.slug === slug) ?? null)
+    setCalendar(nextCalendar)
     setMetrics(nextMetrics)
-  }, [slug, asOf])
+  }, [slug, asOf, period])
 
   useEffect(() => {
     let cancelled = false
@@ -51,6 +66,7 @@ export function HabitPage() {
       if (!cancelled) {
         setError(caught instanceof ApiError ? caught.message : 'Could not load habit')
         setStatus(null)
+        setCalendar(null)
       }
     })
     return () => {
@@ -62,6 +78,23 @@ export function HabitPage() {
     () => metrics.find((item) => item.slug === status?.metric_slug) ?? null,
     [metrics, status],
   )
+  const calendarHabit = useMemo(
+    () => calendar?.habits.find((habit) => habit.slug === slug) ?? null,
+    [calendar, slug],
+  )
+
+  function setPeriod(next: Period) {
+    const copy = new URLSearchParams(params)
+    if (next === 'week') copy.delete('period')
+    else copy.set('period', next)
+    setParams(copy, { replace: true })
+  }
+
+  const weekBoardSearch = useMemo(() => {
+    const copy = new URLSearchParams(params)
+    copy.set('period', 'week')
+    return copy.toString()
+  }, [params])
 
   async function onLog() {
     if (status === null || status.satisfied) return
@@ -85,6 +118,9 @@ export function HabitPage() {
   }
   if (status === null) return <PageLoading />
 
+  const isBool = metric?.value_type === 'bool'
+  const logLabel = status.satisfied ? 'Done' : isBool ? 'Mark done' : 'Log value'
+
   return (
     <div className="flex flex-col gap-3">
       <HomeLink />
@@ -96,13 +132,15 @@ export function HabitPage() {
           <div>
             <CardTitle>{status.name}</CardTitle>
             <CardDescription className="mt-1 font-mono">
-              {status.metric_slug} · {formatComparator(status.comparator)} {status.target_value} /{' '}
-              {status.period}
+              {status.metric_slug} · {formatComparator(status.comparator)} {status.target_value}
             </CardDescription>
           </div>
-          <Badge tone={status.satisfied ? 'good' : status.scheduled ? 'warn' : 'default'}>
-            {status.satisfied ? 'done' : status.scheduled ? 'open' : 'off'}
-          </Badge>
+          <div className="flex flex-wrap justify-end gap-1">
+            <Badge>{HABIT_PERIOD_META[status.period].label}</Badge>
+            <Badge tone={status.satisfied ? 'good' : status.scheduled ? 'warn' : 'default'}>
+              {status.satisfied ? 'done' : status.scheduled ? 'open' : 'off'}
+            </Badge>
+          </div>
         </CardHeader>
         <dl className="grid gap-4 sm:grid-cols-3">
           <Stat label="Current streak" value={String(status.current_streak)} />
@@ -115,36 +153,54 @@ export function HabitPage() {
           <Stat label="Scheduled" value={status.scheduled ? 'yes' : 'no'} />
           <Stat label="As of" value={status.as_of} />
         </dl>
-        {status.scheduled && !status.satisfied && (
-          <Button type="button" className="mt-4" disabled={pending} onClick={() => void onLog()}>
-            Log {status.metric_slug}
+        {status.scheduled && (
+          <Button
+            type="button"
+            className="mt-4"
+            disabled={pending || status.satisfied}
+            onClick={() => void onLog()}
+          >
+            {logLabel}
           </Button>
         )}
       </Card>
-      {weekHabit !== null && (
+      {calendarHabit !== null && calendar !== null && (
         <Card>
           <CardHeader>
             <div>
-              <CardTitle>This week</CardTitle>
+              <CardTitle>{CALENDAR_TITLE[period]}</CardTitle>
               <CardDescription className="mt-1">
-                Displayed from the week view. Streaks are not recomputed here.
+                {calendar.range_start} → {calendar.range_end}. Displayed from the habit calendar.
+                Streaks are not recomputed here.
               </CardDescription>
             </div>
-            <Link
-              to={{ pathname: '/week', search }}
-              className="text-xs font-medium hover:underline"
-            >
-              Full grid
-            </Link>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex rounded-full border border-line bg-surface p-1" role="tablist">
+                {VIEW_PERIODS.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={period === item.id}
+                    className={cn(
+                      'rounded-full px-3 py-1 text-sm motion-safe:transition-colors',
+                      period === item.id ? 'bg-goal/20 text-ink' : 'text-muted hover:text-ink',
+                    )}
+                    onClick={() => setPeriod(item.id)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <Link
+                to={{ pathname: '/habit', search: weekBoardSearch }}
+                className="text-xs font-medium hover:underline"
+              >
+                Full grid
+              </Link>
+            </div>
           </CardHeader>
-          <ol className="flex flex-wrap gap-2">
-            {weekHabit.days.map((cell) => (
-              <li key={cell.day} className="flex flex-col items-center gap-1">
-                <span className="font-mono text-[10px] text-muted">{weekdayLabel(cell.day)}</span>
-                <DayDot cell={cell} />
-              </li>
-            ))}
-          </ol>
+          <WeekGrid habits={[calendarHabit]} search={search} compact={period === 'month'} />
         </Card>
       )}
     </div>
