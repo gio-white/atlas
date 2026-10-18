@@ -10,6 +10,7 @@ from atlas.services import (
     create_metric,
     habit_status,
     habits_board,
+    set_habit_day,
 )
 from tests.services.helpers import log_pushups, seed_daily_pushups, seed_health
 
@@ -164,3 +165,38 @@ def test_habits_board_omits_archived_metric(session):
     assert board.month == []
     assert board.scheduled == 0
     assert board.fraction is None
+
+
+def test_set_habit_day_marks_and_clears_a_bool_habit(session):
+    seed_health(session)
+    create_habit(
+        session,
+        "meditate-daily",
+        metric_slug="meditated",
+        period=Period.DAY,
+        target_value=1.0,
+        comparator=Comparator.AT_LEAST,
+        active_from=date(2026, 8, 1),
+    )
+
+    done = set_habit_day(
+        session, "meditate-daily", date(2026, 8, 12), done=True, as_of=date(2026, 8, 12)
+    )
+    again = set_habit_day(
+        session, "meditate-daily", date(2026, 8, 12), done=True, as_of=date(2026, 8, 12)
+    )
+
+    assert done.satisfied is True
+    assert again.current_value == 1.0
+
+    cleared = set_habit_day(
+        session, "meditate-daily", date(2026, 8, 12), done=False, as_of=date(2026, 8, 12)
+    )
+    assert cleared.satisfied is False
+    assert cleared.current_value is None
+
+
+def test_set_habit_day_rejects_numeric_habits(session):
+    seed_daily_pushups(session)
+    with pytest.raises(ValidationError, match="log a value"):
+        set_habit_day(session, "pushups-daily", date(2026, 8, 12), done=True)

@@ -3,9 +3,17 @@ from datetime import date
 from fastapi import APIRouter
 
 from atlas.api.deps import SessionDep
-from atlas.api.schemas import HabitCreate, HabitOut, HabitStatusOut, HabitUpdate
+from atlas.api.schemas import HabitCreate, HabitDaySet, HabitOut, HabitStatusOut, HabitUpdate
 from atlas.api.serialize import habits_out
-from atlas.services import create_habit, get_habit, habit_status, list_habits, update_habit
+from atlas.domain import Source
+from atlas.services import (
+    create_habit,
+    get_habit,
+    habit_status,
+    list_habits,
+    set_habit_day,
+    update_habit,
+)
 
 router = APIRouter(prefix="/habits", tags=["habits"])
 
@@ -39,6 +47,18 @@ def get_habit_status(
     as_of: date | None = None,
 ) -> HabitStatusOut:
     return HabitStatusOut.model_validate(habit_status(session, slug, as_of=as_of))
+
+
+@router.put("/{slug}/days/{day}", response_model=HabitStatusOut)
+def put_habit_day(
+    session: SessionDep,
+    slug: str,
+    day: date,
+    body: HabitDaySet,
+    as_of: date | None = None,
+) -> HabitStatusOut:
+    status = set_habit_day(session, slug, day, done=body.done, as_of=as_of, source=Source.API)
+    return HabitStatusOut.model_validate(status)
 
 
 @router.get("/{slug}", response_model=HabitOut)

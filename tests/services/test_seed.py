@@ -9,6 +9,7 @@ from atlas.services import (
     export_all,
     screen_dashboard,
     seed_demo,
+    sleep_view,
     today_view,
 )
 
@@ -148,6 +149,18 @@ def test_seed_demo_fills_screen_dashboard(session, monkeypatch):
     assert dash.total is not None and dash.total > 0
     assert any(sum(row) > 0 for row in dash.hours)
     assert any(item.kind.value == "sequence" for item in dash.insights)
+
+
+def test_seed_demo_fills_sleep_view(session, monkeypatch):
+    monkeypatch.setenv("ATLAS_TZ", "UTC")
+    as_of = date(2026, 8, 13)
+    summary = seed_demo(session, as_of=as_of)
+    view = sleep_view(session, as_of=as_of)
+    assert summary.sleep_sessions > 20
+    assert view.nights_logged >= 6
+    assert view.night is not None
+    assert view.night.stages.deep > 0
+    assert view.night.stages.rem > 0
 
 
 def test_seed_demo_refuses_when_the_database_already_has_data(session):

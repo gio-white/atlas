@@ -126,3 +126,10 @@ class EntertainmentStatus(StrEnum):
     IN_PROGRESS = "in_progress"
     DONE = "done"
     DROPPED = "dropped"
+
+
+class SleepStage(StrEnum):
+    AWAKE = "awake"
+    REM = "rem"
+    LIGHT = "light"
+    DEEP = "deep"

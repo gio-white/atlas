@@ -18,6 +18,7 @@ from atlas.domain import (
     ScreenInsightKind,
     ScreenJudgment,
     ScreenScoreBand,
+    SleepStage,
     Source,
     TaskBucket,
     TaskPriority,
@@ -237,6 +238,12 @@ class HabitStatusOut(BaseModel):
     satisfied: bool
     scheduled: bool
     as_of: date
+
+
+class HabitDaySet(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    done: bool
 
 
 class GoalProgressOut(BaseModel):
@@ -956,3 +963,93 @@ class EntertainmentDashboardOut(BaseModel):
     by_topic: list[EntertainmentTopicCountOut]
     recently_finished: list[EntertainmentTitleOut]
     library: EntertainmentLibraryOut
+
+
+class SleepStageIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    stage: SleepStage
+    started_at: datetime
+    ended_at: datetime
+
+
+class SleepSessionCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    started_at: datetime
+    ended_at: datetime
+    stages: list[SleepStageIn] = Field(default_factory=list)
+    note: str | None = None
+
+
+class SleepStageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    stage: SleepStage
+    started_at: datetime
+    ended_at: datetime
+
+
+class SleepSessionOut(BaseModel):
+    id: int
+    started_at: datetime
+    ended_at: datetime
+    occurred_on: date
+    note: str | None
+    source: Source
+    created_at: datetime
+    stages: list[SleepStageOut]
+
+
+class SleepStageMinutesOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    awake: float
+    rem: float
+    light: float
+    deep: float
+
+
+class SleepSegmentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    stage: SleepStage
+    start_offset: float
+    end_offset: float
+
+
+class SleepNightOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    date: date
+    session_id: int | None
+    started_at: datetime
+    ended_at: datetime
+    bed_offset: float
+    wake_offset: float
+    in_bed_minutes: float
+    asleep_minutes: float
+    stages: SleepStageMinutesOut
+    segments: list[SleepSegmentOut]
+
+
+class SleepDayOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    date: date
+    night: SleepNightOut | None
+
+
+class SleepViewOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    as_of: date
+    range_start: date
+    range_end: date
+    night: SleepNightOut | None
+    days: list[SleepDayOut]
+    nights_logged: int
+    average_asleep: float | None
+    average_bed_offset: float | None
+    average_wake_offset: float | None
+    average_stages: SleepStageMinutesOut | None

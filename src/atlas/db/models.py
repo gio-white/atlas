@@ -16,6 +16,7 @@ from atlas.domain import (
     Period,
     ScreenBudgetTargetKind,
     ScreenJudgment,
+    SleepStage,
     Source,
     TaskBucket,
     TaskPriority,
@@ -221,6 +222,28 @@ class EntertainmentTitleTopic(SQLModel, table=True):
 
     title_id: int = Field(foreign_key="entertainment_title.id", primary_key=True)
     topic_id: int = Field(foreign_key="entertainment_topic.id", primary_key=True)
+
+
+class SleepSession(SQLModel, table=True):
+    __tablename__ = "sleep_session"
+
+    id: int | None = Field(default=None, primary_key=True)
+    started_at: datetime
+    ended_at: datetime
+    occurred_on: date = Field(index=True)
+    note: str | None = None
+    source: Source
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class SleepSessionStage(SQLModel, table=True):
+    __tablename__ = "sleep_session_stage"
+
+    id: int | None = Field(default=None, primary_key=True)
+    session_id: int = Field(foreign_key="sleep_session.id", index=True)
+    stage: SleepStage
+    started_at: datetime
+    ended_at: datetime
 
 
 class SchemaVersion(SQLModel, table=True):

@@ -22,6 +22,8 @@ from atlas.db.models import (
     ScreenCategory,
     ScreenDevice,
     ScreenSession,
+    SleepSession,
+    SleepSessionStage,
     Task,
 )
 
@@ -42,6 +44,8 @@ __all__ = [
     "ScreenCategory",
     "ScreenDevice",
     "ScreenSession",
+    "SleepSession",
+    "SleepSessionStage",
     "Task",
     "create_engine_for",
     "create_memory_engine",

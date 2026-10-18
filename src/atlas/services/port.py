@@ -20,6 +20,8 @@ from atlas.db.models import (
     ScreenCategory,
     ScreenDevice,
     ScreenSession,
+    SleepSession,
+    SleepSessionStage,
     Task,
 )
 from atlas.domain import (
@@ -35,6 +37,7 @@ from atlas.domain import (
     Period,
     ScreenBudgetTargetKind,
     ScreenJudgment,
+    SleepStage,
     Source,
     TaskBucket,
     TaskPriority,
@@ -75,6 +78,10 @@ def export_all(session: Session) -> dict[str, Any]:
         session.exec(select(EntertainmentTitle).order_by(EntertainmentTitle.slug)).all()
     )
     entertainment_links = list(session.exec(select(EntertainmentTitleTopic)).all())
+    sleep_sessions = list(session.exec(select(SleepSession).order_by(SleepSession.id)).all())
+    sleep_stage_rows = list(
+        session.exec(select(SleepSessionStage).order_by(SleepSessionStage.started_at)).all()
+    )
     tasks = list(session.exec(select(Task).order_by(Task.id)).all())
     entries = list(session.exec(select(Entry).order_by(Entry.occurred_on, Entry.id)).all())
 
@@ -93,6 +100,9 @@ def export_all(session: Session) -> dict[str, Any]:
         topics_by_title.setdefault(link.title_id, []).append(slug)
     for slugs in topics_by_title.values():
         slugs.sort()
+    stages_by_sleep: dict[int | None, list[SleepSessionStage]] = {}
+    for stage in sleep_stage_rows:
+        stages_by_sleep.setdefault(stage.session_id, []).append(stage)
 
     return {
         "schema_version": CURRENT_SCHEMA_VERSION,
@@ -114,6 +124,9 @@ def export_all(session: Session) -> dict[str, Any]:
         "entertainment_titles": [
             _export_entertainment_title(row, topics_by_title.get(row.id, []))
             for row in entertainment_titles
+        ],
+        "sleep_sessions": [
+            _export_sleep_session(row, stages_by_sleep.get(row.id, [])) for row in sleep_sessions
         ],
         "tasks": [_export_task(task, goal_by_id) for task in tasks],
         "entries": [_export_entry(entry, metric_by_id) for entry in entries],
@@ -180,6 +193,8 @@ def import_all(session: Session, payload: dict[str, Any], *, replace: bool = Fal
         session.flush()
         for raw in payload.get("entertainment_titles", []):
             _import_entertainment_title(session, raw)
+        for raw in payload.get("sleep_sessions", []):
+            _import_sleep_session(session, raw)
         session.commit()
     except Exception:
         session.rollback()
@@ -192,6 +207,8 @@ def _clear_user_data(session: Session) -> None:
         session.add(goal)
     session.flush()
     for model in (
+        SleepSessionStage,
+        SleepSession,
         EntertainmentTitleTopic,
         EntertainmentTitle,
         EntertainmentTopic,
@@ -359,6 +376,47 @@ def _export_screen_session(
         "source": str(row.source),
         "created_at": _iso_dt(row.created_at),
     }
+
+
+def _export_sleep_session(row: SleepSession, stages: list[SleepSessionStage]) -> dict[str, Any]:
+    return {
+        "started_at": _iso_dt(row.started_at),
+        "ended_at": _iso_dt(row.ended_at),
+        "occurred_on": row.occurred_on.isoformat(),
+        "note": row.note,
+        "source": str(row.source),
+        "created_at": _iso_dt(row.created_at),
+        "stages": [
+            {
+                "stage": str(stage.stage),
+                "started_at": _iso_dt(stage.started_at),
+                "ended_at": _iso_dt(stage.ended_at),
+            }
+            for stage in stages
+        ],
+    }
+
+
+def _import_sleep_session(session: Session, raw: dict[str, Any]) -> None:
+    row = SleepSession(
+        started_at=_parse_datetime(_require(raw, "started_at")),
+        ended_at=_parse_datetime(_require(raw, "ended_at")),
+        occurred_on=_parse_date(_require(raw, "occurred_on")),
+        note=raw.get("note"),
+        source=Source(raw.get("source", Source.IMPORT)),
+        created_at=_parse_datetime(raw.get("created_at")) or datetime.now(UTC),
+    )
+    session.add(row)
+    session.flush()
+    for stage in raw.get("stages", []):
+        session.add(
+            SleepSessionStage(
+                session_id=row.id,
+                stage=SleepStage(_require(stage, "stage")),
+                started_at=_parse_datetime(_require(stage, "started_at")),
+                ended_at=_parse_datetime(_require(stage, "ended_at")),
+            )
+        )
 
 
 def _export_entertainment_topic(topic: EntertainmentTopic) -> dict[str, Any]:
