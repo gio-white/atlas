@@ -16,6 +16,7 @@ from atlas.db.models import (
     ScreenCategory,
     ScreenDevice,
     ScreenSession,
+    SleepSession,
     Task,
 )
 from atlas.domain import Period
@@ -82,6 +83,13 @@ def require_screen_session(session: Session, session_id: int) -> ScreenSession:
     row = session.get(ScreenSession, session_id)
     if row is None:
         raise NotFoundError("screen_session", session_id)
+    return row
+
+
+def require_sleep_session(session: Session, session_id: int) -> SleepSession:
+    row = session.get(SleepSession, session_id)
+    if row is None:
+        raise NotFoundError("sleep_session", session_id)
     return row
 
 

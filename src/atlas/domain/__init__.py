@@ -32,6 +32,7 @@ from atlas.domain.enums import (
     ScreenInsightKind,
     ScreenJudgment,
     ScreenScoreBand,
+    SleepStage,
     Source,
     TaskBucket,
     TaskPriority,
@@ -89,6 +90,20 @@ from atlas.domain.screen import (
     screen_day_totals,
     screen_score,
     session_entry_views,
+)
+from atlas.domain.sleep import (
+    SLEEP_WINDOW_DAYS,
+    SleepDay,
+    SleepNight,
+    SleepSegment,
+    SleepSessionSpec,
+    SleepSessionView,
+    SleepStageMinutes,
+    SleepStageSpan,
+    SleepWeekMath,
+    resolve_sleep_session,
+    sleep_night,
+    sleep_week_math,
 )
 
 __all__ = [
@@ -172,4 +187,17 @@ __all__ = [
     "screen_score",
     "session_entry_views",
     "scheduled_buckets",
+    "SLEEP_WINDOW_DAYS",
+    "SleepDay",
+    "SleepNight",
+    "SleepSegment",
+    "SleepSessionSpec",
+    "SleepSessionView",
+    "SleepStage",
+    "SleepStageMinutes",
+    "SleepStageSpan",
+    "SleepWeekMath",
+    "resolve_sleep_session",
+    "sleep_night",
+    "sleep_week_math",
 ]

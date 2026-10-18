@@ -31,6 +31,7 @@ class SeedSummary:
     screen_sessions: int
     entertainment_topics: int
     entertainment_titles: int
+    sleep_sessions: int
 
 
 def seed_demo(
@@ -59,6 +60,7 @@ def seed_demo(
         screen_sessions=len(payload["screen_sessions"]),
         entertainment_topics=len(payload["entertainment_topics"]),
         entertainment_titles=len(payload["entertainment_titles"]),
+        sleep_sessions=len(payload["sleep_sessions"]),
     )
 
 
@@ -79,6 +81,7 @@ def demo_payload(as_of: date) -> dict[str, Any]:
         "screen_sessions": _screen_sessions(start, as_of),
         "entertainment_topics": _entertainment_topics(),
         "entertainment_titles": _entertainment_titles(as_of),
+        "sleep_sessions": _sleep_sessions(start, as_of),
         "entries": _entries(start, as_of),
     }
 
@@ -576,6 +579,63 @@ def _screen_sessions(start: date, as_of: date) -> list[dict[str, Any]]:
         if index == 8:
             sessions.append(_duration("instagram", day, 18.0))
     return sessions
+
+
+SLEEP_BEDTIMES = [(23, 10), (23, 40), (22, 55), (0, 20), (23, 25), (0, 5), (23, 50)]
+SLEEP_CYCLE_DEEP = [45, 35, 20, 10, 0, 0]
+SLEEP_CYCLE_REM = [10, 18, 24, 30, 32, 32]
+
+
+def _sleep_sessions(start: date, as_of: date) -> list[dict[str, Any]]:
+    sessions: list[dict[str, Any]] = []
+    for index, wake_day in enumerate(_days(start + timedelta(days=1), as_of)):
+        if index % 9 == 4:
+            continue
+        hour, minute = SLEEP_BEDTIMES[index % len(SLEEP_BEDTIMES)]
+        bed_day = wake_day if hour < 12 else wake_day - timedelta(days=1)
+        started = datetime(bed_day.year, bed_day.month, bed_day.day, hour, minute, tzinfo=UTC)
+        weekend = wake_day.isoweekday() >= 6
+        wake_minutes = (8 * 60 + 15 if weekend else 6 * 60 + 50) + (index * 7) % 25
+        ended = datetime(wake_day.year, wake_day.month, wake_day.day, tzinfo=UTC) + timedelta(
+            minutes=wake_minutes
+        )
+        sessions.append(_sleep_session(started, ended, index))
+    return sessions
+
+
+def _sleep_session(started: datetime, ended: datetime, index: int) -> dict[str, Any]:
+    stages: list[dict[str, Any]] = []
+    cursor = started
+
+    def add(stage: str, minutes: float) -> None:
+        nonlocal cursor
+        if minutes <= 0 or cursor >= ended:
+            return
+        stop = min(cursor + timedelta(minutes=minutes), ended)
+        stages.append(
+            {"stage": stage, "started_at": cursor.isoformat(), "ended_at": stop.isoformat()}
+        )
+        cursor = stop
+
+    add("awake", 8 + index % 4 * 3)
+    cycle = 0
+    while cursor < ended:
+        add("light", 28 + (index + cycle) % 3 * 6)
+        add("deep", SLEEP_CYCLE_DEEP[min(cycle, len(SLEEP_CYCLE_DEEP) - 1)])
+        add("light", 14)
+        add("rem", SLEEP_CYCLE_REM[min(cycle, len(SLEEP_CYCLE_REM) - 1)])
+        if (index + cycle) % 4 == 1:
+            add("awake", 4)
+        cycle += 1
+    return {
+        "started_at": started.isoformat(),
+        "ended_at": ended.isoformat(),
+        "occurred_on": ended.date().isoformat(),
+        "note": None,
+        "source": "import",
+        "created_at": ended.isoformat(),
+        "stages": stages,
+    }
 
 
 def _screen_category(slug: str, name: str, judgment: str) -> dict[str, Any]:

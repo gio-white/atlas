@@ -398,6 +398,53 @@ export type SlipsWeek = {
   series: number[]
 }
 
+export type SleepStage = 'awake' | 'rem' | 'light' | 'deep'
+
+export type SleepStageMinutes = Record<SleepStage, number>
+
+export type SleepSegment = {
+  stage: SleepStage
+  start_offset: number
+  end_offset: number
+}
+
+export type SleepNight = {
+  date: string
+  session_id: number | null
+  started_at: string
+  ended_at: string
+  bed_offset: number
+  wake_offset: number
+  in_bed_minutes: number
+  asleep_minutes: number
+  stages: SleepStageMinutes
+  segments: SleepSegment[]
+}
+
+export type SleepView = {
+  as_of: string
+  range_start: string
+  range_end: string
+  night: SleepNight | null
+  days: { date: string; night: SleepNight | null }[]
+  nights_logged: number
+  average_asleep: number | null
+  average_bed_offset: number | null
+  average_wake_offset: number | null
+  average_stages: SleepStageMinutes | null
+}
+
+export type SleepSessionRecord = {
+  id: number
+  started_at: string
+  ended_at: string
+  occurred_on: string
+  note: string | null
+  source: Source
+  created_at: string
+  stages: { stage: SleepStage; started_at: string; ended_at: string }[]
+}
+
 export type TaskBucket = 'today' | 'upcoming' | 'someday'
 export type TaskPriority = 'high' | 'normal' | 'low'
 
@@ -824,6 +871,19 @@ export async function uploadEntertainmentImage(
   return (await response.json()) as EntertainmentTitle
 }
 
+export function getSleepView(asOf?: string): Promise<SleepView> {
+  return request(`/sleep/view${queryString({ as_of: asOf })}`)
+}
+
+export function logSleepSession(body: {
+  started_at: string
+  ended_at: string
+  stages?: { stage: SleepStage; started_at: string; ended_at: string }[]
+  note?: string | null
+}): Promise<SleepSessionRecord> {
+  return request('/sleep/sessions', { method: 'POST', body: JSON.stringify(body) })
+}
+
 export function getUpdates(asOf?: string): Promise<UpdatesStatus> {
   return request(`/updates${queryString({ as_of: asOf })}`)
 }
@@ -900,6 +960,18 @@ export function getAreaView(slug: string, asOf?: string): Promise<AreaView> {
 
 export function getHabitStatus(slug: string, asOf?: string): Promise<HabitStatus> {
   return request(`/habits/${encodeURIComponent(slug)}/status${queryString({ as_of: asOf })}`)
+}
+
+export function setHabitDay(
+  slug: string,
+  day: string,
+  done: boolean,
+  asOf?: string,
+): Promise<HabitStatus> {
+  return request(`/habits/${encodeURIComponent(slug)}/days/${day}${queryString({ as_of: asOf })}`, {
+    method: 'PUT',
+    body: JSON.stringify({ done }),
+  })
 }
 
 export function getGoalProgress(slug: string, asOf?: string): Promise<GoalProgress> {

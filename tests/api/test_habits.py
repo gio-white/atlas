@@ -51,3 +51,33 @@ def test_unknown_habit_status_is_not_found(client):
 
     assert response.status_code == 404
     assert "habit" in response.json()["detail"]
+
+
+def test_put_habit_day_marks_and_clears_a_bool_habit(client, seed_health):
+    created = client.post(
+        "/habits",
+        json={
+            "slug": "meditate-daily",
+            "metric": "meditated",
+            "period": "day",
+            "target_value": 1,
+            "comparator": "at_least",
+            "active_from": "2026-08-01",
+        },
+    )
+    assert created.status_code == 201, created.text
+
+    marked = client.put(
+        "/habits/meditate-daily/days/2026-08-12",
+        params={"as_of": "2026-08-12"},
+        json={"done": True},
+    )
+    assert marked.status_code == 200, marked.text
+    assert marked.json()["satisfied"] is True
+
+    cleared = client.put(
+        "/habits/meditate-daily/days/2026-08-12",
+        params={"as_of": "2026-08-12"},
+        json={"done": False},
+    )
+    assert cleared.json()["satisfied"] is False

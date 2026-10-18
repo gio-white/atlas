@@ -17,6 +17,8 @@ from atlas.api.schemas import (
     ScreenCategoryOut,
     ScreenDeviceOut,
     ScreenSessionRecordOut,
+    SleepSessionOut,
+    SleepStageOut,
     TaskOut,
 )
 from atlas.domain import (
@@ -42,6 +44,7 @@ from atlas.services import (
     list_screen_apps,
     list_screen_categories,
     list_screen_devices,
+    sleep_stages,
     title_view_for,
 )
 
@@ -305,6 +308,19 @@ def screen_session_records_out(session: Session, rows: list[Any]) -> list[Screen
         )
         for row in rows
     ]
+
+
+def sleep_session_out(session: Session, row: Any) -> SleepSessionOut:
+    return SleepSessionOut(
+        id=row.id,
+        started_at=row.started_at,
+        ended_at=row.ended_at,
+        occurred_on=row.occurred_on,
+        note=row.note,
+        source=Source(row.source),
+        created_at=row.created_at,
+        stages=[SleepStageOut.model_validate(stage) for stage in sleep_stages(session, row.id)],
+    )
 
 
 def entertainment_topic_out(topic: Any) -> EntertainmentTopicOut:

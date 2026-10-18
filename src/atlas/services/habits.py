@@ -8,6 +8,7 @@ from atlas.db.models import Area, Habit, Metric
 from atlas.domain import (
     Comparator,
     Period,
+    Source,
     ValueType,
     adherence,
     bucket_for,
@@ -18,6 +19,7 @@ from atlas.domain import (
     rollup,
 )
 from atlas.services.clock import resolve_today
+from atlas.services.entries import delete_entry, log_entry
 from atlas.services.errors import ValidationError
 from atlas.services.lookups import (
     ensure_unique_slug,
@@ -157,6 +159,33 @@ def habit_status(session: Session, slug: str, *, as_of: date | None = None) -> H
     habit = require_habit(session, normalize_slug(slug))
     metric = metric_by_id(session, habit.metric_id)
     return _status_for(session, habit, metric, as_of)
+
+
+def set_habit_day(
+    session: Session,
+    slug: str,
+    day: date,
+    *,
+    done: bool,
+    as_of: date | None = None,
+    source: Source = Source.CLI,
+) -> HabitStatus:
+    habit = require_habit(session, normalize_slug(slug))
+    metric = metric_by_id(session, habit.metric_id)
+    if ValueType(metric.value_type) is not ValueType.BOOL:
+        raise ValidationError(
+            f"habit {habit.slug!r} measures a {metric.value_type} metric; log a value instead"
+        )
+    day_entries = [
+        entry for entry in entries_for_metric(session, metric.id) if entry.occurred_on == day
+    ]
+    if done:
+        if not any(entry.value_bool for entry in day_entries):
+            log_entry(session, metric.slug, True, occurred_on=day, source=source)
+    else:
+        for entry in day_entries:
+            delete_entry(session, entry.id)
+    return _status_for(session, habit, metric, resolve_today(as_of))
 
 
 def habit_statuses(session: Session, *, as_of: date | None = None) -> list[HabitStatus]:

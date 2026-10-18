@@ -46,6 +46,7 @@ from atlas.services.habits import (
     habit_statuses,
     habits_board,
     list_habits,
+    set_habit_day,
     update_habit,
 )
 from atlas.services.home import HomeWeek, home_week
@@ -87,6 +88,14 @@ from atlas.services.screen import (
     update_screen_session,
 )
 from atlas.services.seed import SeedSummary, demo_payload, seed_demo
+from atlas.services.sleep import (
+    delete_sleep_session,
+    get_sleep_session,
+    list_sleep_sessions,
+    log_sleep_session,
+    sleep_stages,
+    sleep_view,
+)
 from atlas.services.slips import SlipsWeek, log_slip, slips_week
 from atlas.services.tasks import create_task, list_tasks, tasks_done_in_week, update_task
 from atlas.services.updates import UpdatesStatus, log_update, updates_status
@@ -222,4 +231,11 @@ __all__ = [
     "update_task",
     "updates_status",
     "week_view",
+    "set_habit_day",
+    "delete_sleep_session",
+    "get_sleep_session",
+    "list_sleep_sessions",
+    "log_sleep_session",
+    "sleep_stages",
+    "sleep_view",
 ]

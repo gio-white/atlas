@@ -1,9 +1,18 @@
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 
 from atlas.db import CURRENT_SCHEMA_VERSION, create_memory_engine, init_schema, make_session_factory
-from atlas.domain import Comparator, GoalKind, Measure, Period, ScreenJudgment, Source
+from atlas.domain import (
+    Comparator,
+    GoalKind,
+    Measure,
+    Period,
+    ScreenJudgment,
+    SleepStage,
+    SleepStageSpan,
+    Source,
+)
 from atlas.services import (
     MilestoneInput,
     ValidationError,
@@ -20,6 +29,7 @@ from atlas.services import (
     list_metrics,
     log_entry,
     log_screen_session,
+    log_sleep_session,
 )
 from tests.services.helpers import log_pushups, seed_health
 
@@ -239,3 +249,30 @@ def test_import_accepts_schema_version_7(session):
         restored = export_all(other)
     assert restored["schema_version"] == CURRENT_SCHEMA_VERSION
     assert restored["entertainment_topics"] == payload.get("entertainment_topics", [])
+
+
+def test_export_round_trips_sleep_sessions(session, monkeypatch):
+    monkeypatch.setenv("ATLAS_TZ", "UTC")
+    log_sleep_session(
+        session,
+        started_at=datetime(2026, 8, 12, 23, 0, tzinfo=UTC),
+        ended_at=datetime(2026, 8, 13, 7, 0, tzinfo=UTC),
+        stages=[
+            SleepStageSpan(
+                SleepStage.DEEP,
+                datetime(2026, 8, 13, 1, 0, tzinfo=UTC),
+                datetime(2026, 8, 13, 2, 0, tzinfo=UTC),
+            )
+        ],
+    )
+    payload = export_all(session)
+    assert payload["sleep_sessions"][0]["occurred_on"] == "2026-08-13"
+    assert payload["sleep_sessions"][0]["stages"][0]["stage"] == "deep"
+
+    engine = create_memory_engine()
+    init_schema(engine)
+    with make_session_factory(engine)() as other:
+        import_all(other, payload)
+        assert export_all(other)["sleep_sessions"] == payload["sleep_sessions"]
+        import_all(other, payload, replace=True)
+        assert len(export_all(other)["sleep_sessions"]) == 1

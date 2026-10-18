@@ -18,6 +18,7 @@ from atlas.api.routers import (
     metrics_router,
     port_router,
     screen_router,
+    sleep_router,
     slips_router,
     tasks_router,
     updates_router,
@@ -60,6 +61,7 @@ def create_app(
     app.include_router(goals_router)
     app.include_router(views_router)
     app.include_router(screen_router)
+    app.include_router(sleep_router)
     app.include_router(updates_router)
     app.include_router(slips_router)
     app.include_router(tasks_router)

@@ -10,7 +10,7 @@ from sqlmodel import Session, SQLModel, col, create_engine, select
 from atlas.db.models import Entry, SchemaVersion, ScreenApp, ScreenSession
 from atlas.domain import infer_horizon
 
-CURRENT_SCHEMA_VERSION = 7
+CURRENT_SCHEMA_VERSION = 8
 
 
 def create_engine_for(db_path: Path) -> Engine:
