@@ -44,15 +44,15 @@ Unified design skill: brand, tokens, UI, logo, CIP, slides, banners, social phot
 ### Logo: Generate Design Brief
 
 ```bash
-python3 .claude/skills/design/scripts/logo/search.py "tech startup modern" --design-brief -p "BrandName"
+uv run python .claude/skills/design/scripts/logo/search.py "tech startup modern" --design-brief -p "BrandName"
 ```
 
 ### Logo: Search Styles/Colors/Industries
 
 ```bash
-python3 .claude/skills/design/scripts/logo/search.py "minimalist clean" --domain style
-python3 .claude/skills/design/scripts/logo/search.py "tech professional" --domain color
-python3 .claude/skills/design/scripts/logo/search.py "healthcare medical" --domain industry
+uv run python .claude/skills/design/scripts/logo/search.py "minimalist clean" --domain style
+uv run python .claude/skills/design/scripts/logo/search.py "tech professional" --domain color
+uv run python .claude/skills/design/scripts/logo/search.py "healthcare medical" --domain industry
 ```
 
 ### Logo: Generate with AI
@@ -60,8 +60,8 @@ python3 .claude/skills/design/scripts/logo/search.py "healthcare medical" --doma
 **ALWAYS** generate output logo images with white background.
 
 ```bash
-python3 .claude/skills/design/scripts/logo/generate.py --brand "TechFlow" --style minimalist --industry tech
-python3 .claude/skills/design/scripts/logo/generate.py --prompt "coffee shop vintage badge" --style vintage
+uv run python .claude/skills/design/scripts/logo/generate.py --brand "TechFlow" --style minimalist --industry tech
+uv run python .claude/skills/design/scripts/logo/generate.py --prompt "coffee shop vintage badge" --style vintage
 ```
 
 **IMPORTANT:** When scripts fail, try to fix them directly.
@@ -75,32 +75,32 @@ After generation, **ALWAYS** ask user about HTML preview via `AskUserQuestion`. 
 ### CIP: Generate Brief
 
 ```bash
-python3 .claude/skills/design/scripts/cip/search.py "tech startup" --cip-brief -b "BrandName"
+uv run python .claude/skills/design/scripts/cip/search.py "tech startup" --cip-brief -b "BrandName"
 ```
 
 ### CIP: Search Domains
 
 ```bash
-python3 .claude/skills/design/scripts/cip/search.py "business card letterhead" --domain deliverable
-python3 .claude/skills/design/scripts/cip/search.py "luxury premium elegant" --domain style
-python3 .claude/skills/design/scripts/cip/search.py "hospitality hotel" --domain industry
-python3 .claude/skills/design/scripts/cip/search.py "office reception" --domain mockup
+uv run python .claude/skills/design/scripts/cip/search.py "business card letterhead" --domain deliverable
+uv run python .claude/skills/design/scripts/cip/search.py "luxury premium elegant" --domain style
+uv run python .claude/skills/design/scripts/cip/search.py "hospitality hotel" --domain industry
+uv run python .claude/skills/design/scripts/cip/search.py "office reception" --domain mockup
 ```
 
 ### CIP: Generate Mockups
 
 ```bash
 # With logo (RECOMMENDED)
-python3 .claude/skills/design/scripts/cip/generate.py --brand "TopGroup" --logo /path/to/logo.png --deliverable "business card" --industry "consulting"
+uv run python .claude/skills/design/scripts/cip/generate.py --brand "TopGroup" --logo /path/to/logo.png --deliverable "business card" --industry "consulting"
 
 # Full CIP set
-python3 .claude/skills/design/scripts/cip/generate.py --brand "TopGroup" --logo /path/to/logo.png --industry "consulting" --set
+uv run python .claude/skills/design/scripts/cip/generate.py --brand "TopGroup" --logo /path/to/logo.png --industry "consulting" --set
 
 # Pro model (4K text)
-python3 .claude/skills/design/scripts/cip/generate.py --brand "TopGroup" --logo logo.png --deliverable "business card" --model pro
+uv run python .claude/skills/design/scripts/cip/generate.py --brand "TopGroup" --logo logo.png --deliverable "business card" --model pro
 
 # Without logo
-python3 .claude/skills/design/scripts/cip/generate.py --brand "TechFlow" --deliverable "business card" --no-logo-prompt
+uv run python .claude/skills/design/scripts/cip/generate.py --brand "TechFlow" --deliverable "business card" --no-logo-prompt
 ```
 
 Models: `flash` (default, `gemini-2.5-flash-image`), `pro` (`gemini-3-pro-image-preview`)
@@ -108,7 +108,7 @@ Models: `flash` (default, `gemini-2.5-flash-image`), `pro` (`gemini-3-pro-image-
 ### CIP: Render HTML Presentation
 
 ```bash
-python3 .claude/skills/design/scripts/cip/render-html.py --brand "TopGroup" --industry "consulting" --images /path/to/cip-output
+uv run python .claude/skills/design/scripts/cip/render-html.py --brand "TopGroup" --industry "consulting" --images /path/to/cip-output
 ```
 
 **Tip:** If no logo exists, use Logo Design section above first.
@@ -183,21 +183,21 @@ Load `references/banner-sizes-and-styles.md` for complete sizes and styles refer
 ### Icon: Generate Single Icon
 
 ```bash
-python3 .claude/skills/design/scripts/icon/generate.py --prompt "settings gear" --style outlined
-python3 .claude/skills/design/scripts/icon/generate.py --prompt "shopping cart" --style filled --color "#6366F1"
-python3 .claude/skills/design/scripts/icon/generate.py --name "dashboard" --category navigation --style duotone
+uv run python .claude/skills/design/scripts/icon/generate.py --prompt "settings gear" --style outlined
+uv run python .claude/skills/design/scripts/icon/generate.py --prompt "shopping cart" --style filled --color "#6366F1"
+uv run python .claude/skills/design/scripts/icon/generate.py --name "dashboard" --category navigation --style duotone
 ```
 
 ### Icon: Generate Batch Variations
 
 ```bash
-python3 .claude/skills/design/scripts/icon/generate.py --prompt "cloud upload" --batch 4 --output-dir ./icons
+uv run python .claude/skills/design/scripts/icon/generate.py --prompt "cloud upload" --batch 4 --output-dir ./icons
 ```
 
 ### Icon: Multi-size Export
 
 ```bash
-python3 .claude/skills/design/scripts/icon/generate.py --prompt "user profile" --sizes "16,24,32,48" --output-dir ./icons
+uv run python .claude/skills/design/scripts/icon/generate.py --prompt "user profile" --sizes "16,24,32,48" --output-dir ./icons
 ```
 
 ### Icon: Top Styles
@@ -291,21 +291,20 @@ Load `references/social-photos-design.md` for sizes, templates, best practices.
 
 ## Prerequisites
 
-**Python:** This skill uses Python scripts. On Windows, use `python` instead of `python3` (e.g., `python scripts/logo/search.py` instead of `python3 scripts/logo/search.py`).
+**Python:** This skill uses Python scripts. Run them through uv: `uv run python .claude/skills/design/scripts/...`.
 
 Check if Python is installed:
 ```bash
-python3 --version || python --version
+uv run python --version
 ```
 
 ## Setup
 
 ```bash
 export GEMINI_API_KEY="your-key"  # https://aistudio.google.com/apikey
-pip install google-genai pillow
+uv run --with google-genai --with pillow python <script>  # ephemeral deps; never pip install
 ```
 
-> **Note for Windows:** Use `python` instead of `pip` where needed (e.g., `python -m pip install ...`).
 
 ## Integration
 

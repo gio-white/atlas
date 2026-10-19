@@ -9,7 +9,7 @@ The SPA lives in `web/`. Python stays on uv and ruff. This layer does not.
 
 ## pnpm only
 
-Every install, script, and lockfile in `web/` goes through `pnpm`. Never `npm`, never `yarn`, never `npx` (use `pnpm dlx` or a `package.json` script). The lockfile is `pnpm-lock.yaml`; do not commit `package-lock.json` or `yarn.lock`.
+Every install, script, and lockfile in `web/` goes through `pnpm`. Never `npm`, never `yarn`, never `npx` (use `pnpm dlx` or a `package.json` script). A hook denies them; see `.claude/rules/tooling.md`. The lockfile is `pnpm-lock.yaml`; do not commit `package-lock.json` or `yarn.lock`.
 
 ```bash
 # ❌ BAD

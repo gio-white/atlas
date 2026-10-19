@@ -176,7 +176,7 @@ node .claude/skills/design-system/scripts/validate-tokens.cjs -d src/
 
 **Components:**
 ```bash
-npx shadcn@latest add button card input
+pnpm dlx shadcn@latest add button card input
 ```
 
 ## When to Use Multiple Skills

@@ -11,14 +11,13 @@ Comprehensive design guide for web, mobile, and desktop applications. Contains 6
 The bundled scripts require Python 3 (standard library only — no third-party packages, no network access). Check if it is available:
 
 ```bash
-python3 --version || python --version
+uv run python --version
 ```
 
 If Python is not installed, **do not install it yourself**. Stop and ask the user to install Python 3 using their preferred method (e.g. from [python.org](https://www.python.org/downloads/) or their OS package manager), then continue once it is available. Never run package-manager or system-modifying commands (`sudo`, `brew`, `apt`, `winget`, etc.) on the user's machine for this skill.
 
 If the user prefers not to install Python, skip the CLI searches and rely on the Quick Reference sections above.
 
-> **Note:** On Windows, use `python` instead of `python3` to run scripts (e.g., `python scripts/search.py` instead of `python3 scripts/search.py`).
 
 ---
 
@@ -58,7 +57,7 @@ Extract key information from user request:
 **Always start with `--design-system`** to get comprehensive recommendations with reasoning:
 
 ```bash
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<product_type> <industry> <keywords>" --design-system [-p "Project Name"]
+uv run python .claude/skills/ui-ux-pro-max/scripts/search.py "<product_type> <industry> <keywords>" --design-system [-p "Project Name"]
 ```
 
 This command:
@@ -69,7 +68,7 @@ This command:
 
 **Example:**
 ```bash
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py "beauty spa wellness service" --design-system -p "Serenity Spa"
+uv run python .claude/skills/ui-ux-pro-max/scripts/search.py "beauty spa wellness service" --design-system -p "Serenity Spa"
 ```
 
 ### Step 2b: Persist Design System (Master + Overrides Pattern)
@@ -77,7 +76,7 @@ python3 .claude/skills/ui-ux-pro-max/scripts/search.py "beauty spa wellness serv
 To save the design system for **hierarchical retrieval across sessions**, add `--persist`:
 
 ```bash
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<query>" --design-system --persist -p "Project Name"
+uv run python .claude/skills/ui-ux-pro-max/scripts/search.py "<query>" --design-system --persist -p "Project Name"
 ```
 
 This creates:
@@ -86,7 +85,7 @@ This creates:
 
 **With page-specific override:**
 ```bash
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<query>" --design-system --persist -p "Project Name" --page "dashboard"
+uv run python .claude/skills/ui-ux-pro-max/scripts/search.py "<query>" --design-system --persist -p "Project Name" --page "dashboard"
 ```
 
 This also creates:
@@ -111,7 +110,7 @@ Now, generate the code...
 Three optional 1-10 sliders that tune `--design-system` output without changing your query. Add any combination of them to the same command:
 
 ```bash
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<query>" --design-system --variance <1-10> --motion <1-10> --density <1-10>
+uv run python .claude/skills/ui-ux-pro-max/scripts/search.py "<query>" --design-system --variance <1-10> --motion <1-10> --density <1-10>
 ```
 
 | Dial | Low (1-3) | Mid (4-7) | High (8-10) |
@@ -126,7 +125,7 @@ python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<query>" --design-system
 
 **Example:**
 ```bash
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py "internal analytics dashboard" --design-system --variance 8 --motion 7 --density 8 -p "Ops Console"
+uv run python .claude/skills/ui-ux-pro-max/scripts/search.py "internal analytics dashboard" --design-system --variance 8 --motion 7 --density 8 -p "Ops Console"
 ```
 
 ### Step 3: Supplement with Detailed Searches (as needed)
@@ -134,7 +133,7 @@ python3 .claude/skills/ui-ux-pro-max/scripts/search.py "internal analytics dashb
 After getting the design system, use domain searches to get additional details:
 
 ```bash
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<keyword>" --domain <domain> [-n <max_results>]
+uv run python .claude/skills/ui-ux-pro-max/scripts/search.py "<keyword>" --domain <domain> [-n <max_results>]
 ```
 
 **When to use detailed searches:**
@@ -159,7 +158,7 @@ python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<keyword>" --domain <dom
 Get implementation-specific best practices for the user's stack:
 
 ```bash
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<keyword>" --stack <stack>
+uv run python .claude/skills/ui-ux-pro-max/scripts/search.py "<keyword>" --stack <stack>
 ```
 
 ---
@@ -190,8 +189,8 @@ python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<keyword>" --stack <stac
 **JavaFX enterprise examples:**
 
 ```bash
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py "atlantafx primer enterprise theme" --stack javafx
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py "enterprise tableview density permission" --stack javafx
+uv run python .claude/skills/ui-ux-pro-max/scripts/search.py "atlantafx primer enterprise theme" --stack javafx
+uv run python .claude/skills/ui-ux-pro-max/scripts/search.py "enterprise tableview density permission" --stack javafx
 ```
 
 ---
@@ -209,7 +208,7 @@ python3 .claude/skills/ui-ux-pro-max/scripts/search.py "enterprise tableview den
 ### Step 2: Generate Design System (REQUIRED)
 
 ```bash
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py "AI search tool modern minimal" --design-system -p "AI Search"
+uv run python .claude/skills/ui-ux-pro-max/scripts/search.py "AI search tool modern minimal" --design-system -p "AI Search"
 ```
 
 **Output:** Complete design system with pattern, style, colors, typography, effects, and anti-patterns.
@@ -218,16 +217,16 @@ python3 .claude/skills/ui-ux-pro-max/scripts/search.py "AI search tool modern mi
 
 ```bash
 # Get style options for a modern tool product
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py "minimalism dark mode" --domain style
+uv run python .claude/skills/ui-ux-pro-max/scripts/search.py "minimalism dark mode" --domain style
 
 # Get UX best practices for search interaction and loading
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py "search loading animation" --domain ux
+uv run python .claude/skills/ui-ux-pro-max/scripts/search.py "search loading animation" --domain ux
 ```
 
 ### Step 4: Stack Guidelines
 
 ```bash
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py "list performance navigation" --stack react-native
+uv run python .claude/skills/ui-ux-pro-max/scripts/search.py "list performance navigation" --stack react-native
 ```
 
 **Then:** Synthesize design system + detailed searches and implement the design.
@@ -240,10 +239,10 @@ The `--design-system` flag supports two output formats:
 
 ```bash
 # ASCII box (default) - best for terminal display
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py "fintech crypto" --design-system
+uv run python .claude/skills/ui-ux-pro-max/scripts/search.py "fintech crypto" --design-system
 
 # Markdown - best for documentation
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py "fintech crypto" --design-system -f markdown
+uv run python .claude/skills/ui-ux-pro-max/scripts/search.py "fintech crypto" --design-system -f markdown
 ```
 
 ---

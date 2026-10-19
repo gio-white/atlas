@@ -122,15 +122,15 @@ Brand-compliant presentations using design tokens + Chart.js + contextual decisi
 
 ```bash
 # Basic search (auto-detect domain)
-python .claude/skills/design-system/scripts/search-slides.py "investor pitch"
+uv run python .claude/skills/design-system/scripts/search-slides.py "investor pitch"
 
 # Domain-specific search
-python .claude/skills/design-system/scripts/search-slides.py "problem agitation" -d copy
-python .claude/skills/design-system/scripts/search-slides.py "revenue growth" -d chart
+uv run python .claude/skills/design-system/scripts/search-slides.py "problem agitation" -d copy
+uv run python .claude/skills/design-system/scripts/search-slides.py "revenue growth" -d chart
 
 # Contextual search (Premium System)
-python .claude/skills/design-system/scripts/search-slides.py "problem slide" --context --position 2 --total 9
-python .claude/skills/design-system/scripts/search-slides.py "cta" --context --position 9 --prev-emotion frustration
+uv run python .claude/skills/design-system/scripts/search-slides.py "problem slide" --context --position 2 --total 9
+uv run python .claude/skills/design-system/scripts/search-slides.py "cta" --context --position 9 --prev-emotion frustration
 ```
 
 ### Decision System CSVs

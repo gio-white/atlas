@@ -34,8 +34,8 @@ dev = [
 line-length = 100
 target-version = "py312"
 src = ["src", "tests"]
-# Vendored Claude Code skills ship their own helper scripts; they are not part of atlas.
-extend-exclude = [".claude"]
+# Skill scripts are vendored and rule examples are illustrative; .claude/hooks stays linted.
+extend-exclude = [".claude/skills", ".claude/rules"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "TID"]

@@ -15,20 +15,20 @@ AI-powered logo design with 55+ styles, 30 color palettes, 25 industry guides. U
 ### Design Brief (Start Here)
 
 ```bash
-python3 .claude/skills/design/scripts/logo/search.py "tech startup modern" --design-brief -p "BrandName"
+uv run python .claude/skills/design/scripts/logo/search.py "tech startup modern" --design-brief -p "BrandName"
 ```
 
 ### Search Domains
 
 ```bash
 # Styles
-python3 .claude/skills/design/scripts/logo/search.py "minimalist clean" --domain style
+uv run python .claude/skills/design/scripts/logo/search.py "minimalist clean" --domain style
 
 # Color palettes
-python3 .claude/skills/design/scripts/logo/search.py "tech professional" --domain color
+uv run python .claude/skills/design/scripts/logo/search.py "tech professional" --domain color
 
 # Industry guidelines
-python3 .claude/skills/design/scripts/logo/search.py "healthcare medical" --domain industry
+uv run python .claude/skills/design/scripts/logo/search.py "healthcare medical" --domain industry
 ```
 
 ### Generate Logo
@@ -36,8 +36,8 @@ python3 .claude/skills/design/scripts/logo/search.py "healthcare medical" --doma
 **ALWAYS** use white background for output logos.
 
 ```bash
-python3 .claude/skills/design/scripts/logo/generate.py --brand "TechFlow" --style minimalist --industry tech
-python3 .claude/skills/design/scripts/logo/generate.py --prompt "coffee shop vintage badge" --style vintage
+uv run python .claude/skills/design/scripts/logo/generate.py --brand "TechFlow" --style minimalist --industry tech
+uv run python .claude/skills/design/scripts/logo/generate.py --prompt "coffee shop vintage badge" --style vintage
 ```
 
 Options: `--style`, `--industry`, `--prompt`
@@ -88,5 +88,5 @@ Options: `--style`, `--industry`, `--prompt`
 
 ```bash
 export GEMINI_API_KEY="your-key"
-pip install google-genai
+uv run --with google-genai python <script>  # ephemeral deps; never pip install
 ```
