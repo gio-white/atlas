@@ -52,6 +52,8 @@ IMPLEMENTED_PATHS = frozenset(
         "/entertainment/topics",
         "/entertainment/topics/{slug}",
         "/entertainment/titles",
+        "/entertainment/lookup",
+        "/entertainment/titles/from-link",
         "/entertainment/titles/{slug}",
         "/entertainment/titles/{slug}/image",
         "/export",

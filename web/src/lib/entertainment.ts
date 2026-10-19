@@ -27,17 +27,33 @@ export type CategoryId = 'all' | 'videos' | 'books' | 'podcasts' | 'music' | 'ot
 export type Category = {
   id: CategoryId
   label: string
+  tagline: string
   kinds: EntertainmentKind[]
 }
 
 export const CATEGORIES: Category[] = [
-  { id: 'all', label: 'All', kinds: KINDS },
-  { id: 'videos', label: 'Videos', kinds: ['film', 'series', 'anime', 'video'] },
-  { id: 'books', label: 'Books', kinds: ['book'] },
-  { id: 'podcasts', label: 'Podcasts', kinds: ['podcast'] },
-  { id: 'music', label: 'Music', kinds: ['music'] },
-  { id: 'other', label: 'Other', kinds: ['other'] },
+  { id: 'all', label: 'Everything', tagline: 'The whole library in one table.', kinds: KINDS },
+  {
+    id: 'videos',
+    label: 'Videos',
+    tagline: 'Films, series, anime, and videos.',
+    kinds: ['film', 'series', 'anime', 'video'],
+  },
+  { id: 'books', label: 'Books', tagline: 'Read, reading, and to read.', kinds: ['book'] },
+  {
+    id: 'podcasts',
+    label: 'Podcasts',
+    tagline: 'Shows and episodes worth the time.',
+    kinds: ['podcast'],
+  },
+  { id: 'music', label: 'Music', tagline: 'Albums, tracks, and playlists.', kinds: ['music'] },
+  { id: 'other', label: 'Other', tagline: 'Games, talks, and everything else.', kinds: ['other'] },
 ]
+
+/** A category id from a route segment, or null when the segment is not one. */
+export function categoryFromPath(raw: string | undefined): CategoryId | null {
+  return CATEGORIES.some((category) => category.id === raw) ? (raw as CategoryId) : null
+}
 
 export const STATUSES: { id: EntertainmentStatus; label: string }[] = [
   { id: 'queued', label: 'Wishlist' },

@@ -4,10 +4,13 @@ from typing import Annotated
 from fastapi import APIRouter, File, UploadFile
 from fastapi.responses import Response
 
-from atlas.api.deps import SessionDep
+from atlas.api.deps import LinkFetchDep, SessionDep
 from atlas.api.schemas import (
     EntertainmentDashboardOut,
+    EntertainmentLinkLookupIn,
+    EntertainmentLinkSuggestionOut,
     EntertainmentTitleCreate,
+    EntertainmentTitleFromLink,
     EntertainmentTitleOut,
     EntertainmentTitleUpdate,
     EntertainmentTopicCreate,
@@ -24,6 +27,7 @@ from atlas.services import (
     clear_title_image,
     create_entertainment_title,
     create_entertainment_topic,
+    create_title_from_link,
     delete_entertainment_title,
     entertainment_dashboard,
     entertainment_view,
@@ -32,6 +36,7 @@ from atlas.services import (
     get_title_image,
     list_entertainment_titles,
     list_entertainment_topics,
+    lookup_link,
     set_title_image,
     update_entertainment_title,
     update_entertainment_topic,
@@ -126,6 +131,42 @@ def post_title(session: SessionDep, body: EntertainmentTitleCreate) -> Entertain
         link=body.link,
         topics=body.topics,
         image_url=body.image_url,
+    )
+    return entertainment_title_out_for(session, title)
+
+
+@router.post("/lookup", response_model=EntertainmentLinkSuggestionOut)
+def post_lookup(
+    session: SessionDep,
+    fetch: LinkFetchDep,
+    body: EntertainmentLinkLookupIn,
+) -> EntertainmentLinkSuggestionOut:
+    result = lookup_link(session, body.url, fetch=fetch)
+    suggestion = result.suggestion
+    return EntertainmentLinkSuggestionOut(
+        link=suggestion.link,
+        name=suggestion.name,
+        kind=suggestion.kind,
+        creator=suggestion.creator,
+        image_url=suggestion.image_url,
+        existing=result.existing,
+    )
+
+
+@router.post("/titles/from-link", response_model=EntertainmentTitleOut, status_code=201)
+def post_title_from_link(
+    session: SessionDep,
+    fetch: LinkFetchDep,
+    body: EntertainmentTitleFromLink,
+) -> EntertainmentTitleOut:
+    title = create_title_from_link(
+        session,
+        body.url,
+        kind=body.kind,
+        status=body.status,
+        topics=body.topics,
+        note=body.note,
+        fetch=fetch,
     )
     return entertainment_title_out_for(session, title)
 

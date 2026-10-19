@@ -1,13 +1,14 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from atlas.services import AlreadyExistsError, NotFoundError, ValidationError
+from atlas.services import AlreadyExistsError, NotFoundError, UpstreamError, ValidationError
 
 
 def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(NotFoundError, _json_error(404))
     app.add_exception_handler(AlreadyExistsError, _json_error(409))
     app.add_exception_handler(ValidationError, _json_error(400))
+    app.add_exception_handler(UpstreamError, _json_error(502))
 
 
 def _json_error(status_code: int):

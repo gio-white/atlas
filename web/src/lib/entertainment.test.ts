@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { EntertainmentTitle } from './api'
 import {
+  categoryFromPath,
   filterTitles,
   type LibraryFilter,
   parseCategory,
@@ -96,6 +97,8 @@ describe('helpers', () => {
   it('parses URL params with safe fallbacks', () => {
     expect(parseCategory('books')).toBe('books')
     expect(parseCategory('nope')).toBe('all')
+    expect(categoryFromPath('music')).toBe('music')
+    expect(categoryFromPath('insights')).toBeNull()
     expect(parseSortKey('rating')).toBe('rating')
     expect(parseSortKey(null)).toBe('created_at')
   })

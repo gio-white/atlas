@@ -19,8 +19,21 @@ from atlas.services.entertainment import (
     update_entertainment_title,
     update_entertainment_topic,
 )
+from atlas.services.entertainment_lookup import (
+    LinkLookup,
+    create_title_from_link,
+    http_get_text,
+    lookup_link,
+    unique_title_slug,
+)
 from atlas.services.entries import amend_entry, delete_entry, log_entry
-from atlas.services.errors import AlreadyExistsError, NotFoundError, ServiceError, ValidationError
+from atlas.services.errors import (
+    AlreadyExistsError,
+    NotFoundError,
+    ServiceError,
+    UpstreamError,
+    ValidationError,
+)
 from atlas.services.goals import (
     GoalBoardColumn,
     GoalBoardTask,
@@ -142,7 +155,13 @@ __all__ = [
     "SlipsWeek",
     "TodayView",
     "UpdatesStatus",
+    "UpstreamError",
     "ValidationError",
+    "LinkLookup",
+    "create_title_from_link",
+    "http_get_text",
+    "lookup_link",
+    "unique_title_slug",
     "WeekDayCell",
     "WeekHabit",
     "WeekView",

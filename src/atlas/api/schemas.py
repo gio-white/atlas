@@ -918,6 +918,31 @@ class EntertainmentTitleOut(BaseModel):
     created_at: datetime | None
 
 
+class EntertainmentLinkLookupIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    url: str
+
+
+class EntertainmentLinkSuggestionOut(BaseModel):
+    link: str
+    name: str | None
+    kind: EntertainmentKind | None
+    creator: str | None
+    image_url: str | None
+    existing: str | None
+
+
+class EntertainmentTitleFromLink(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    url: str
+    kind: EntertainmentKind | None = None
+    status: EntertainmentStatus = EntertainmentStatus.QUEUED
+    topics: list[str] = Field(default_factory=list)
+    note: str | None = None
+
+
 class EntertainmentKindCountOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

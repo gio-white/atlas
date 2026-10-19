@@ -540,6 +540,15 @@ export type EntertainmentTitle = {
   created_at: string | null
 }
 
+export type EntertainmentLinkSuggestion = {
+  link: string
+  name: string | null
+  kind: EntertainmentKind | null
+  creator: string | null
+  image_url: string | null
+  existing: string | null
+}
+
 export type EntertainmentKindCount = {
   kind: EntertainmentKind
   count: number
@@ -860,6 +869,23 @@ export function updateEntertainmentTitle(
 ): Promise<EntertainmentTitle> {
   return request(`/entertainment/titles/${encodeURIComponent(slug)}`, {
     method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+}
+
+export function lookupEntertainmentLink(url: string): Promise<EntertainmentLinkSuggestion> {
+  return request('/entertainment/lookup', { method: 'POST', body: JSON.stringify({ url }) })
+}
+
+export function createEntertainmentTitleFromLink(body: {
+  url: string
+  kind?: EntertainmentKind | null
+  status?: EntertainmentStatus
+  topics?: string[]
+  note?: string | null
+}): Promise<EntertainmentTitle> {
+  return request('/entertainment/titles/from-link', {
+    method: 'POST',
     body: JSON.stringify(body),
   })
 }

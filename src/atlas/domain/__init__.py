@@ -16,6 +16,13 @@ from atlas.domain.entertainment import (
     finished_in_week,
     last_finished,
 )
+from atlas.domain.entertainment_link import (
+    LinkSuggestion,
+    kind_from_url,
+    oembed_url,
+    parse_page_meta,
+    suggest_from_sources,
+)
 from atlas.domain.enums import (
     Aggregation,
     Comparator,
@@ -123,6 +130,11 @@ __all__ = [
     "EntertainmentTitleView",
     "EntertainmentTopicCount",
     "EntertainmentTopicRef",
+    "LinkSuggestion",
+    "kind_from_url",
+    "oembed_url",
+    "parse_page_meta",
+    "suggest_from_sources",
     "EntryView",
     "GoalHorizon",
     "GoalKind",

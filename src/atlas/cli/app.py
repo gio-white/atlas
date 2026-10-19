@@ -49,6 +49,7 @@ from atlas.services import (
     create_habit,
     create_metric,
     create_task,
+    create_title_from_link,
     delete_entertainment_title,
     delete_entry,
     export_all,
@@ -435,6 +436,22 @@ def entertainment_add(
             data = image.read_bytes()
             set_title_image(session, title.slug, data, filename=image.name)
         print_created("entertainment title", title.slug)
+
+
+@entertainment_app.command("add-link")
+def entertainment_add_link(
+    url: Annotated[str, typer.Argument()],
+    kind: Annotated[EntertainmentKind | None, typer.Option("--kind")] = None,
+    topic: Annotated[list[str] | None, typer.Option("--topic")] = None,
+    status: Annotated[EntertainmentStatus, typer.Option("--status")] = EntertainmentStatus.QUEUED,
+    note: Annotated[str | None, typer.Option("--note")] = None,
+) -> None:
+    """Add a work from a link; name, kind, creator, and poster are looked up."""
+    with cli_session() as session:
+        title = create_title_from_link(
+            session, url, kind=kind, status=status, topics=topic or [], note=note
+        )
+        print_created(f"entertainment {title.kind}", f"{title.slug} ({title.name})")
 
 
 @entertainment_app.command("status")

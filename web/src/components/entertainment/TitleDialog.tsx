@@ -1,4 +1,5 @@
-import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
+import { Sparkles } from 'lucide-react'
+import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 
 import { RatingStars } from '@/components/entertainment/RatingStars'
 import { Button } from '@/components/ui/button'
@@ -20,6 +21,7 @@ import {
   type EntertainmentStatus,
   type EntertainmentTitle,
   type EntertainmentTopic,
+  lookupEntertainmentLink,
   updateEntertainmentTitle,
   uploadEntertainmentImage,
 } from '@/lib/api'
@@ -27,11 +29,15 @@ import { KIND_LABEL, KINDS, parseTags, STATUSES, uniqueTitleSlug } from '@/lib/e
 import { isValidSlug } from '@/lib/slug'
 import { cn } from '@/lib/utils'
 
-/** Adds a title when `title` is null, otherwise edits or deletes it. */
+/**
+ * Adds a title when `title` is null, otherwise edits or deletes it. A pasted link is looked
+ * up to prefill name, kind, creator, and poster; `initialLink` does that on open.
+ */
 export function TitleDialog({
   open,
   onOpenChange,
   title,
+  initialLink = null,
   defaultKind,
   topics,
   takenSlugs,
@@ -40,6 +46,7 @@ export function TitleDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
   title: EntertainmentTitle | null
+  initialLink?: string | null
   defaultKind: EntertainmentKind
   topics: EntertainmentTopic[]
   takenSlugs: string[]
@@ -65,7 +72,49 @@ export function TitleDialog({
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [lookingUp, setLookingUp] = useState(false)
+  const [lookupNote, setLookupNote] = useState<string | null>(null)
+  const lookupRun = useRef(0)
 
+  async function runLookup(url: string) {
+    const cleaned = url.trim()
+    if (!/^https?:\/\/\S+$/.test(cleaned)) {
+      setLookupNote('Paste a full http(s) link to look it up.')
+      return
+    }
+    const run = ++lookupRun.current
+    setLookingUp(true)
+    setLookupNote(null)
+    try {
+      const found = await lookupEntertainmentLink(cleaned)
+      if (run !== lookupRun.current) return
+      // A new title takes everything found; an existing one only fills blanks.
+      const fill = (current: string, next: string | null) =>
+        next !== null && (!editing || current.trim() === '') ? next : current
+      setLink(found.link)
+      setName((current) => fill(current, found.name))
+      setCreator((current) => fill(current, found.creator))
+      if (!posterFile) setPosterUrl((current) => fill(current, found.image_url))
+      if (found.kind !== null && !editing) setKind(found.kind)
+      if (found.existing !== null && found.existing !== title?.slug) {
+        setLookupNote(`Already in your library (${found.existing}).`)
+      } else if (found.name === null) {
+        setLookupNote('No title found at that link; fill it in by hand.')
+      }
+    } catch (caught) {
+      if (run !== lookupRun.current) return
+      setLookupNote(
+        caught instanceof ApiError
+          ? `Could not look that up: ${caught.message}`
+          : 'Could not look that up.',
+      )
+    } finally {
+      if (run === lookupRun.current) setLookingUp(false)
+    }
+  }
+
+  // runLookup reads the current form state; listing it would re-run the reset on every render.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset only when the dialog opens
   useEffect(() => {
     if (!open) return
     setName(title?.name ?? '')
@@ -86,7 +135,14 @@ export function TitleDialog({
     setError(null)
     setPending(false)
     setConfirmDelete(false)
-  }, [open, title, defaultKind])
+    setLookingUp(false)
+    setLookupNote(null)
+    lookupRun.current += 1
+    if (title === null && initialLink) {
+      setLink(initialLink)
+      void runLookup(initialLink)
+    }
+  }, [open, title, defaultKind, initialLink])
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -169,13 +225,47 @@ export function TitleDialog({
           </DialogDescription>
         </DialogHeader>
         <form className="grid gap-3 sm:grid-cols-2" onSubmit={onSubmit}>
+          <Field id="title-link" label="Link" wide>
+            <div className="flex gap-2">
+              <Input
+                id="title-link"
+                type="url"
+                value={link}
+                placeholder="Paste a link to fill the rest in: YouTube, Spotify, Goodreads…"
+                onChange={(event) => setLink(event.target.value)}
+                onPaste={(event) => {
+                  const pasted = event.clipboardData.getData('text').trim()
+                  if (!editing && /^https?:\/\//.test(pasted)) {
+                    event.preventDefault()
+                    setLink(pasted)
+                    void runLookup(pasted)
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                className="shrink-0 whitespace-nowrap"
+                disabled={lookingUp || link.trim() === ''}
+                onClick={() => void runLookup(link)}
+              >
+                <Sparkles className="size-4" aria-hidden />
+                {lookingUp ? 'Looking up…' : 'Look up'}
+              </Button>
+            </div>
+            {lookupNote !== null ? (
+              <p className="text-xs text-warn" role="status">
+                {lookupNote}
+              </p>
+            ) : null}
+          </Field>
           <Field id="title-name" label="Title" wide>
             <Input
               id="title-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
               required
-              autoFocus
+              autoFocus={!initialLink}
             />
           </Field>
           <Field id="title-kind" label="Kind">
@@ -247,15 +337,6 @@ export function TitleDialog({
               onChange={(event) => setProgress(event.target.value)}
             />
           </Field>
-          <Field id="title-link" label="Link" wide>
-            <Input
-              id="title-link"
-              type="url"
-              value={link}
-              placeholder="Where it lives: YouTube, Spotify, Goodreads, a drive folder…"
-              onChange={(event) => setLink(event.target.value)}
-            />
-          </Field>
           <fieldset className="flex flex-col gap-2 sm:col-span-2">
             <legend className="text-xs font-medium text-muted">Tags</legend>
             {topics.length > 0 ? (
@@ -308,12 +389,21 @@ export function TitleDialog({
             />
           </Field>
           <Field id="title-image-url" label="Poster URL">
-            <Input
-              id="title-image-url"
-              value={posterUrl}
-              placeholder="https://"
-              onChange={(event) => setPosterUrl(event.target.value)}
-            />
+            <div className="flex items-center gap-2">
+              {/^https?:\/\//.test(posterUrl.trim()) ? (
+                <img
+                  src={posterUrl.trim()}
+                  alt=""
+                  className="size-9 shrink-0 rounded-md border border-line object-cover"
+                />
+              ) : null}
+              <Input
+                id="title-image-url"
+                value={posterUrl}
+                placeholder="https://"
+                onChange={(event) => setPosterUrl(event.target.value)}
+              />
+            </div>
           </Field>
           <Field id="title-image-file" label="Or upload a poster">
             <Input
