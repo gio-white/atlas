@@ -874,6 +874,8 @@ class EntertainmentTitleCreate(BaseModel):
     finished_on: date | None = None
     progress: str | None = None
     note: str | None = None
+    rating: int | None = None
+    link: str | None = None
     topics: list[str] = Field(default_factory=list)
     image_url: str | None = None
 
@@ -890,6 +892,8 @@ class EntertainmentTitleUpdate(BaseModel):
     finished_on: date | None = None
     progress: str | None = None
     note: str | None = None
+    rating: int | None = None
+    link: str | None = None
     topics: list[str] | None = None
     image_url: str | None = None
 
@@ -907,8 +911,11 @@ class EntertainmentTitleOut(BaseModel):
     finished_on: date | None
     progress: str | None
     note: str | None
+    rating: int | None
+    link: str | None
     topics: list[EntertainmentTopicRefOut]
     image: str | None
+    created_at: datetime | None
 
 
 class EntertainmentKindCountOut(BaseModel):

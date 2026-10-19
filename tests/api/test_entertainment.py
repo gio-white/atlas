@@ -105,3 +105,35 @@ def test_export_includes_entertainment(client):
     assert [row["slug"] for row in payload["entertainment_topics"]] == ["math"]
     assert payload["entertainment_titles"][0]["topics"] == ["math"]
     assert payload["entries"] == []
+
+
+def test_rating_link_and_delete(client):
+    created = client.post(
+        "/entertainment/titles",
+        json={
+            "slug": "kind-of-blue",
+            "kind": "music",
+            "rating": 5,
+            "link": "https://open.spotify.com/album/kind-of-blue",
+            "topics": ["jazz"],
+        },
+    )
+    assert created.status_code == 201, created.text
+    body = created.json()
+    assert body["rating"] == 5
+    assert body["link"] == "https://open.spotify.com/album/kind-of-blue"
+    assert body["topics"] == [{"slug": "jazz", "name": "Jazz"}]
+    assert body["created_at"] is not None
+
+    too_high = client.patch("/entertainment/titles/kind-of-blue", json={"rating": 6})
+    assert too_high.status_code == 400
+
+    cleared = client.patch("/entertainment/titles/kind-of-blue", json={"rating": None})
+    assert cleared.status_code == 200
+    assert cleared.json()["rating"] is None
+    assert cleared.json()["link"] == "https://open.spotify.com/album/kind-of-blue"
+
+    deleted = client.delete("/entertainment/titles/kind-of-blue")
+    assert deleted.status_code == 204
+    assert client.get("/entertainment/titles/kind-of-blue").status_code == 404
+    assert client.delete("/entertainment/titles/kind-of-blue").status_code == 404

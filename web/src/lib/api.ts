@@ -499,7 +499,15 @@ export type JournalDay = {
   entry_id: number | null
 }
 
-export type EntertainmentKind = 'film' | 'series' | 'anime' | 'video' | 'podcast' | 'book'
+export type EntertainmentKind =
+  | 'film'
+  | 'series'
+  | 'anime'
+  | 'video'
+  | 'podcast'
+  | 'book'
+  | 'music'
+  | 'other'
 export type EntertainmentStatus = 'queued' | 'in_progress' | 'done' | 'dropped'
 
 export type EntertainmentTopic = {
@@ -525,8 +533,11 @@ export type EntertainmentTitle = {
   finished_on: string | null
   progress: string | null
   note: string | null
+  rating: number | null
+  link: string | null
   topics: EntertainmentTopicRef[]
   image: string | null
+  created_at: string | null
 }
 
 export type EntertainmentKindCount = {
@@ -821,6 +832,8 @@ export function createEntertainmentTitle(body: {
   finished_on?: string | null
   progress?: string | null
   note?: string | null
+  rating?: number | null
+  link?: string | null
   topics?: string[]
   image_url?: string | null
 }): Promise<EntertainmentTitle> {
@@ -839,6 +852,8 @@ export function updateEntertainmentTitle(
     finished_on?: string | null
     progress?: string | null
     note?: string | null
+    rating?: number | null
+    link?: string | null
     topics?: string[]
     image_url?: string | null
   },
@@ -847,6 +862,10 @@ export function updateEntertainmentTitle(
     method: 'PATCH',
     body: JSON.stringify(body),
   })
+}
+
+export function deleteEntertainmentTitle(slug: string): Promise<void> {
+  return request(`/entertainment/titles/${encodeURIComponent(slug)}`, { method: 'DELETE' })
 }
 
 export async function uploadEntertainmentImage(

@@ -561,3 +561,38 @@ def _row_for(model, *, slug: str, area: Area, metric: Metric):
         start_on=date(2026, 1, 1),
         due_on=date(2026, 12, 31),
     )
+
+
+def test_init_schema_adds_entertainment_rating_and_link(tmp_path):
+    engine = create_engine_for(tmp_path / "v8.db")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE entertainment_title ("
+                "id INTEGER PRIMARY KEY, slug VARCHAR NOT NULL UNIQUE, name VARCHAR NOT NULL, "
+                "kind VARCHAR NOT NULL, creator VARCHAR, recommended_by VARCHAR, "
+                "status VARCHAR NOT NULL, started_on DATE, finished_on DATE, progress VARCHAR, "
+                "note VARCHAR, image_url VARCHAR, image_bytes BLOB, image_media_type VARCHAR, "
+                "archived_at DATETIME, created_at DATETIME NOT NULL)"
+            )
+        )
+        connection.execute(
+            text("CREATE TABLE schema_version (id INTEGER PRIMARY KEY, version INTEGER)")
+        )
+        connection.execute(text("INSERT INTO schema_version (id, version) VALUES (1, 8)"))
+        connection.execute(
+            text(
+                "INSERT INTO entertainment_title (slug, name, kind, status, created_at) "
+                "VALUES ('dune', 'Dune', 'BOOK', 'QUEUED', '2026-08-01 12:00:00')"
+            )
+        )
+    init_schema(engine)
+
+    columns = {column["name"] for column in inspect(engine).get_columns("entertainment_title")}
+    assert {"rating", "link"} <= columns
+    with Session(engine) as session:
+        title = session.exec(select(EntertainmentTitle)).one()
+        assert title.slug == "dune"
+        assert title.rating is None
+        assert title.link is None
+        assert session.get(SchemaVersion, 1).version == CURRENT_SCHEMA_VERSION

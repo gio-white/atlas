@@ -11,10 +11,14 @@ from atlas.services import (
     ValidationError,
     create_entertainment_title,
     create_entertainment_topic,
+    delete_entertainment_title,
     entertainment_dashboard,
     entertainment_view,
     export_all,
+    get_entertainment_title,
+    get_entertainment_topic,
     get_title_image,
+    import_all,
     list_entertainment_titles,
     set_title_image,
     update_entertainment_title,
@@ -135,3 +139,65 @@ def test_export_includes_entertainment_without_entries(session):
     assert payload["entertainment_titles"][0]["slug"] == "atomic-habits"
     assert payload["entertainment_titles"][0]["topics"] == ["finance"]
     assert payload["entries"] == []
+
+
+def test_rating_and_link_are_validated_and_clearable(session):
+    title = create_entertainment_title(
+        session,
+        "kind-of-blue",
+        kind=EntertainmentKind.MUSIC,
+        rating=5,
+        link=" https://open.spotify.com/album/kind-of-blue ",
+    )
+    assert title.rating == 5
+    assert title.link == "https://open.spotify.com/album/kind-of-blue"
+
+    for bad in (0, 6, True):
+        with pytest.raises(ValidationError):
+            update_entertainment_title(session, "kind-of-blue", rating=bad)
+    with pytest.raises(ValidationError):
+        update_entertainment_title(session, "kind-of-blue", link="spotify:album:1")
+
+    cleared = update_entertainment_title(session, "kind-of-blue", rating=None, link="")
+    assert cleared.rating is None
+    assert cleared.link is None
+
+
+def test_unknown_tags_are_created_on_the_fly(session):
+    title = create_entertainment_title(
+        session, "huberman", kind=EntertainmentKind.PODCAST, topics=["sleep-science"]
+    )
+    topic = get_entertainment_topic(session, "sleep-science")
+    assert topic.name == "Sleep Science"
+    listed = list_entertainment_titles(session, topic="sleep-science")
+    assert [row.slug for row in listed] == [title.slug]
+
+
+def test_delete_title_removes_it_and_its_tag_links(session):
+    _topic(session)
+    create_entertainment_title(session, "cosmos", kind=EntertainmentKind.SERIES, topics=["physics"])
+    delete_entertainment_title(session, "cosmos")
+    with pytest.raises(NotFoundError):
+        get_entertainment_title(session, "cosmos")
+    assert export_all(session)["entertainment_titles"] == []
+    assert list_entertainment_titles(session, topic="physics") == []
+    create_entertainment_title(session, "cosmos", kind=EntertainmentKind.SERIES)
+
+
+def test_rating_and_link_survive_export_and_import(session):
+    create_entertainment_title(
+        session,
+        "dune",
+        kind=EntertainmentKind.BOOK,
+        rating=4,
+        link="https://openlibrary.org/works/OL893415W",
+    )
+    payload = export_all(session)
+    row = payload["entertainment_titles"][0]
+    assert row["rating"] == 4
+    assert row["link"] == "https://openlibrary.org/works/OL893415W"
+    delete_entertainment_title(session, "dune")
+    import_all(session, payload)
+    restored = get_entertainment_title(session, "dune")
+    assert restored.rating == 4
+    assert restored.link == "https://openlibrary.org/works/OL893415W"

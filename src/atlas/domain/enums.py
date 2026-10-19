@@ -119,6 +119,8 @@ class EntertainmentKind(StrEnum):
     VIDEO = "video"
     PODCAST = "podcast"
     BOOK = "book"
+    MUSIC = "music"
+    OTHER = "other"
 
 
 class EntertainmentStatus(StrEnum):

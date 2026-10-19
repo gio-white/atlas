@@ -31,7 +31,7 @@ def test_seed_demo_loads_the_demo_dataset(session):
     assert summary.screen_devices == 2
     assert summary.screen_sessions >= 28
     assert summary.entertainment_topics == 4
-    assert summary.entertainment_titles == 8
+    assert summary.entertainment_titles == 9
 
     payload = export_all(session)
     assert payload["schema_version"] == CURRENT_SCHEMA_VERSION
@@ -97,7 +97,7 @@ def test_seed_demo_loads_the_demo_dataset(session):
         "physics",
         "programming",
     }
-    assert len(payload["entertainment_titles"]) == 8
+    assert len(payload["entertainment_titles"]) == 9
     assert {row["kind"] for row in payload["entertainment_titles"]} >= {
         "book",
         "film",
@@ -105,6 +105,7 @@ def test_seed_demo_loads_the_demo_dataset(session):
         "anime",
         "video",
         "podcast",
+        "music",
     }
     interval = [row for row in payload["screen_sessions"] if row["started_at"]]
     duration_only = [row for row in payload["screen_sessions"] if row["started_at"] is None]

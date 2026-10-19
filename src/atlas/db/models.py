@@ -210,6 +210,8 @@ class EntertainmentTitle(SQLModel, table=True):
     finished_on: date | None = None
     progress: str | None = None
     note: str | None = None
+    rating: int | None = None
+    link: str | None = None
     image_url: str | None = None
     image_bytes: bytes | None = Field(default=None, sa_column=Column(LargeBinary, nullable=True))
     image_media_type: str | None = None

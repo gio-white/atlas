@@ -49,6 +49,7 @@ from atlas.services import (
     create_habit,
     create_metric,
     create_task,
+    delete_entertainment_title,
     delete_entry,
     export_all,
     get_metric,
@@ -408,6 +409,8 @@ def entertainment_add(
     image: Annotated[Path | None, typer.Option("--image")] = None,
     progress: Annotated[str | None, typer.Option("--progress")] = None,
     note: Annotated[str | None, typer.Option("--note")] = None,
+    rating: Annotated[int | None, typer.Option("--rating", min=1, max=5)] = None,
+    link: Annotated[str | None, typer.Option("--link")] = None,
 ) -> None:
     """Add a work to the entertainment library."""
     if image is not None and image_url:
@@ -423,6 +426,8 @@ def entertainment_add(
             status=status,
             progress=progress,
             note=note,
+            rating=rating,
+            link=link,
             topics=topic or [],
             image_url=image_url,
         )
@@ -441,6 +446,25 @@ def entertainment_status(
     with cli_session() as session:
         title = update_entertainment_title(session, slug, status=status)
         typer.echo(f"entertainment {title.slug} is {title.status}")
+
+
+@entertainment_app.command("rate")
+def entertainment_rate(
+    slug: Annotated[str, typer.Argument()],
+    rating: Annotated[int, typer.Argument(min=1, max=5)],
+) -> None:
+    """Rate a tracked work from 1 to 5."""
+    with cli_session() as session:
+        title = update_entertainment_title(session, slug, rating=rating)
+        typer.echo(f"entertainment {title.slug} rated {title.rating}/5")
+
+
+@entertainment_app.command("remove")
+def entertainment_remove(slug: Annotated[str, typer.Argument()]) -> None:
+    """Delete a work from the entertainment library."""
+    with cli_session() as session:
+        delete_entertainment_title(session, slug)
+        typer.echo(f"removed entertainment {slug}")
 
 
 @app.command("export")

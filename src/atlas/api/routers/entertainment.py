@@ -24,6 +24,7 @@ from atlas.services import (
     clear_title_image,
     create_entertainment_title,
     create_entertainment_topic,
+    delete_entertainment_title,
     entertainment_dashboard,
     entertainment_view,
     get_entertainment_title,
@@ -121,6 +122,8 @@ def post_title(session: SessionDep, body: EntertainmentTitleCreate) -> Entertain
         finished_on=body.finished_on,
         progress=body.progress,
         note=body.note,
+        rating=body.rating,
+        link=body.link,
         topics=body.topics,
         image_url=body.image_url,
     )
@@ -140,6 +143,11 @@ def patch_title(
 ) -> EntertainmentTitleOut:
     title = update_entertainment_title(session, slug, **body.model_dump(exclude_unset=True))
     return entertainment_title_out_for(session, title)
+
+
+@router.delete("/titles/{slug}", status_code=204)
+def delete_title(session: SessionDep, slug: str) -> None:
+    delete_entertainment_title(session, slug)
 
 
 @router.put("/titles/{slug}/image", response_model=EntertainmentTitleOut)

@@ -187,8 +187,11 @@ class EntertainmentTitleView:
     finished_on: date | None = None
     progress: str | None = None
     note: str | None = None
+    rating: int | None = None
+    link: str | None = None
     topics: tuple[EntertainmentTopicRef, ...] = ()
     image: str | None = None
+    created_at: datetime | None = None
 
 
 def _as_aware(value: datetime | None) -> datetime:

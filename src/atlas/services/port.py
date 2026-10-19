@@ -439,6 +439,8 @@ def _export_entertainment_title(title: EntertainmentTitle, topics: list[str]) ->
         "finished_on": title.finished_on.isoformat() if title.finished_on is not None else None,
         "progress": title.progress,
         "note": title.note,
+        "rating": title.rating,
+        "link": title.link,
         "topics": topics,
         "image_url": title.image_url,
         "image_media_type": title.image_media_type if title.image_bytes else None,
@@ -486,6 +488,8 @@ def _import_entertainment_title(session: Session, raw: dict[str, Any]) -> None:
     existing.finished_on = _parse_date(finished_on) if finished_on else None
     existing.progress = raw.get("progress")
     existing.note = raw.get("note")
+    existing.rating = raw.get("rating")
+    existing.link = raw.get("link")
     existing.archived_at = _parse_datetime(raw.get("archived_at"))
     created_at = _parse_datetime(raw.get("created_at"))
     if created_at is not None:

@@ -344,10 +344,13 @@ def entertainment_title_out(view: Any) -> EntertainmentTitleOut:
         finished_on=view.finished_on,
         progress=view.progress,
         note=view.note,
+        rating=view.rating,
+        link=view.link,
         topics=[
             EntertainmentTopicRefOut(slug=topic.slug, name=topic.name) for topic in view.topics
         ],
         image=view.image,
+        created_at=view.created_at,
     )
 
 

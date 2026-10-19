@@ -405,6 +405,7 @@ def _entertainment_titles(as_of: date) -> list[dict[str, Any]]:
             topics=["finance"],
             finished_on=as_of - timedelta(days=10),
             started_on=as_of - timedelta(days=24),
+            rating=4,
         ),
         _entertainment_title(
             "the-office",
@@ -425,6 +426,7 @@ def _entertainment_titles(as_of: date) -> list[dict[str, Any]]:
             topics=["physics"],
             finished_on=as_of - timedelta(days=3),
             started_on=as_of - timedelta(days=3),
+            rating=5,
         ),
         _entertainment_title(
             "lex-fridman-109",
@@ -434,6 +436,8 @@ def _entertainment_titles(as_of: date) -> list[dict[str, Any]]:
             status="done",
             topics=["programming"],
             finished_on=as_of - timedelta(days=1),
+            rating=3,
+            link="https://lexfridman.com/podcast/",
         ),
         _entertainment_title(
             "three-body",
@@ -452,6 +456,17 @@ def _entertainment_titles(as_of: date) -> list[dict[str, Any]]:
             status="dropped",
             started_on=as_of - timedelta(days=15),
             progress="S1E6",
+            rating=2,
+        ),
+        _entertainment_title(
+            "kind-of-blue",
+            "Kind of Blue",
+            "music",
+            creator="Miles Davis",
+            recommended_by="Alex",
+            status="done",
+            finished_on=as_of - timedelta(days=2),
+            rating=5,
         ),
         _entertainment_title(
             "3blue1brown-linear",
@@ -461,6 +476,8 @@ def _entertainment_titles(as_of: date) -> list[dict[str, Any]]:
             status="done",
             topics=["math"],
             finished_on=as_of - timedelta(days=5),
+            rating=5,
+            link="https://www.3blue1brown.com/topics/linear-algebra",
         ),
         _entertainment_title(
             "rich-dad",
@@ -486,6 +503,8 @@ def _entertainment_title(
     finished_on: date | None = None,
     progress: str | None = None,
     note: str | None = None,
+    rating: int | None = None,
+    link: str | None = None,
 ) -> dict[str, Any]:
     created = finished_on or started_on or date(2026, 8, 1)
     created_at = datetime(created.year, created.month, created.day, 12, 0, tzinfo=UTC)
@@ -500,6 +519,8 @@ def _entertainment_title(
         "finished_on": finished_on.isoformat() if finished_on else None,
         "progress": progress,
         "note": note,
+        "rating": rating,
+        "link": link,
         "topics": topics or [],
         "image_url": None,
         "image_media_type": None,

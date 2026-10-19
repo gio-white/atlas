@@ -10,7 +10,7 @@ from sqlmodel import Session, SQLModel, col, create_engine, select
 from atlas.db.models import Entry, SchemaVersion, ScreenApp, ScreenSession
 from atlas.domain import infer_horizon
 
-CURRENT_SCHEMA_VERSION = 8
+CURRENT_SCHEMA_VERSION = 9
 
 
 def create_engine_for(db_path: Path) -> Engine:
@@ -52,6 +52,8 @@ def init_schema(engine: Engine) -> None:
                 _backfill_screen_sessions(engine)
             if previous < 6:
                 _make_goal_area_nullable(engine)
+            if previous < 9:
+                _add_entertainment_rating_and_link(engine)
             session.expire_all()
             row = session.get(SchemaVersion, 1)
         if row is None:
@@ -207,6 +209,18 @@ def _make_goal_area_nullable(engine: Engine) -> None:
             connection.execute(text("PRAGMA foreign_keys=ON"))
             raise
         connection.execute(text("PRAGMA foreign_keys=ON"))
+
+
+def _add_entertainment_rating_and_link(engine: Engine) -> None:
+    inspector = inspect(engine)
+    if "entertainment_title" not in inspector.get_table_names():
+        return
+    columns = {column["name"] for column in inspector.get_columns("entertainment_title")}
+    with engine.begin() as connection:
+        if "rating" not in columns:
+            connection.execute(text("ALTER TABLE entertainment_title ADD COLUMN rating INTEGER"))
+        if "link" not in columns:
+            connection.execute(text("ALTER TABLE entertainment_title ADD COLUMN link VARCHAR"))
 
 
 def _as_date(value: date | str) -> date:

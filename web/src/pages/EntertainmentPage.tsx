@@ -1,48 +1,73 @@
-import { ChevronLeft, ChevronRight, Clapperboard, Plus } from 'lucide-react'
-import { type FormEvent, useCallback, useEffect, useState } from 'react'
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronLeft,
+  ChevronRight,
+  Clapperboard,
+  ExternalLink,
+  Plus,
+  Search,
+} from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { CountDonut, countSlices } from '@/components/entertainment/Charts'
+import { RatingStars } from '@/components/entertainment/RatingStars'
+import { TitleDialog } from '@/components/entertainment/TitleDialog'
+import { Segmented } from '@/components/home/Segmented'
 import { EmptyState, PageHeader, PageLoading, PageUnavailable } from '@/components/PageState'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import {
   ApiError,
-  createEntertainmentTitle,
-  createEntertainmentTopic,
   type EntertainmentDashboard,
   type EntertainmentKind,
   type EntertainmentStatus,
   type EntertainmentTitle,
   type EntertainmentTopic,
   getEntertainmentDashboard,
+  listEntertainmentTitles,
   listEntertainmentTopics,
   type Period,
   updateEntertainmentTitle,
-  uploadEntertainmentImage,
 } from '@/lib/api'
 import { useAsOf } from '@/lib/asOf'
 import { shiftPeriodDate, shortDateLabel } from '@/lib/dates'
-import { isValidSlug } from '@/lib/slug'
+import {
+  CATEGORIES,
+  type CategoryId,
+  categoryFor,
+  defaultDir,
+  filterTitles,
+  inCategory,
+  KIND_LABEL,
+  type LibraryFilter,
+  parseCategory,
+  parseSortKey,
+  type SortDir,
+  type SortKey,
+  STATUS_LABEL,
+  STATUSES,
+  sortTitles,
+  statusCounts,
+  tagsIn,
+} from '@/lib/entertainment'
 import { cn, todayIso } from '@/lib/utils'
+
+type View = 'library' | 'insights'
+
+const VIEWS: { id: View; label: string }[] = [
+  { id: 'library', label: 'Library' },
+  { id: 'insights', label: 'Insights' },
+]
 
 const PERIODS: { id: Period; label: string }[] = [
   { id: 'day', label: 'Day' },
   { id: 'week', label: 'Week' },
   { id: 'month', label: 'Month' },
-]
-
-const KINDS: EntertainmentKind[] = ['film', 'series', 'anime', 'video', 'podcast', 'book']
-
-const STATUSES: { id: EntertainmentStatus; label: string }[] = [
-  { id: 'queued', label: 'Queued' },
-  { id: 'in_progress', label: 'In progress' },
-  { id: 'done', label: 'Done' },
-  { id: 'dropped', label: 'Dropped' },
 ]
 
 const KIND_FALLBACK: Record<EntertainmentKind, string> = {
@@ -52,6 +77,8 @@ const KIND_FALLBACK: Record<EntertainmentKind, string> = {
   video: 'bg-screen/80',
   podcast: 'bg-goal/80',
   book: 'bg-warn/80',
+  music: 'bg-sleep/80',
+  other: 'bg-muted/80',
 }
 
 function parsePeriod(raw: string | null): Period {
@@ -59,34 +86,24 @@ function parsePeriod(raw: string | null): Period {
   return 'week'
 }
 
-function slugify(text: string): string {
-  return text
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
-
-function kindLabel(kind: EntertainmentKind): string {
-  return kind.replace('_', ' ')
-}
-
 export function EntertainmentPage() {
-  const asOf = useAsOf()
   const [params, setParams] = useSearchParams()
-  const period = parsePeriod(params.get('period'))
-  const [dash, setDash] = useState<EntertainmentDashboard | null>(null)
+  const view: View = params.get('view') === 'insights' ? 'insights' : 'library'
+  const category = parseCategory(params.get('cat'))
+  const [titles, setTitles] = useState<EntertainmentTitle[] | null>(null)
   const [topics, setTopics] = useState<EntertainmentTopic[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editing, setEditing] = useState<EntertainmentTitle | null>(null)
 
   const refresh = useCallback(async () => {
-    const [nextDash, nextTopics] = await Promise.all([
-      getEntertainmentDashboard(period, asOf),
+    const [nextTitles, nextTopics] = await Promise.all([
+      listEntertainmentTitles(),
       listEntertainmentTopics().catch(() => []),
     ])
-    setDash(nextDash)
+    setTitles(nextTitles)
     setTopics(nextTopics)
-  }, [asOf, period])
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -94,13 +111,484 @@ export function EntertainmentPage() {
     refresh().catch((caught: unknown) => {
       if (!cancelled) {
         setError(caught instanceof ApiError ? caught.message : 'Could not load entertainment')
-        setDash(null)
       }
     })
     return () => {
       cancelled = true
     }
   }, [refresh])
+
+  function setParam(key: string, value: string | null) {
+    const copy = new URLSearchParams(params)
+    if (value === null) copy.delete(key)
+    else copy.set(key, value)
+    setParams(copy, { replace: true })
+  }
+
+  function openDialog(title: EntertainmentTitle | null) {
+    setEditing(title)
+    setDialogOpen(true)
+  }
+
+  if (error !== null) {
+    return <PageUnavailable title="Entertainment" message={error} />
+  }
+  if (titles === null) return <PageLoading />
+
+  const defaultKind = categoryFor(category).kinds[0]
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <PageHeader
+          title="Entertainment"
+          description="Everything you have watched, read, and listened to, and what is next."
+          homeLink
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Segmented
+            label="Entertainment view"
+            options={VIEWS}
+            value={view}
+            onChange={(next) => setParam('view', next === 'library' ? null : next)}
+          />
+          <Button type="button" onClick={() => openDialog(null)}>
+            <Plus className="size-4" aria-hidden />
+            Add
+          </Button>
+        </div>
+      </div>
+      {view === 'library' ? (
+        <LibraryView
+          titles={titles}
+          category={category}
+          onCategory={(next) => setParam('cat', next === 'all' ? null : next)}
+          onOpen={openDialog}
+          onRefresh={refresh}
+        />
+      ) : (
+        <InsightsView titleCount={titles.length} />
+      )}
+      <TitleDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title={editing}
+        defaultKind={defaultKind}
+        topics={topics}
+        takenSlugs={titles.map((title) => title.slug)}
+        onSaved={refresh}
+      />
+    </div>
+  )
+}
+
+function LibraryView({
+  titles,
+  category,
+  onCategory,
+  onOpen,
+  onRefresh,
+}: {
+  titles: EntertainmentTitle[]
+  category: CategoryId
+  onCategory: (next: CategoryId) => void
+  onOpen: (title: EntertainmentTitle) => void
+  onRefresh: () => Promise<void>
+}) {
+  const [params, setParams] = useSearchParams()
+  const sortKey = parseSortKey(params.get('sort'))
+  const sortDir: SortDir =
+    params.get('dir') === 'asc' || params.get('dir') === 'desc'
+      ? (params.get('dir') as SortDir)
+      : defaultDir(sortKey)
+  const [filter, setFilter] = useState<LibraryFilter>({
+    status: null,
+    tag: null,
+    minRating: null,
+    query: '',
+  })
+
+  const inScope = useMemo(
+    () => titles.filter((title) => inCategory(title, category)),
+    [titles, category],
+  )
+  const counts = useMemo(() => statusCounts(inScope), [inScope])
+  const tags = useMemo(() => tagsIn(inScope), [inScope])
+  const rows = useMemo(
+    () => sortTitles(filterTitles(titles, category, filter), sortKey, sortDir),
+    [titles, category, filter, sortKey, sortDir],
+  )
+  const showKind = categoryFor(category).kinds.length > 1
+
+  function sortBy(key: SortKey) {
+    const copy = new URLSearchParams(params)
+    const nextDir: SortDir =
+      key === sortKey ? (sortDir === 'asc' ? 'desc' : 'asc') : defaultDir(key)
+    copy.set('sort', key)
+    copy.set('dir', nextDir)
+    setParams(copy, { replace: true })
+  }
+
+  async function patch(slug: string, body: Parameters<typeof updateEntertainmentTitle>[1]) {
+    await updateEntertainmentTitle(slug, body)
+    await onRefresh()
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex gap-1 overflow-x-auto border-b border-line" role="tablist">
+        {CATEGORIES.map((item) => {
+          const count = titles.filter((title) => inCategory(title, item.id)).length
+          return (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={category === item.id}
+              className={cn(
+                '-mb-px flex shrink-0 items-baseline gap-1.5 border-b-2 px-3 py-2 text-sm motion-safe:transition-colors',
+                category === item.id
+                  ? 'border-entertainment font-medium text-ink'
+                  : 'border-transparent text-muted hover:text-ink',
+              )}
+              onClick={() => {
+                onCategory(item.id)
+                setFilter((current) => ({ ...current, tag: null }))
+              }}
+            >
+              {item.label}
+              <span className="text-xs text-muted">{count}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-48 flex-1 sm:max-w-xs">
+          <Search
+            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted"
+            aria-hidden
+          />
+          <Input
+            aria-label="Search the library"
+            className="pl-9"
+            placeholder="Search title, creator, notes"
+            value={filter.query}
+            onChange={(event) => setFilter({ ...filter, query: event.target.value })}
+          />
+        </div>
+        <div className="flex flex-wrap gap-1">
+          <StatusChip
+            label="Any status"
+            count={inScope.length}
+            active={filter.status === null}
+            onClick={() => setFilter({ ...filter, status: null })}
+          />
+          {STATUSES.map((status) => (
+            <StatusChip
+              key={status.id}
+              label={status.label}
+              count={counts[status.id]}
+              active={filter.status === status.id}
+              onClick={() => setFilter({ ...filter, status: status.id })}
+            />
+          ))}
+        </div>
+        <Select
+          aria-label="Filter by tag"
+          className="w-auto"
+          value={filter.tag ?? ''}
+          onChange={(event) => setFilter({ ...filter, tag: event.target.value || null })}
+        >
+          <option value="">All tags</option>
+          {tags.map((tag) => (
+            <option key={tag.slug} value={tag.slug}>
+              {tag.name}
+            </option>
+          ))}
+        </Select>
+        <Select
+          aria-label="Minimum rating"
+          className="w-auto"
+          value={filter.minRating ?? ''}
+          onChange={(event) =>
+            setFilter({
+              ...filter,
+              minRating: event.target.value === '' ? null : Number(event.target.value),
+            })
+          }
+        >
+          <option value="">Any rating</option>
+          {[5, 4, 3, 2].map((stars) => (
+            <option key={stars} value={stars}>
+              {stars === 5 ? '5 stars' : `${stars}+ stars`}
+            </option>
+          ))}
+        </Select>
+      </div>
+
+      {rows.length === 0 ? (
+        <EmptyState
+          title={inScope.length === 0 ? 'Nothing here yet' : 'No titles match these filters'}
+          hint={
+            inScope.length === 0
+              ? 'Use Add to save something you have seen or want to see.'
+              : 'Clear a filter or search for something else.'
+          }
+        />
+      ) : (
+        <div className="overflow-x-auto rounded-2xl border border-line bg-surface">
+          <table className="w-full min-w-[44rem] text-sm">
+            <thead className="border-b border-line text-left text-xs text-muted">
+              <tr>
+                <SortHeader
+                  label="Title"
+                  column="name"
+                  sortKey={sortKey}
+                  dir={sortDir}
+                  onSort={sortBy}
+                />
+                {showKind ? (
+                  <SortHeader
+                    label="Kind"
+                    column="kind"
+                    sortKey={sortKey}
+                    dir={sortDir}
+                    onSort={sortBy}
+                  />
+                ) : null}
+                <SortHeader
+                  label="Status"
+                  column="status"
+                  sortKey={sortKey}
+                  dir={sortDir}
+                  onSort={sortBy}
+                />
+                <SortHeader
+                  label="Rating"
+                  column="rating"
+                  sortKey={sortKey}
+                  dir={sortDir}
+                  onSort={sortBy}
+                />
+                <th className="px-3 py-2 font-medium">Tags</th>
+                <SortHeader
+                  label="Finished"
+                  column="finished_on"
+                  sortKey={sortKey}
+                  dir={sortDir}
+                  onSort={sortBy}
+                />
+                <SortHeader
+                  label="Added"
+                  column="created_at"
+                  sortKey={sortKey}
+                  dir={sortDir}
+                  onSort={sortBy}
+                />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((title) => (
+                <tr
+                  key={title.slug}
+                  className="border-b border-line/60 last:border-0 hover:bg-raised/60"
+                >
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-3">
+                      <Thumb title={title} />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            className="cursor-pointer truncate text-left font-medium text-ink hover:underline"
+                            onClick={() => onOpen(title)}
+                          >
+                            {title.name}
+                          </button>
+                          {title.link ? (
+                            <a
+                              href={title.link}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-muted hover:text-ink"
+                              aria-label={`Open ${title.name}`}
+                            >
+                              <ExternalLink className="size-3.5" aria-hidden />
+                            </a>
+                          ) : null}
+                        </div>
+                        <p className="truncate text-xs text-muted">
+                          {[title.creator, title.progress].filter(Boolean).join(' · ')}
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                  {showKind ? (
+                    <td className="px-3 py-2 text-muted">{KIND_LABEL[title.kind]}</td>
+                  ) : null}
+                  <td className="px-3 py-2">
+                    <Select
+                      aria-label={`Status for ${title.name}`}
+                      className="h-8 w-32"
+                      value={title.status}
+                      onChange={(event) =>
+                        void patch(title.slug, {
+                          status: event.target.value as EntertainmentStatus,
+                        })
+                      }
+                    >
+                      {STATUSES.map((status) => (
+                        <option key={status.id} value={status.id}>
+                          {status.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </td>
+                  <td className="px-3 py-2">
+                    <RatingStars
+                      value={title.rating}
+                      label={`rating for ${title.name}`}
+                      onChange={(rating) => void patch(title.slug, { rating })}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="flex flex-wrap gap-1">
+                      {title.topics.map((topic) => (
+                        <button
+                          key={topic.slug}
+                          type="button"
+                          className="cursor-pointer"
+                          onClick={() => setFilter({ ...filter, tag: topic.slug })}
+                        >
+                          <Badge className="normal-case">{topic.name}</Badge>
+                        </button>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap text-muted">
+                    {title.finished_on ? shortDateLabel(title.finished_on) : '—'}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap text-muted">
+                    {title.created_at ? shortDateLabel(title.created_at.slice(0, 10)) : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StatusChip({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string
+  count: number
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      className={cn(
+        'cursor-pointer rounded-full border px-3 py-1 text-xs motion-safe:transition-colors',
+        active
+          ? 'border-entertainment bg-entertainment/15 text-ink'
+          : 'border-line text-muted hover:text-ink',
+      )}
+      onClick={onClick}
+    >
+      {label} <span className="text-muted">{count}</span>
+    </button>
+  )
+}
+
+function SortHeader({
+  label,
+  column,
+  sortKey,
+  dir,
+  onSort,
+}: {
+  label: string
+  column: SortKey
+  sortKey: SortKey
+  dir: SortDir
+  onSort: (key: SortKey) => void
+}) {
+  const active = column === sortKey
+  return (
+    <th
+      className="px-3 py-2 font-medium"
+      aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+    >
+      <button
+        type="button"
+        className={cn(
+          'inline-flex cursor-pointer items-center gap-1 hover:text-ink',
+          active && 'text-ink',
+        )}
+        onClick={() => onSort(column)}
+      >
+        {label}
+        {active ? (
+          dir === 'asc' ? (
+            <ArrowUp className="size-3" aria-hidden />
+          ) : (
+            <ArrowDown className="size-3" aria-hidden />
+          )
+        ) : null}
+      </button>
+    </th>
+  )
+}
+
+function Thumb({ title }: { title: EntertainmentTitle }) {
+  if (title.image) {
+    return <img src={title.image} alt="" className="size-10 shrink-0 rounded-md object-cover" />
+  }
+  return (
+    <div
+      className={cn(
+        'flex size-10 shrink-0 items-center justify-center rounded-md text-white/90',
+        KIND_FALLBACK[title.kind],
+      )}
+    >
+      <Clapperboard className="size-4" aria-hidden />
+    </div>
+  )
+}
+
+function InsightsView({ titleCount }: { titleCount: number }) {
+  const asOf = useAsOf()
+  const [params, setParams] = useSearchParams()
+  const period = parsePeriod(params.get('period'))
+  const [dash, setDash] = useState<EntertainmentDashboard | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setError(null)
+    getEntertainmentDashboard(period, asOf)
+      .then((next) => {
+        if (!cancelled) setDash(next)
+      })
+      .catch((caught: unknown) => {
+        if (!cancelled) {
+          setError(caught instanceof ApiError ? caught.message : 'Could not load insights')
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [asOf, period])
 
   function setPeriod(next: Period) {
     const copy = new URLSearchParams(params)
@@ -117,40 +605,25 @@ export function EntertainmentPage() {
     setParams(copy, { replace: true })
   }
 
-  if (error !== null) {
-    return <PageUnavailable title="Entertainment" message={error} />
-  }
+  if (error !== null) return <p className="text-sm text-bad">{error}</p>
   if (dash === null) return <PageLoading />
-
-  const empty =
-    dash.queued + dash.in_progress + dash.done + dash.dropped === 0 && topics.length === 0
+  if (titleCount === 0) {
+    return (
+      <EmptyState
+        title="Nothing in the library yet"
+        hint="Add a film, series, book, podcast, or album and insights will appear here."
+      />
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <PageHeader
-          title="Entertainment"
-          description={`${shortDateLabel(dash.range_start)} – ${shortDateLabel(dash.range_end)}`}
-          homeLink
-        />
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-full border border-line bg-surface p-1" role="tablist">
-            {PERIODS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={period === item.id}
-                className={cn(
-                  'rounded-full px-3 py-1 text-sm motion-safe:transition-colors',
-                  period === item.id ? 'bg-entertainment/20 text-ink' : 'text-muted hover:text-ink',
-                )}
-                onClick={() => setPeriod(item.id)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted">
+          {shortDateLabel(dash.range_start)} – {shortDateLabel(dash.range_end)}
+        </p>
+        <div className="flex items-center gap-2">
+          <Segmented label="Period" options={PERIODS} value={period} onChange={setPeriod} />
           <Button
             type="button"
             variant="ghost"
@@ -171,30 +644,11 @@ export function EntertainmentPage() {
           </Button>
         </div>
       </div>
-      {empty ? (
-        <EmptyState
-          title="Nothing in the library yet"
-          hint="Add a topic, then a film, series, book, or anything else you have seen."
-        />
-      ) : null}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Finished" value={dash.finished_in_range} hint="in this period" />
-        <StatCard label="In progress" value={dash.in_progress} hint="currently watching" />
-        <StatCard label="Queued" value={dash.queued} hint="waiting" />
+        <StatCard label="In progress" value={dash.in_progress} hint="right now" />
+        <StatCard label={STATUS_LABEL.queued} value={dash.queued} hint="waiting" />
         <StatCard label="Dropped" value={dash.dropped} hint="left unfinished" />
-      </section>
-      <section className="flex gap-4 overflow-x-auto pb-2">
-        {STATUSES.map((column) => (
-          <StatusColumn
-            key={column.id}
-            label={column.label}
-            titles={dash.library[column.id]}
-            onStatus={async (slug, status) => {
-              await updateEntertainmentTitle(slug, { status })
-              await refresh()
-            }}
-          />
-        ))}
       </section>
       <section className="grid gap-4 lg:grid-cols-2">
         <Card>
@@ -207,7 +661,7 @@ export function EntertainmentPage() {
             slices={countSlices(
               dash.by_kind.map((row) => ({
                 slug: row.kind,
-                name: kindLabel(row.kind),
+                name: KIND_LABEL[row.kind],
                 count: row.count,
               })),
             )}
@@ -215,11 +669,11 @@ export function EntertainmentPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Finished by topic</CardTitle>
+            <CardTitle className="text-base">Finished by tag</CardTitle>
             <CardDescription>This period</CardDescription>
           </CardHeader>
           <CountDonut
-            label="Finished by topic"
+            label="Finished by tag"
             slices={countSlices(
               dash.by_topic.map((row) => ({
                 slug: row.slug,
@@ -240,13 +694,12 @@ export function EntertainmentPage() {
           <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {dash.recently_finished.map((title) => (
               <li key={title.slug}>
-                <PosterCard title={title} compact />
+                <PosterCard title={title} />
               </li>
             ))}
           </ul>
         )}
       </Card>
-      <CapturePanel topics={topics} onSaved={refresh} />
     </div>
   )
 }
@@ -261,44 +714,10 @@ function StatCard({ label, value, hint }: { label: string; value: number; hint: 
   )
 }
 
-function StatusColumn({
-  label,
-  titles,
-  onStatus,
-}: {
-  label: string
-  titles: EntertainmentTitle[]
-  onStatus: (slug: string, status: EntertainmentStatus) => Promise<void>
-}) {
-  return (
-    <div className="flex min-w-64 flex-1 flex-col gap-3">
-      <div className="flex items-baseline justify-between">
-        <h2 className="font-serif text-lg font-medium tracking-tight">{label}</h2>
-        <span className="text-xs text-muted">{titles.length}</span>
-      </div>
-      {titles.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-line px-3 py-6 text-sm text-muted">
-          Empty
-        </p>
-      ) : (
-        titles.map((title) => <PosterCard key={title.slug} title={title} onStatus={onStatus} />)
-      )}
-    </div>
-  )
-}
-
-function PosterCard({
-  title,
-  compact = false,
-  onStatus,
-}: {
-  title: EntertainmentTitle
-  compact?: boolean
-  onStatus?: (slug: string, status: EntertainmentStatus) => Promise<void>
-}) {
+function PosterCard({ title }: { title: EntertainmentTitle }) {
   return (
     <article className="overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow-card)]">
-      <div className={cn('relative', compact ? 'aspect-[16/10]' : 'aspect-[2/3]')}>
+      <div className="relative aspect-[16/10]">
         {title.image ? (
           <img src={title.image} alt="" className="size-full object-cover" />
         ) : (
@@ -314,275 +733,19 @@ function PosterCard({
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3 text-white">
           <p className="font-medium leading-tight">{title.name}</p>
           <p className="mt-0.5 text-xs text-white/80">
-            {kindLabel(title.kind)}
+            {KIND_LABEL[title.kind]}
             {title.creator ? ` · ${title.creator}` : ''}
           </p>
         </div>
       </div>
-      <div className="flex flex-col gap-2 p-3">
-        <div className="flex flex-wrap gap-1">
-          <Badge tone="accent">{kindLabel(title.kind)}</Badge>
-          {title.topics.map((topic) => (
-            <Badge key={topic.slug}>{topic.name}</Badge>
-          ))}
-        </div>
-        {title.recommended_by ? (
-          <p className="text-xs text-muted">Recommended by {title.recommended_by}</p>
-        ) : null}
-        {title.progress ? <p className="text-xs text-muted">{title.progress}</p> : null}
+      <div className="flex items-center justify-between gap-2 p-3">
         {title.finished_on ? (
           <p className="text-xs text-muted">Finished {shortDateLabel(title.finished_on)}</p>
-        ) : null}
-        {onStatus ? (
-          <Select
-            value={title.status}
-            aria-label={`Status for ${title.name}`}
-            onChange={(event) => {
-              void onStatus(title.slug, event.target.value as EntertainmentStatus)
-            }}
-          >
-            {STATUSES.map((status) => (
-              <option key={status.id} value={status.id}>
-                {status.label}
-              </option>
-            ))}
-          </Select>
-        ) : null}
+        ) : (
+          <span />
+        )}
+        {title.rating !== null ? <RatingStars value={title.rating} label="rating" /> : null}
       </div>
     </article>
-  )
-}
-
-function CapturePanel({
-  topics,
-  onSaved,
-}: {
-  topics: EntertainmentTopic[]
-  onSaved: () => Promise<void>
-}) {
-  const [name, setName] = useState('')
-  const [kind, setKind] = useState<EntertainmentKind>('film')
-  const [creator, setCreator] = useState('')
-  const [recommendedBy, setRecommendedBy] = useState('')
-  const [status, setStatus] = useState<EntertainmentStatus>('queued')
-  const [progress, setProgress] = useState('')
-  const [imageUrl, setImageUrl] = useState('')
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [selectedTopics, setSelectedTopics] = useState<string[]>([])
-  const [topicSlug, setTopicSlug] = useState('')
-  const [error, setError] = useState<string | null>(null)
-
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault()
-    setError(null)
-    const slug = slugify(name)
-    if (!isValidSlug(slug)) {
-      setError('Name must contain letters or digits so a slug can be derived.')
-      return
-    }
-    try {
-      const title = await createEntertainmentTitle({
-        slug,
-        name,
-        kind,
-        creator: creator || null,
-        recommended_by: recommendedBy || null,
-        status,
-        progress: progress || null,
-        topics: selectedTopics,
-        image_url: imageFile ? null : imageUrl || null,
-      })
-      if (imageFile) {
-        await uploadEntertainmentImage(title.slug, imageFile)
-      }
-      setName('')
-      setCreator('')
-      setRecommendedBy('')
-      setProgress('')
-      setImageUrl('')
-      setImageFile(null)
-      setSelectedTopics([])
-      await onSaved()
-    } catch (caught: unknown) {
-      setError(caught instanceof ApiError ? caught.message : 'Could not add title')
-    }
-  }
-
-  async function onAddTopic(event: FormEvent) {
-    event.preventDefault()
-    setError(null)
-    const slug = slugify(topicSlug)
-    if (!isValidSlug(slug)) {
-      setError('Topic slug must be lowercase letters, digits, and hyphens.')
-      return
-    }
-    try {
-      await createEntertainmentTopic({ slug, name: topicSlug })
-      setTopicSlug('')
-      await onSaved()
-    } catch (caught: unknown) {
-      setError(caught instanceof ApiError ? caught.message : 'Could not add topic')
-    }
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <div>
-          <CardTitle className="text-base">Add to the library</CardTitle>
-          <CardDescription>A work you have seen, started, or want to see.</CardDescription>
-        </div>
-        <Plus className="size-4 text-entertainment" aria-hidden />
-      </CardHeader>
-      {error !== null ? (
-        <p className="mb-3 text-sm text-bad" role="alert">
-          {error}
-        </p>
-      ) : null}
-      <form className="grid gap-3 sm:grid-cols-2" onSubmit={onAddTopic}>
-        <div className="sm:col-span-2">
-          <Label htmlFor="topic-slug">New topic</Label>
-          <div className="mt-1 flex gap-2">
-            <Input
-              id="topic-slug"
-              value={topicSlug}
-              onChange={(event) => setTopicSlug(event.target.value)}
-              placeholder="physics"
-            />
-            <Button type="submit" variant="secondary">
-              Add topic
-            </Button>
-          </div>
-        </div>
-      </form>
-      <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={onSubmit}>
-        <div className="sm:col-span-2">
-          <Label htmlFor="title-name">Title</Label>
-          <Input
-            id="title-name"
-            className="mt-1"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            required
-          />
-        </div>
-        <div>
-          <Label htmlFor="title-kind">Kind</Label>
-          <Select
-            id="title-kind"
-            className="mt-1"
-            value={kind}
-            onChange={(event) => setKind(event.target.value as EntertainmentKind)}
-          >
-            {KINDS.map((item) => (
-              <option key={item} value={item}>
-                {kindLabel(item)}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div>
-          <Label htmlFor="title-status">Status</Label>
-          <Select
-            id="title-status"
-            className="mt-1"
-            value={status}
-            onChange={(event) => setStatus(event.target.value as EntertainmentStatus)}
-          >
-            {STATUSES.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div>
-          <Label htmlFor="title-creator">Creator</Label>
-          <Input
-            id="title-creator"
-            className="mt-1"
-            value={creator}
-            onChange={(event) => setCreator(event.target.value)}
-          />
-        </div>
-        <div>
-          <Label htmlFor="title-recommended">Recommended by</Label>
-          <Input
-            id="title-recommended"
-            className="mt-1"
-            value={recommendedBy}
-            onChange={(event) => setRecommendedBy(event.target.value)}
-          />
-        </div>
-        <div>
-          <Label htmlFor="title-progress">Bookmark</Label>
-          <Input
-            id="title-progress"
-            className="mt-1"
-            value={progress}
-            placeholder="S2E5"
-            onChange={(event) => setProgress(event.target.value)}
-          />
-        </div>
-        <div>
-          <Label htmlFor="title-image-url">Poster URL</Label>
-          <Input
-            id="title-image-url"
-            className="mt-1"
-            value={imageUrl}
-            placeholder="https://"
-            onChange={(event) => setImageUrl(event.target.value)}
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <Label htmlFor="title-image-file">Or upload a poster</Label>
-          <Input
-            id="title-image-file"
-            className="mt-1"
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
-          />
-        </div>
-        {topics.length > 0 ? (
-          <fieldset className="sm:col-span-2">
-            <legend className="text-xs font-medium text-muted">Topics</legend>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {topics.map((topic) => {
-                const checked = selectedTopics.includes(topic.slug)
-                return (
-                  <label
-                    key={topic.slug}
-                    className={cn(
-                      'cursor-pointer rounded-full border px-3 py-1 text-xs',
-                      checked
-                        ? 'border-entertainment bg-entertainment/15 text-ink'
-                        : 'border-line text-muted',
-                    )}
-                  >
-                    <input
-                      type="checkbox"
-                      className="sr-only"
-                      checked={checked}
-                      onChange={() => {
-                        setSelectedTopics((current) =>
-                          checked
-                            ? current.filter((slug) => slug !== topic.slug)
-                            : [...current, topic.slug],
-                        )
-                      }}
-                    />
-                    {topic.name}
-                  </label>
-                )
-              })}
-            </div>
-          </fieldset>
-        ) : null}
-        <div className="sm:col-span-2">
-          <Button type="submit">Add title</Button>
-        </div>
-      </form>
-    </Card>
   )
 }

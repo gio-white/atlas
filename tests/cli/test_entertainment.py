@@ -46,3 +46,28 @@ def test_entertainment_add_image_file(runner, tmp_path: Path):
     exported = invoke(runner, ["export"])
     assert "clip" in exported.output
     assert "image_base64" in exported.output
+
+
+def test_entertainment_rate_and_remove(runner):
+    invoke(
+        runner,
+        [
+            "entertainment",
+            "add",
+            "Kind of Blue",
+            "--kind",
+            "music",
+            "--rating",
+            "4",
+            "--link",
+            "https://open.spotify.com/album/kind-of-blue",
+        ],
+    )
+    rated = invoke(runner, ["entertainment", "rate", "kind-of-blue", "5"])
+    assert "5/5" in rated.output
+    exported = invoke(runner, ["export"])
+    assert '"rating": 5' in exported.output
+
+    removed = invoke(runner, ["entertainment", "remove", "kind-of-blue"])
+    assert "removed" in removed.output
+    assert "kind-of-blue" not in invoke(runner, ["export"]).output
