@@ -1,8 +1,3 @@
----
-description: Check findings are work — apply suggested fixes, then inspect the rest
-alwaysApply: true
----
-
 # Check findings are work
 
 A diagnostic from ruff, Biome, pytest, or `pnpm build` is a defect in this cycle, not a note for later. Do not leave a known failure, skip it with `--no-verify`, or paste the output and move on.

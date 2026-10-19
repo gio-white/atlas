@@ -1,8 +1,3 @@
----
-description: Atlas layering, import bans, and data principles
-alwaysApply: true
----
-
 # Architecture
 
 Layers (imports only flow downward):
@@ -19,7 +14,7 @@ domain    →  (stdlib / typing only)
 - `atlas/api/` and `atlas/cli/` must not open a session, query tables, or import `atlas.db` except to obtain a session factory they pass into services. They never call SQLModel/SQLAlchemy APIs themselves.
 - Routers and Typer commands call `atlas.services` only. Shared behavior lives in services so API and CLI cannot diverge.
 - The React SPA in `web/` is the only frontend. It consumes the HTTP API only and must not import `atlas.*` or reimplement streaks, adherence, or goal progress. The CLI is capture, catalog definition, and admin — do not add CLI review dashboards.
-- Ruff enforces the domain import ban. A check finding is work in this cycle (`.cursor/rules/checks.mdc`), not a note for later.
+- Ruff enforces the domain import ban. A check finding is work in this cycle (`.claude/rules/checks.md`), not a note for later.
 
 ```python
 # ❌ BAD — router talks to the session

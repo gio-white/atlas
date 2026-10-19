@@ -1,7 +1,6 @@
 ---
-description: Python type hints, service signatures, purity, and test conventions
-globs: "**/*.py"
-alwaysApply: false
+paths:
+  - "**/*.py"
 ---
 
 # Python conventions
@@ -28,7 +27,7 @@ Functions in `atlas/domain/` are pure: no I/O, no session, no datetime.now() unl
 
 ## Style
 
-Ruff formats at line length 100 (`uv run ruff format`). Apply `--fix` / format when ruff can; wrap `E501` rather than `# noqa`. A check finding is work — see `.cursor/rules/checks.mdc`.
+Ruff formats at line length 100 (`uv run ruff format`). Apply `--fix` / format when ruff can; wrap `E501` rather than `# noqa`. A check finding is work — see `.claude/rules/checks.md`.
 
 ## Comments
 

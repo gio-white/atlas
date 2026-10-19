@@ -1,8 +1,3 @@
----
-description: uv-only commands, ruff check/format and pytest gates
-alwaysApply: true
----
-
 # Tooling
 
 Python 3.12. Stack: uv, FastAPI, uvicorn, SQLModel, Typer, Rich, pytest, ruff, SQLite.
@@ -36,10 +31,10 @@ Before every commit, all must pass:
 2. `uv run ruff format --check`
 3. `uv run pytest`
 
-A finding is work: apply `ruff check --fix` / `ruff format` when the tool can, then inspect the rest. See `.cursor/rules/checks.mdc`. Do not commit with a known failure.
+A finding is work: apply `ruff check --fix` / `ruff format` when the tool can, then inspect the rest. See `.claude/rules/checks.md`. Do not commit with a known failure.
 
 ## Frontend (`web/`)
 
-pnpm and Biome only. See `.cursor/rules/frontend.mdc`. Never `npm` / `yarn` / ESLint / Prettier / oxlint in `web/`.
+pnpm and Biome only. See `.claude/rules/frontend.md`. Never `npm` / `yarn` / ESLint / Prettier / oxlint in `web/`.
 
 

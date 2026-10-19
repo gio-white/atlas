@@ -1,7 +1,6 @@
 ---
-description: pnpm and Biome only for the React SPA in web/
-globs: web/**
-alwaysApply: false
+paths:
+  - "web/**"
 ---
 
 # Frontend tooling
@@ -56,4 +55,4 @@ All three must pass:
 2. `pnpm test`
 3. `pnpm build`
 
-A finding is work. If Biome marks it fixable, run `pnpm format` then `pnpm lint` again; inspect the rest and edit to match nearby code. See `.cursor/rules/checks.mdc`. Do not commit with a known failure.
+A finding is work. If Biome marks it fixable, run `pnpm format` then `pnpm lint` again; inspect the rest and edit to match nearby code. See `.claude/rules/checks.md`. Do not commit with a known failure.

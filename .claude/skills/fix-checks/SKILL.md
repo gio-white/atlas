@@ -42,4 +42,4 @@ Inspect the diagnostic against nearby code and fix it the same way the rest of t
 
 ## Done
 
-The cycle ends only when the gates that failed are green. See `.cursor/rules/checks.mdc` and `.cursor/rules/tooling.mdc`.
+The cycle ends only when the gates that failed are green. See `.claude/rules/checks.md` and `.claude/rules/tooling.md`.
