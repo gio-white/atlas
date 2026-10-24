@@ -3,6 +3,8 @@ export type Aggregation = 'sum' | 'last' | 'mean' | 'max' | 'min'
 export type Direction = 'higher_is_better' | 'lower_is_better' | 'neutral'
 export type Period = 'day' | 'week' | 'month'
 export type Comparator = 'at_least' | 'at_most' | 'exactly'
+export type HabitKind = 'check' | 'count' | 'duration' | 'quit'
+export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'anytime'
 export type GoalKind = 'metric_target' | 'milestone'
 export type GoalHorizon = 'long' | 'medium' | 'short'
 export type GoalStatus = 'active' | 'achieved' | 'paused' | 'abandoned'
@@ -47,12 +49,17 @@ export type Habit = {
   slug: string
   metric: string
   name: string
+  kind: HabitKind
   period: Period
   target_value: number
   comparator: Comparator
+  unit: string | null
   weekdays: number[] | null
+  time_of_day: TimeOfDay
+  goal: string | null
   active_from: string
   active_to: string | null
+  archived_at: string | null
 }
 
 export type Goal = {
@@ -97,6 +104,41 @@ export type HabitStatus = {
   satisfied: boolean
   scheduled: boolean
   as_of: string
+  kind: HabitKind
+  time_of_day: TimeOfDay
+  unit: string | null
+  goal_slug: string | null
+  archived: boolean
+  bucket_start: string | null
+  bucket_end: string | null
+  days_left: number
+  effective_target: number | null
+  excused: boolean
+  skipped_today: boolean
+  today_value: number | null
+  last_entry_on: string | null
+}
+
+export type HabitBreak = {
+  id: number
+  start_on: string
+  end_on: string
+  note: string | null
+}
+
+export type HabitCheckIn = {
+  id: number
+  occurred_on: string
+  value: number | null
+  note: string | null
+  created_at: string
+}
+
+export type HabitDetail = {
+  habit: Habit
+  status: HabitStatus
+  breaks: HabitBreak[]
+  recent: HabitCheckIn[]
 }
 
 export type GoalProgress = {
@@ -141,6 +183,7 @@ export type WeekDayCell = {
   scheduled: boolean
   value: number | null
   satisfied: boolean | null
+  excused: boolean
 }
 
 export type WeekHabit = {
@@ -178,9 +221,6 @@ export type HomeWeek = {
   updates: number
   updates_last_week: number
   updates_delta: number | null
-  slips: number
-  slips_last_week: number
-  slips_delta: number | null
   focus_minutes: number
   focus_minutes_last_week: number
   focus_delta: number | null
@@ -188,7 +228,6 @@ export type HomeWeek = {
   tasks_done_last_week: number
   tasks_delta: number | null
   series_updates: number[]
-  series_slips: number[]
 }
 
 export type ScreenJudgment = 'useful' | 'waste' | 'neutral'
@@ -388,16 +427,6 @@ export type UpdatesStatus = {
   longest_streak: number
 }
 
-export type SlipsWeek = {
-  as_of: string
-  week_start: string
-  week_end: string
-  this_week: number
-  last_week: number
-  delta_fraction: number | null
-  series: number[]
-}
-
 export type SleepStage = 'awake' | 'rem' | 'light' | 'deep'
 
 export type SleepStageMinutes = Record<SleepStage, number>
@@ -488,6 +517,8 @@ export type HabitsBoard = {
   scheduled: number
   satisfied: number
   fraction: number | null
+  completion_7d: number | null
+  completion_30d: number | null
   day: HabitStatus[]
   week: HabitStatus[]
   month: HabitStatus[]
@@ -940,17 +971,6 @@ export function logUpdate(body?: {
   return request('/updates', { method: 'POST', body: JSON.stringify(body ?? {}) })
 }
 
-export function getSlips(asOf?: string): Promise<SlipsWeek> {
-  return request(`/slips${queryString({ as_of: asOf })}`)
-}
-
-export function logSlip(body?: {
-  occurred_on?: string | null
-  note?: string | null
-}): Promise<Entry> {
-  return request('/slips', { method: 'POST', body: JSON.stringify(body ?? {}) })
-}
-
 export function listTasks(filters?: {
   bucket?: TaskBucket
   include_done?: boolean
@@ -1087,13 +1107,17 @@ export function archiveMetric(slug: string): Promise<Metric> {
 }
 
 export function createHabit(body: {
-  slug: string
-  metric: string
-  period: Period
-  target_value: number
-  comparator: Comparator
+  slug?: string | null
   name?: string | null
+  kind?: HabitKind | null
+  metric?: string | null
+  period?: Period
+  target_value?: number | null
+  comparator?: Comparator | null
+  unit?: string | null
   weekdays?: number[] | null
+  time_of_day?: TimeOfDay
+  goal?: string | null
   active_from?: string | null
   active_to?: string | null
 }): Promise<Habit> {
@@ -1108,12 +1132,63 @@ export function updateHabit(
     comparator?: Comparator
     weekdays?: number[] | null
     active_to?: string | null
+    time_of_day?: TimeOfDay
+    goal?: string | null
+    unit?: string | null
   },
 ): Promise<Habit> {
   return request(`/habits/${encodeURIComponent(slug)}`, {
     method: 'PATCH',
     body: JSON.stringify(body),
   })
+}
+
+function habitPath(slug: string, rest = ''): string {
+  return `/habits/${encodeURIComponent(slug)}${rest}`
+}
+
+export function archiveHabit(slug: string): Promise<Habit> {
+  return request(habitPath(slug, '/archive'), { method: 'POST' })
+}
+
+export function unarchiveHabit(slug: string): Promise<Habit> {
+  return request(habitPath(slug, '/unarchive'), { method: 'POST' })
+}
+
+export function deleteHabit(slug: string): Promise<void> {
+  return request(habitPath(slug), { method: 'DELETE' })
+}
+
+export function getHabitDetail(slug: string, asOf?: string): Promise<HabitDetail> {
+  return request(habitPath(slug, `/detail${queryString({ as_of: asOf })}`))
+}
+
+export function checkInHabit(
+  slug: string,
+  body: { amount?: number | null; on?: string | null; note?: string | null },
+  asOf?: string,
+): Promise<HabitStatus> {
+  return request(habitPath(slug, `/checkins${queryString({ as_of: asOf })}`), {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export function undoHabitCheckIn(slug: string, on?: string, asOf?: string): Promise<HabitStatus> {
+  return request(habitPath(slug, `/checkins/last${queryString({ on, as_of: asOf })}`), {
+    method: 'DELETE',
+  })
+}
+
+export function addHabitBreak(
+  slug: string,
+  body: { start_on: string; end_on?: string | null; note?: string | null },
+): Promise<HabitBreak> {
+  return request(habitPath(slug, '/breaks'), { method: 'POST', body: JSON.stringify(body) })
+}
+
+export function deleteHabitBreak(slug: string, breakId: number): Promise<void> {
+  return request(habitPath(slug, `/breaks/${breakId}`), { method: 'DELETE' })
 }
 
 export function createGoal(body: {

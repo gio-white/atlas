@@ -35,10 +35,12 @@ from atlas.domain import (
     EntertainmentStatus,
     GoalKind,
     GoalStatus,
+    HabitKind,
     Measure,
     Period,
     ScreenJudgment,
     Source,
+    TimeOfDay,
     ValueType,
 )
 
@@ -595,4 +597,73 @@ def test_init_schema_adds_entertainment_rating_and_link(tmp_path):
         assert title.slug == "dune"
         assert title.rating is None
         assert title.link is None
+        assert session.get(SchemaVersion, 1).version == CURRENT_SCHEMA_VERSION
+
+
+def test_init_schema_adds_habit_kind_schedule_and_breaks(tmp_path):
+    engine = create_engine_for(tmp_path / "v9.db")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE area (id INTEGER PRIMARY KEY, slug VARCHAR NOT NULL UNIQUE, "
+                "name VARCHAR NOT NULL, description VARCHAR, archived_at DATETIME)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE metric (id INTEGER PRIMARY KEY, area_id INTEGER NOT NULL, "
+                "slug VARCHAR NOT NULL UNIQUE, name VARCHAR NOT NULL, value_type VARCHAR NOT NULL,"
+                " unit VARCHAR, aggregation VARCHAR NOT NULL, direction VARCHAR NOT NULL, "
+                "archived_at DATETIME)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE habit (id INTEGER PRIMARY KEY, metric_id INTEGER NOT NULL, "
+                "slug VARCHAR NOT NULL UNIQUE, name VARCHAR NOT NULL, period VARCHAR NOT NULL, "
+                "target_value FLOAT NOT NULL, comparator VARCHAR NOT NULL, weekdays JSON, "
+                "active_from DATE NOT NULL, active_to DATE)"
+            )
+        )
+        connection.execute(
+            text("CREATE TABLE schema_version (id INTEGER PRIMARY KEY, version INTEGER)")
+        )
+        connection.execute(text("INSERT INTO schema_version (id, version) VALUES (1, 9)"))
+        connection.execute(text("INSERT INTO area (id, slug, name) VALUES (1, 'health', 'Health')"))
+        for metric_id, slug, value_type in (
+            (1, "meditated", "BOOL"),
+            (2, "pushups", "COUNT"),
+            (3, "deep-work", "DURATION"),
+        ):
+            connection.execute(
+                text(
+                    "INSERT INTO metric (id, area_id, slug, name, value_type, aggregation, "
+                    "direction) VALUES (:id, 1, :slug, :slug, :value_type, 'SUM', "
+                    "'HIGHER_IS_BETTER')"
+                ),
+                {"id": metric_id, "slug": slug, "value_type": value_type},
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO habit (metric_id, slug, name, period, target_value, comparator,"
+                    " active_from) VALUES (:id, :slug, :slug, 'DAY', 1, 'AT_LEAST', '2026-08-01')"
+                ),
+                {"id": metric_id, "slug": slug},
+            )
+    init_schema(engine)
+
+    tables = set(inspect(engine).get_table_names())
+    assert "habit_break" in tables
+    columns = {column["name"] for column in inspect(engine).get_columns("habit")}
+    assert {"kind", "time_of_day", "goal_id", "archived_at"} <= columns
+    with Session(engine) as session:
+        kinds = {habit.slug: habit.kind for habit in session.exec(select(Habit)).all()}
+        assert kinds == {
+            "meditated": HabitKind.CHECK,
+            "pushups": HabitKind.COUNT,
+            "deep-work": HabitKind.DURATION,
+        }
+        habit = session.exec(select(Habit).where(Habit.slug == "pushups")).one()
+        assert habit.time_of_day is TimeOfDay.ANYTIME
+        assert habit.archived_at is None
         assert session.get(SchemaVersion, 1).version == CURRENT_SCHEMA_VERSION

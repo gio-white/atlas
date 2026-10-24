@@ -6,6 +6,7 @@ import typer
 from sqlmodel import Session
 
 from atlas.cli.format import (
+    format_number,
     print_amended,
     print_created,
     print_deleted,
@@ -35,13 +36,18 @@ from atlas.domain import (
     EntertainmentStatus,
     GoalHorizon,
     GoalKind,
+    HabitKind,
     Period,
     TaskBucket,
     TaskPriority,
+    TimeOfDay,
     ValueType,
 )
 from atlas.services import (
+    add_habit_break,
     amend_entry,
+    archive_habit,
+    check_in,
     create_area,
     create_entertainment_title,
     create_entertainment_topic,
@@ -59,7 +65,6 @@ from atlas.services import (
     log_entry,
     log_journal,
     log_screen_session,
-    log_slip,
     log_update,
     seed_demo,
     set_title_image,
@@ -159,17 +164,6 @@ def checkin(
 
 
 @app.command()
-def slip(
-    on: Annotated[str | None, typer.Option("--on")] = None,
-    note: Annotated[str | None, typer.Option("--note")] = None,
-) -> None:
-    """Record a slip (count of 1 on the well-known slip metric)."""
-    with cli_session() as session:
-        entry = log_slip(session, occurred_on=parse_iso_date(on), note=note)
-        print_logged("slip", entry)
-
-
-@app.command()
 def journal(
     text: Annotated[str, typer.Argument()],
     on: Annotated[str | None, typer.Option("--on")] = None,
@@ -219,34 +213,84 @@ def metric_add(
 
 @habit_app.command("add")
 def habit_add(
-    metric: Annotated[str, typer.Option("--metric")],
-    period: Annotated[Period, typer.Option("--period")],
     slug: Annotated[str | None, typer.Argument()] = None,
+    period: Annotated[Period, typer.Option("--period")] = Period.DAY,
+    metric: Annotated[str | None, typer.Option("--metric")] = None,
+    kind: Annotated[HabitKind | None, typer.Option("--kind")] = None,
     at_least: Annotated[float | None, typer.Option("--at-least")] = None,
     at_most: Annotated[float | None, typer.Option("--at-most")] = None,
     exactly: Annotated[float | None, typer.Option("--exactly")] = None,
     name: Annotated[str | None, typer.Option("--name")] = None,
+    unit: Annotated[str | None, typer.Option("--unit")] = None,
+    time_of_day: Annotated[TimeOfDay, typer.Option("--time")] = TimeOfDay.ANYTIME,
     weekdays: Annotated[str | None, typer.Option("--weekdays")] = None,
     active_from: Annotated[str | None, typer.Option("--from")] = None,
     active_to: Annotated[str | None, typer.Option("--to")] = None,
 ) -> None:
-    """Define a habit over a metric."""
+    """Define a habit. Without --metric, its measurement is created in the Habits area."""
     with cli_session() as session:
-        comparator, target_value = comparator_and_target(at_least, at_most, exactly)
-        habit_slug = slug if slug is not None else f"{metric}-{period}"
+        comparator, target_value = None, None
+        if any(value is not None for value in (at_least, at_most, exactly)):
+            comparator, target_value = comparator_and_target(at_least, at_most, exactly)
+        elif metric is not None and kind is not HabitKind.QUIT:
+            fail("provide exactly one of --at-least, --at-most, --exactly")
+        if slug is None and name is None:
+            if metric is None:
+                fail("give the habit a slug or --name")
+            slug = f"{metric}-{period}"
         habit = create_habit(
             session,
-            habit_slug,
+            slug,
             metric_slug=metric,
+            kind=kind,
             period=period,
             target_value=target_value,
             comparator=comparator,
             name=name,
+            unit=unit,
+            time_of_day=time_of_day,
             weekdays=parse_weekdays(weekdays),
             active_from=parse_iso_date(active_from),
             active_to=parse_iso_date(active_to),
         )
         print_created("habit", habit.slug)
+
+
+@habit_app.command("check")
+def habit_check(
+    slug: Annotated[str, typer.Argument()],
+    amount: Annotated[float | None, typer.Argument()] = None,
+    on: Annotated[str | None, typer.Option("--on")] = None,
+    note: Annotated[str | None, typer.Option("--note")] = None,
+) -> None:
+    """Check in: mark done, add to a count or timer, or log a slip on a quit habit."""
+    with cli_session() as session:
+        day = parse_iso_date(on)
+        status = check_in(session, slug, amount=amount, on=day, note=note)
+        logged = "done" if amount is None else format_number(amount)
+        when = "today" if day is None else day.isoformat()
+        typer.echo(f"{status.slug}: {logged} {when} · streak {status.current_streak}")
+
+
+@habit_app.command("skip")
+def habit_skip(
+    slug: Annotated[str, typer.Argument()],
+    start: Annotated[str | None, typer.Option("--from")] = None,
+    end: Annotated[str | None, typer.Option("--to")] = None,
+    note: Annotated[str | None, typer.Option("--note")] = None,
+) -> None:
+    """Skip a day (default today) or pause a habit from --from to --to."""
+    with cli_session() as session:
+        row = add_habit_break(session, slug, parse_iso_date(start), parse_iso_date(end), note=note)
+        typer.echo(f"{slug}: break {row.start_on} → {row.end_on}")
+
+
+@habit_app.command("archive")
+def habit_archive(slug: Annotated[str, typer.Argument()]) -> None:
+    """Retire a habit; its history stays."""
+    with cli_session() as session:
+        archive_habit(session, slug)
+        typer.echo(f"archived habit {slug}")
 
 
 @goal_app.command("add")

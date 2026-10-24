@@ -1,4 +1,6 @@
-from atlas.db.models import Entry, Goal, Habit, Metric, Milestone
+from collections.abc import Sequence
+
+from atlas.db.models import Entry, Goal, Habit, HabitBreak, Metric, Milestone
 from atlas.domain import (
     Aggregation,
     Comparator,
@@ -24,7 +26,11 @@ def entry_view(entry: Entry) -> EntryView:
     )
 
 
-def habit_spec(habit: Habit, metric: Metric) -> HabitSpec:
+def habit_spec(
+    habit: Habit,
+    metric: Metric,
+    breaks: Sequence[HabitBreak] = (),
+) -> HabitSpec:
     weekdays = frozenset(habit.weekdays) if habit.weekdays else None
     return HabitSpec(
         period=Period(habit.period),
@@ -34,6 +40,7 @@ def habit_spec(habit: Habit, metric: Metric) -> HabitSpec:
         active_from=habit.active_from,
         active_to=habit.active_to,
         weekdays=weekdays,
+        breaks=tuple((row.start_on, row.end_on) for row in breaks),
     )
 
 

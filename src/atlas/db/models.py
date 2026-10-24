@@ -12,6 +12,7 @@ from atlas.domain import (
     GoalHorizon,
     GoalKind,
     GoalStatus,
+    HabitKind,
     Measure,
     Period,
     ScreenBudgetTargetKind,
@@ -20,6 +21,7 @@ from atlas.domain import (
     Source,
     TaskBucket,
     TaskPriority,
+    TimeOfDay,
     ValueType,
 )
 
@@ -77,6 +79,21 @@ class Habit(SQLModel, table=True):
     weekdays: list[int] | None = Field(default=None, sa_column=Column(JSON, nullable=True))
     active_from: date
     active_to: date | None = None
+    kind: HabitKind = HabitKind.COUNT
+    time_of_day: TimeOfDay = TimeOfDay.ANYTIME
+    goal_id: int | None = Field(default=None, foreign_key="goal.id")
+    archived_at: datetime | None = None
+
+
+class HabitBreak(SQLModel, table=True):
+    __tablename__ = "habit_break"
+
+    id: int | None = Field(default=None, primary_key=True)
+    habit_id: int = Field(foreign_key="habit.id", index=True)
+    start_on: date
+    end_on: date
+    note: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class Goal(SQLModel, table=True):

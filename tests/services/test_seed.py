@@ -19,9 +19,9 @@ def test_seed_demo_loads_the_demo_dataset(session):
     summary = seed_demo(session, as_of=as_of)
 
     assert summary.as_of == as_of
-    assert summary.areas == 5
-    assert summary.metrics == 17
-    assert summary.habits == 6
+    assert summary.areas == 6
+    assert summary.metrics == 18
+    assert summary.habits == 7
     assert summary.goals == 7
     assert summary.milestones == 7
     assert summary.entries > 0
@@ -41,15 +41,21 @@ def test_seed_demo_loads_the_demo_dataset(session):
         "health",
         "relationships",
         "screen",
+        "habits",
     }
     assert {habit["slug"] for habit in payload["habits"]} == {
         "coffee-daily",
         "deep-work-weekdays",
         "family-monthly",
         "meditated-daily",
+        "no-doomscrolling",
         "pushups-daily",
         "runs-weekly",
     }
+    habits = {habit["slug"]: habit for habit in payload["habits"]}
+    assert habits["no-doomscrolling"]["kind"] == "quit"
+    assert habits["meditated-daily"]["breaks"][0]["note"] == "Travel day"
+    assert habits["pushups-daily"]["time_of_day"] == "morning"
     assert {goal["slug"] for goal in payload["goals"]} == {
         "bodyweight-75",
         "durable-health",

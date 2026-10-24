@@ -13,6 +13,7 @@ from atlas.db.models import (
     Entry,
     Goal,
     Habit,
+    HabitBreak,
     Metric,
     Milestone,
     ScreenApp,
@@ -33,6 +34,7 @@ from atlas.domain import (
     GoalHorizon,
     GoalKind,
     GoalStatus,
+    HabitKind,
     Measure,
     Period,
     ScreenBudgetTargetKind,
@@ -41,6 +43,7 @@ from atlas.domain import (
     Source,
     TaskBucket,
     TaskPriority,
+    TimeOfDay,
     ValueType,
     infer_horizon,
     parent_horizon_is_valid,
@@ -63,6 +66,9 @@ def export_all(session: Session) -> dict[str, Any]:
     metrics = list(session.exec(select(Metric).order_by(Metric.slug)).all())
     habits = list(session.exec(select(Habit).order_by(Habit.slug)).all())
     goals = list(session.exec(select(Goal).order_by(Goal.slug)).all())
+    breaks_by_habit: dict[int | None, list[HabitBreak]] = {}
+    for row in session.exec(select(HabitBreak).order_by(HabitBreak.start_on)).all():
+        breaks_by_habit.setdefault(row.habit_id, []).append(row)
     milestones = list(session.exec(select(Milestone).order_by(Milestone.id)).all())
     screen_categories = list(
         session.exec(select(ScreenCategory).order_by(ScreenCategory.slug)).all()
@@ -108,7 +114,10 @@ def export_all(session: Session) -> dict[str, Any]:
         "schema_version": CURRENT_SCHEMA_VERSION,
         "areas": [_export_area(area) for area in areas],
         "metrics": [_export_metric(metric, area_by_id) for metric in metrics],
-        "habits": [_export_habit(habit, metric_by_id) for habit in habits],
+        "habits": [
+            _export_habit(habit, metric_by_id, goal_by_id, breaks_by_habit.get(habit.id, []))
+            for habit in habits
+        ],
         "goals": [_export_goal(goal, area_by_id, metric_by_id, goal_by_id) for goal in goals],
         "milestones": [_export_milestone(row, goal_by_id) for row in milestones],
         "screen_categories": [_export_screen_category(row) for row in screen_categories],
@@ -149,14 +158,14 @@ def import_all(session: Session, payload: dict[str, Any], *, replace: bool = Fal
         for raw in payload.get("metrics", []):
             _import_metric(session, raw)
         session.flush()
-        for raw in payload.get("habits", []):
-            _import_habit(session, raw)
-        session.flush()
         for raw in payload.get("goals", []):
             _import_goal(session, raw)
         session.flush()
         for raw in payload.get("goals", []):
             _import_goal_parent(session, raw)
+        session.flush()
+        for raw in payload.get("habits", []):
+            _import_habit(session, raw)
         session.flush()
         for raw in payload.get("milestones", []):
             _import_milestone(session, raw)
@@ -207,6 +216,7 @@ def _clear_user_data(session: Session) -> None:
         session.add(goal)
     session.flush()
     for model in (
+        HabitBreak,
         SleepSessionStage,
         SleepSession,
         EntertainmentTitleTopic,
@@ -252,7 +262,12 @@ def _export_metric(metric: Metric, area_by_id: dict[int | None, str]) -> dict[st
     }
 
 
-def _export_habit(habit: Habit, metric_by_id: dict[int | None, str]) -> dict[str, Any]:
+def _export_habit(
+    habit: Habit,
+    metric_by_id: dict[int | None, str],
+    goal_by_id: dict[int | None, str],
+    breaks: list[HabitBreak],
+) -> dict[str, Any]:
     return {
         "slug": habit.slug,
         "metric": metric_by_id[habit.metric_id],
@@ -263,6 +278,18 @@ def _export_habit(habit: Habit, metric_by_id: dict[int | None, str]) -> dict[str
         "weekdays": list(habit.weekdays) if habit.weekdays is not None else None,
         "active_from": habit.active_from.isoformat(),
         "active_to": habit.active_to.isoformat() if habit.active_to is not None else None,
+        "kind": str(habit.kind),
+        "time_of_day": str(habit.time_of_day),
+        "goal": goal_by_id.get(habit.goal_id) if habit.goal_id is not None else None,
+        "archived_at": _iso_dt(habit.archived_at),
+        "breaks": [
+            {
+                "start_on": row.start_on.isoformat(),
+                "end_on": row.end_on.isoformat(),
+                "note": row.note,
+            }
+            for row in breaks
+        ],
     }
 
 
@@ -584,6 +611,33 @@ def _import_habit(session: Session, raw: dict[str, Any]) -> None:
     existing.active_from = _parse_date(raw.get("active_from", existing.active_from.isoformat()))
     active_to = raw.get("active_to")
     existing.active_to = _parse_date(active_to) if active_to else None
+    kind = raw.get("kind")
+    existing.kind = HabitKind(kind) if kind else _legacy_habit_kind(metric)
+    existing.time_of_day = TimeOfDay(raw.get("time_of_day") or TimeOfDay.ANYTIME)
+    goal_slug = raw.get("goal")
+    existing.goal_id = require_goal(session, normalize_slug(goal_slug)).id if goal_slug else None
+    existing.archived_at = _parse_datetime(raw.get("archived_at"))
+    session.flush()
+    for row in session.exec(select(HabitBreak).where(HabitBreak.habit_id == existing.id)).all():
+        session.delete(row)
+    for item in raw.get("breaks") or []:
+        session.add(
+            HabitBreak(
+                habit_id=existing.id,
+                start_on=_parse_date(_require(item, "start_on")),
+                end_on=_parse_date(_require(item, "end_on")),
+                note=item.get("note"),
+            )
+        )
+
+
+def _legacy_habit_kind(metric: Metric) -> HabitKind:
+    value_type = ValueType(metric.value_type)
+    if value_type is ValueType.BOOL:
+        return HabitKind.CHECK
+    if value_type is ValueType.DURATION:
+        return HabitKind.DURATION
+    return HabitKind.COUNT
 
 
 def _import_goal(session: Session, raw: dict[str, Any]) -> None:

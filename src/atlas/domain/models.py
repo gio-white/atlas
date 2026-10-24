@@ -51,10 +51,15 @@ class HabitSpec:
     active_from: date
     active_to: date | None = None
     weekdays: frozenset[int] | None = None
+    breaks: tuple[tuple[date, date], ...] = ()
 
     def __post_init__(self) -> None:
         if self.weekdays is not None and not isinstance(self.weekdays, frozenset):
             object.__setattr__(self, "weekdays", frozenset(self.weekdays))
+        object.__setattr__(self, "breaks", tuple(self.breaks))
+
+    def on_break(self, day: date) -> bool:
+        return any(start <= day <= end for start, end in self.breaks)
 
 
 @dataclass(frozen=True, slots=True)

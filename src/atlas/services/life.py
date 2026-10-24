@@ -12,7 +12,6 @@ from atlas.services.slugs import display_name
 LIFE_AREA_SLUG = "life"
 CHECKIN_METRIC_SLUG = "checkin"
 CHECKIN_HABIT_SLUG = "checkin-daily"
-SLIP_METRIC_SLUG = "slip"
 JOURNAL_METRIC_SLUG = "journal"
 SYSTEM_ACTIVE_FROM = date(2000, 1, 1)
 
@@ -26,7 +25,7 @@ def ensure_life_area(session: Session) -> Area:
     area = Area(
         slug=LIFE_AREA_SLUG,
         name="Life",
-        description="Daily check-ins, slips, and journal.",
+        description="Daily check-ins and journal.",
     )
     session.add(area)
     session.flush()

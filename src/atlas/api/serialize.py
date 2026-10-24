@@ -9,7 +9,11 @@ from atlas.api.schemas import (
     EntryOut,
     GoalDetailOut,
     GoalOut,
+    HabitBreakOut,
+    HabitCheckInOut,
+    HabitDetailOut,
     HabitOut,
+    HabitStatusOut,
     MetricOut,
     MilestoneOut,
     ScreenAppOut,
@@ -28,6 +32,7 @@ from atlas.domain import (
     GoalHorizon,
     GoalKind,
     GoalStatus,
+    HabitKind,
     Measure,
     Period,
     ScreenBudgetTargetKind,
@@ -35,6 +40,7 @@ from atlas.domain import (
     Source,
     TaskBucket,
     TaskPriority,
+    TimeOfDay,
     ValueType,
 )
 from atlas.services import (
@@ -103,24 +109,41 @@ def entry_out_for(session: Session, entry: Any) -> EntryOut:
     return entry_out(entry, metric_slug_by_id(session)[entry.metric_id])
 
 
-def habit_out(habit: Any, metric_slug: str) -> HabitOut:
+def habit_out(habit: Any, metric: Any, goal_slug: str | None) -> HabitOut:
     return HabitOut(
         id=habit.id,
         slug=habit.slug,
-        metric=metric_slug,
+        metric=metric.slug,
         name=habit.name,
+        kind=HabitKind(habit.kind),
         period=Period(habit.period),
         target_value=habit.target_value,
         comparator=Comparator(habit.comparator),
+        unit=metric.unit,
         weekdays=list(habit.weekdays) if habit.weekdays is not None else None,
+        time_of_day=TimeOfDay(habit.time_of_day),
+        goal=goal_slug,
         active_from=habit.active_from,
         active_to=habit.active_to,
+        archived_at=habit.archived_at,
     )
 
 
 def habits_out(session: Session, habits: list[Any]) -> list[HabitOut]:
-    metrics = metric_slug_by_id(session)
-    return [habit_out(habit, metrics[habit.metric_id]) for habit in habits]
+    metrics = {metric.id: metric for metric in list_metrics(session, include_archived=True)}
+    goals = {goal.id: goal.slug for goal in list_goals(session)}
+    return [
+        habit_out(habit, metrics[habit.metric_id], goals.get(habit.goal_id)) for habit in habits
+    ]
+
+
+def habit_detail_out(session: Session, detail: Any) -> HabitDetailOut:
+    return HabitDetailOut(
+        habit=habits_out(session, [detail.habit])[0],
+        status=HabitStatusOut.model_validate(detail.status),
+        breaks=[HabitBreakOut.model_validate(row) for row in detail.breaks],
+        recent=[HabitCheckInOut.model_validate(row) for row in detail.recent],
+    )
 
 
 def goal_out(
