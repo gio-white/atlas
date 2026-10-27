@@ -2,12 +2,19 @@ from datetime import date
 
 from atlas.domain import (
     Aggregation,
+    BucketOutcome,
     Comparator,
     EntryView,
     HabitSpec,
     Period,
     adherence,
+    adherence_counts,
+    available_days,
+    bucket_for,
+    bucket_outcome,
+    bucket_target,
     current_streak,
+    is_excused,
     is_satisfied,
     longest_streak,
     scheduled_buckets,
@@ -207,3 +214,66 @@ def test_future_and_inactive_windows_are_not_scheduled():
     assert scheduled_buckets(habit, date(2026, 8, 9)) == []
     days = [bucket.start.day for bucket in scheduled_buckets(habit, date(2026, 8, 20))]
     assert days == [10, 11, 12]
+
+
+def _spec(**overrides) -> HabitSpec:
+    values = {
+        "period": Period.DAY,
+        "target_value": 1.0,
+        "comparator": Comparator.AT_LEAST,
+        "aggregation": Aggregation.SUM,
+        "active_from": date(2026, 8, 3),
+    }
+    values.update(overrides)
+    return HabitSpec(**values)
+
+
+def test_break_days_are_excused_without_breaking_or_extending_the_streak():
+    habit = _spec(breaks=((date(2026, 8, 6), date(2026, 8, 7)),))
+    entries = [_entry(date(2026, 8, day)) for day in (3, 4, 5, 8, 9)]
+    as_of = date(2026, 8, 9)
+    assert current_streak(habit, entries, as_of) == 5
+    assert longest_streak(habit, entries, as_of) == 5
+    assert adherence_counts(habit, entries, date(2026, 8, 3), as_of) == (4, 4)
+    excused_day = bucket_for(date(2026, 8, 6), Period.DAY)
+    assert is_excused(habit, excused_day)
+    assert bucket_outcome(habit, [], excused_day) is BucketOutcome.EXCUSED
+
+
+def test_partial_break_scales_a_weekly_at_least_target():
+    weekly = _spec(period=Period.WEEK, target_value=3.0)
+    week = bucket_for(date(2026, 8, 10), Period.WEEK)
+    assert bucket_target(weekly, week) == 3.0
+    away = _spec(
+        period=Period.WEEK,
+        target_value=3.0,
+        breaks=((date(2026, 8, 10), date(2026, 8, 12)),),
+    )
+    assert available_days(away, week) == (7, 4)
+    assert bucket_target(away, week) == 2.0
+    two_runs = [_entry(date(2026, 8, 14)), _entry(date(2026, 8, 15))]
+    assert bucket_outcome(away, two_runs, week) is BucketOutcome.SATISFIED
+    whole_week = _spec(
+        period=Period.WEEK,
+        target_value=3.0,
+        breaks=((date(2026, 8, 9), date(2026, 8, 17)),),
+    )
+    assert bucket_target(whole_week, week) is None
+
+
+def test_ceilings_are_not_scaled_by_breaks():
+    habit = _spec(
+        period=Period.WEEK,
+        target_value=2.0,
+        comparator=Comparator.AT_MOST,
+        breaks=((date(2026, 8, 10), date(2026, 8, 12)),),
+    )
+    assert bucket_target(habit, bucket_for(date(2026, 8, 10), Period.WEEK)) == 2.0
+
+
+def test_quit_habit_streak_counts_clean_days_and_resets_on_a_slip():
+    quit = _spec(target_value=0.0, comparator=Comparator.AT_MOST)
+    slips = [_entry(date(2026, 8, 5))]
+    assert current_streak(quit, slips, date(2026, 8, 9)) == 4
+    assert longest_streak(quit, slips, date(2026, 8, 9)) == 4
+    assert current_streak(quit, [*slips, _entry(date(2026, 8, 9))], date(2026, 8, 9)) == 0

@@ -18,3 +18,7 @@ class AlreadyExistsError(ServiceError):
 
 class ValidationError(ServiceError):
     pass
+
+
+class UpstreamError(ServiceError):
+    """A remote service Atlas depends on (such as a link preview) could not be read."""

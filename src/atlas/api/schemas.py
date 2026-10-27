@@ -11,6 +11,7 @@ from atlas.domain import (
     GoalHorizon,
     GoalKind,
     GoalStatus,
+    HabitKind,
     Measure,
     PaceStatus,
     Period,
@@ -22,6 +23,7 @@ from atlas.domain import (
     Source,
     TaskBucket,
     TaskPriority,
+    TimeOfDay,
     ValueType,
 )
 
@@ -118,13 +120,17 @@ class EntryOut(BaseModel):
 class HabitCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    slug: str
-    metric: str
-    period: Period
-    target_value: float
-    comparator: Comparator
+    slug: str | None = None
     name: str | None = None
+    kind: HabitKind | None = None
+    metric: str | None = None
+    period: Period = Period.DAY
+    target_value: float | None = None
+    comparator: Comparator | None = None
+    unit: str | None = None
     weekdays: list[int] | None = None
+    time_of_day: TimeOfDay = TimeOfDay.ANYTIME
+    goal: str | None = None
     active_from: date | None = None
     active_to: date | None = None
 
@@ -137,6 +143,9 @@ class HabitUpdate(BaseModel):
     comparator: Comparator | None = None
     weekdays: list[int] | None = None
     active_to: date | None = None
+    time_of_day: TimeOfDay | None = None
+    goal: str | None = None
+    unit: str | None = None
 
 
 class HabitOut(BaseModel):
@@ -144,12 +153,52 @@ class HabitOut(BaseModel):
     slug: str
     metric: str
     name: str
+    kind: HabitKind
     period: Period
     target_value: float
     comparator: Comparator
+    unit: str | None
     weekdays: list[int] | None
+    time_of_day: TimeOfDay
+    goal: str | None
     active_from: date
     active_to: date | None
+    archived_at: datetime | None
+
+
+class HabitBreakCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    start_on: date
+    end_on: date | None = None
+    note: str | None = None
+
+
+class HabitBreakOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    start_on: date
+    end_on: date
+    note: str | None
+
+
+class HabitCheckInCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    amount: float | None = None
+    on: date | None = None
+    note: str | None = None
+
+
+class HabitCheckInOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    occurred_on: date
+    value: float | None
+    note: str | None
+    created_at: datetime
 
 
 class MilestoneCreate(BaseModel):
@@ -238,6 +287,26 @@ class HabitStatusOut(BaseModel):
     satisfied: bool
     scheduled: bool
     as_of: date
+    kind: HabitKind
+    time_of_day: TimeOfDay
+    unit: str | None
+    goal_slug: str | None
+    archived: bool
+    bucket_start: date | None
+    bucket_end: date | None
+    days_left: int
+    effective_target: float | None
+    excused: bool
+    skipped_today: bool
+    today_value: float | None
+    last_entry_on: date | None
+
+
+class HabitDetailOut(BaseModel):
+    habit: HabitOut
+    status: HabitStatusOut
+    breaks: list[HabitBreakOut]
+    recent: list[HabitCheckInOut]
 
 
 class HabitDaySet(BaseModel):
@@ -296,6 +365,7 @@ class WeekDayCellOut(BaseModel):
     scheduled: bool
     value: float | None
     satisfied: bool | None
+    excused: bool
 
 
 class WeekHabitOut(BaseModel):
@@ -341,9 +411,6 @@ class HomeWeekOut(BaseModel):
     updates: float
     updates_last_week: float
     updates_delta: float | None
-    slips: float
-    slips_last_week: float
-    slips_delta: float | None
     focus_minutes: float
     focus_minutes_last_week: float
     focus_delta: float | None
@@ -351,7 +418,6 @@ class HomeWeekOut(BaseModel):
     tasks_done_last_week: float
     tasks_delta: float | None
     series_updates: list[float]
-    series_slips: list[float]
 
 
 class GoalBoardColumnOut(BaseModel):
@@ -404,6 +470,8 @@ class HabitsBoardOut(BaseModel):
     scheduled: int
     satisfied: int
     fraction: float | None
+    completion_7d: float | None
+    completion_30d: float | None
     day: list[HabitStatusOut]
     week: list[HabitStatusOut]
     month: list[HabitStatusOut]
@@ -761,25 +829,6 @@ class UpdatesStatusOut(BaseModel):
     longest_streak: int
 
 
-class SlipCreate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    occurred_on: date | None = None
-    note: str | None = None
-
-
-class SlipsWeekOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    as_of: date
-    week_start: date
-    week_end: date
-    this_week: float
-    last_week: float
-    delta_fraction: float | None
-    series: list[float]
-
-
 class TaskCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -874,6 +923,8 @@ class EntertainmentTitleCreate(BaseModel):
     finished_on: date | None = None
     progress: str | None = None
     note: str | None = None
+    rating: int | None = None
+    link: str | None = None
     topics: list[str] = Field(default_factory=list)
     image_url: str | None = None
 
@@ -890,6 +941,8 @@ class EntertainmentTitleUpdate(BaseModel):
     finished_on: date | None = None
     progress: str | None = None
     note: str | None = None
+    rating: int | None = None
+    link: str | None = None
     topics: list[str] | None = None
     image_url: str | None = None
 
@@ -907,8 +960,36 @@ class EntertainmentTitleOut(BaseModel):
     finished_on: date | None
     progress: str | None
     note: str | None
+    rating: int | None
+    link: str | None
     topics: list[EntertainmentTopicRefOut]
     image: str | None
+    created_at: datetime | None
+
+
+class EntertainmentLinkLookupIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    url: str
+
+
+class EntertainmentLinkSuggestionOut(BaseModel):
+    link: str
+    name: str | None
+    kind: EntertainmentKind | None
+    creator: str | None
+    image_url: str | None
+    existing: str | None
+
+
+class EntertainmentTitleFromLink(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    url: str
+    kind: EntertainmentKind | None = None
+    status: EntertainmentStatus = EntertainmentStatus.QUEUED
+    topics: list[str] = Field(default_factory=list)
+    note: str | None = None
 
 
 class EntertainmentKindCountOut(BaseModel):

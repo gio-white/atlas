@@ -10,7 +10,7 @@ from sqlmodel import Session, SQLModel, col, create_engine, select
 from atlas.db.models import Entry, SchemaVersion, ScreenApp, ScreenSession
 from atlas.domain import infer_horizon
 
-CURRENT_SCHEMA_VERSION = 8
+CURRENT_SCHEMA_VERSION = 10
 
 
 def create_engine_for(db_path: Path) -> Engine:
@@ -52,6 +52,10 @@ def init_schema(engine: Engine) -> None:
                 _backfill_screen_sessions(engine)
             if previous < 6:
                 _make_goal_area_nullable(engine)
+            if previous < 9:
+                _add_entertainment_rating_and_link(engine)
+            if previous < 10:
+                _add_habit_kind_and_schedule(engine)
             session.expire_all()
             row = session.get(SchemaVersion, 1)
         if row is None:
@@ -207,6 +211,46 @@ def _make_goal_area_nullable(engine: Engine) -> None:
             connection.execute(text("PRAGMA foreign_keys=ON"))
             raise
         connection.execute(text("PRAGMA foreign_keys=ON"))
+
+
+def _add_entertainment_rating_and_link(engine: Engine) -> None:
+    inspector = inspect(engine)
+    if "entertainment_title" not in inspector.get_table_names():
+        return
+    columns = {column["name"] for column in inspector.get_columns("entertainment_title")}
+    with engine.begin() as connection:
+        if "rating" not in columns:
+            connection.execute(text("ALTER TABLE entertainment_title ADD COLUMN rating INTEGER"))
+        if "link" not in columns:
+            connection.execute(text("ALTER TABLE entertainment_title ADD COLUMN link VARCHAR"))
+
+
+def _add_habit_kind_and_schedule(engine: Engine) -> None:
+    inspector = inspect(engine)
+    if "habit" not in inspector.get_table_names():
+        return
+    columns = {column["name"] for column in inspector.get_columns("habit")}
+    with engine.begin() as connection:
+        if "kind" not in columns:
+            connection.execute(
+                text("ALTER TABLE habit ADD COLUMN kind VARCHAR NOT NULL DEFAULT 'COUNT'")
+            )
+            # Enum columns store member names; a bool metric is a check habit, duration a timer.
+            connection.execute(
+                text(
+                    "UPDATE habit SET kind = CASE "
+                    "(SELECT upper(value_type) FROM metric WHERE metric.id = habit.metric_id) "
+                    "WHEN 'BOOL' THEN 'CHECK' WHEN 'DURATION' THEN 'DURATION' ELSE 'COUNT' END"
+                )
+            )
+        if "time_of_day" not in columns:
+            connection.execute(
+                text("ALTER TABLE habit ADD COLUMN time_of_day VARCHAR NOT NULL DEFAULT 'ANYTIME'")
+            )
+        if "goal_id" not in columns:
+            connection.execute(text("ALTER TABLE habit ADD COLUMN goal_id INTEGER"))
+        if "archived_at" not in columns:
+            connection.execute(text("ALTER TABLE habit ADD COLUMN archived_at DATETIME"))
 
 
 def _as_date(value: date | str) -> date:

@@ -123,3 +123,38 @@ def test_goal_add_horizon_parent_and_cumulative(runner):
     assert by_slug["ten-thousand-pushups"]["horizon"] == "medium"
     assert by_slug["ten-thousand-pushups"]["parent"] == "durable-health"
     assert by_slug["ten-thousand-pushups"]["measure"] == "cumulative_since_start"
+
+
+def test_habit_first_add_check_skip_and_archive(runner):
+    created = invoke(
+        runner,
+        [
+            "habit",
+            "add",
+            "--name",
+            "Read",
+            "--kind",
+            "count",
+            "--at-least",
+            "20",
+            "--unit",
+            "pages",
+            "--time",
+            "evening",
+            "--from",
+            "2026-08-03",
+        ],
+    )
+    assert "read" in created.output
+    checked = invoke(runner, ["habit", "check", "read", "12", "--on", "2026-08-03"])
+    assert "read: 12 2026-08-03" in checked.output
+    skipped = invoke(
+        runner, ["habit", "skip", "read", "--from", "2026-08-05", "--to", "2026-08-07"]
+    )
+    assert "2026-08-05 → 2026-08-07" in skipped.output
+    invoke(runner, ["habit", "add", "--name", "No sugar", "--kind", "quit"])
+    archived = invoke(runner, ["habit", "archive", "read"])
+    assert "archived habit read" in archived.output
+    exported = invoke(runner, ["export"])
+    assert '"kind": "quit"' in exported.output
+    assert '"time_of_day": "evening"' in exported.output

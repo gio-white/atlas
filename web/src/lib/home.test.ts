@@ -68,11 +68,11 @@ function habit(overrides: Partial<WeekHabit> = {}): WeekHabit {
     satisfied: false,
     current_streak: 2,
     days: [
-      { day: '2026-08-10', scheduled: true, value: 1, satisfied: true },
-      { day: '2026-08-11', scheduled: true, value: null, satisfied: false },
-      { day: '2026-08-12', scheduled: false, value: null, satisfied: null },
-      { day: '2026-08-13', scheduled: true, value: null, satisfied: false },
-      { day: '2026-08-14', scheduled: true, value: null, satisfied: null },
+      { day: '2026-08-10', scheduled: true, value: 1, satisfied: true, excused: false },
+      { day: '2026-08-11', scheduled: true, value: null, satisfied: false, excused: false },
+      { day: '2026-08-12', scheduled: false, value: null, satisfied: null, excused: false },
+      { day: '2026-08-13', scheduled: true, value: null, satisfied: false, excused: false },
+      { day: '2026-08-14', scheduled: true, value: null, satisfied: null, excused: false },
     ],
     ...overrides,
   }
@@ -127,12 +127,19 @@ describe('habitCellState', () => {
     ])
   })
 
+  it('shows skipped days as skipped, not missed', () => {
+    const item = habit({
+      days: [{ day: '2026-08-11', scheduled: true, value: null, satisfied: null, excused: true }],
+    })
+    expect(habitCellState(item, item.days[0], '2026-08-13')).toBe('skipped')
+  })
+
   it('marks any logged day as done for a weekly habit', () => {
     const item = habit({
       period: 'week',
       days: [
-        { day: '2026-08-10', scheduled: true, value: 1, satisfied: null },
-        { day: '2026-08-11', scheduled: true, value: null, satisfied: null },
+        { day: '2026-08-10', scheduled: true, value: 1, satisfied: null, excused: false },
+        { day: '2026-08-11', scheduled: true, value: null, satisfied: null, excused: false },
       ],
     })
     expect(item.days.map((cell) => habitCellState(item, cell, '2026-08-13'))).toEqual([

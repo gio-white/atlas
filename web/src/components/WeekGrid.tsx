@@ -1,4 +1,4 @@
-import { Check, Minus, X } from 'lucide-react'
+import { Check, Minus, SkipForward, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import type { WeekDayCell, WeekHabit } from '@/lib/api'
@@ -26,7 +26,7 @@ export function WeekGrid({
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className="w-full min-w-[40rem] border-collapse text-sm">
         <thead>
           <tr>
@@ -88,6 +88,17 @@ export function DayDot({ cell }: { cell: WeekDayCell }) {
       </span>
     )
   }
+  if (cell.excused) {
+    return (
+      <span
+        className="inline-flex size-7 items-center justify-center rounded-full bg-warn/10 text-warn"
+        title="skipped"
+      >
+        <SkipForward className="size-3.5" aria-hidden />
+        <span className="sr-only">skipped</span>
+      </span>
+    )
+  }
   if (cell.satisfied === true) {
     return (
       <span
@@ -104,6 +115,17 @@ export function DayDot({ cell }: { cell: WeekDayCell }) {
       <span className="inline-flex size-7 items-center justify-center rounded-full bg-bad/15 text-bad">
         <X className="size-3.5" aria-hidden />
         <span className="sr-only">missed</span>
+      </span>
+    )
+  }
+  if (cell.value !== null && cell.value > 0) {
+    return (
+      <span
+        className="inline-flex size-7 items-center justify-center rounded-full border border-good/40 text-good"
+        title={`logged ${cell.value}`}
+      >
+        <Check className="size-3.5" aria-hidden />
+        <span className="sr-only">logged {cell.value}</span>
       </span>
     )
   }

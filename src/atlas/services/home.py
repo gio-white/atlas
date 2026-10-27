@@ -10,7 +10,6 @@ from atlas.services.life import CHECKIN_METRIC_SLUG, ensure_checkin_habit
 from atlas.services.lookups import entries_for_metric, require_metric
 from atlas.services.mapping import entry_view
 from atlas.services.screen import screen_minutes_in_range
-from atlas.services.slips import slips_week
 from atlas.services.tasks import tasks_done_in_week
 
 
@@ -22,9 +21,6 @@ class HomeWeek:
     updates: float
     updates_last_week: float
     updates_delta: float | None
-    slips: float
-    slips_last_week: float
-    slips_delta: float | None
     focus_minutes: float
     focus_minutes_last_week: float
     focus_delta: float | None
@@ -32,13 +28,11 @@ class HomeWeek:
     tasks_done_last_week: float
     tasks_delta: float | None
     series_updates: list[float]
-    series_slips: list[float]
 
 
 def home_week(session: Session, *, as_of: date | None = None) -> HomeWeek:
     as_of = resolve_today(as_of)
     ensure_checkin_habit(session)
-    slips = slips_week(session, as_of=as_of)
     week = bucket_for(as_of, Period.WEEK)
     previous = previous_bucket(week)
     checkin = require_metric(session, CHECKIN_METRIC_SLUG)
@@ -56,9 +50,6 @@ def home_week(session: Session, *, as_of: date | None = None) -> HomeWeek:
         updates=this_updates,
         updates_last_week=last_updates,
         updates_delta=_delta(this_updates, last_updates),
-        slips=slips.this_week,
-        slips_last_week=slips.last_week,
-        slips_delta=slips.delta_fraction,
         focus_minutes=this_focus,
         focus_minutes_last_week=last_focus,
         focus_delta=_delta(this_focus, last_focus),
@@ -66,7 +57,6 @@ def home_week(session: Session, *, as_of: date | None = None) -> HomeWeek:
         tasks_done_last_week=last_tasks,
         tasks_delta=_delta(this_tasks, last_tasks),
         series_updates=series_updates,
-        series_slips=slips.series,
     )
 
 

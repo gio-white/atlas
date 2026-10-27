@@ -112,6 +112,20 @@ class TaskPriority(StrEnum):
     LOW = "low"
 
 
+class HabitKind(StrEnum):
+    CHECK = "check"
+    COUNT = "count"
+    DURATION = "duration"
+    QUIT = "quit"
+
+
+class TimeOfDay(StrEnum):
+    MORNING = "morning"
+    AFTERNOON = "afternoon"
+    EVENING = "evening"
+    ANYTIME = "anytime"
+
+
 class EntertainmentKind(StrEnum):
     FILM = "film"
     SERIES = "series"
@@ -119,6 +133,8 @@ class EntertainmentKind(StrEnum):
     VIDEO = "video"
     PODCAST = "podcast"
     BOOK = "book"
+    MUSIC = "music"
+    OTHER = "other"
 
 
 class EntertainmentStatus(StrEnum):

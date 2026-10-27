@@ -1,4 +1,4 @@
-import { Check, CheckSquare, ListChecks, Minus, Plus, X } from 'lucide-react'
+import { Check, CheckSquare, ListChecks, Minus, Plus, SkipForward, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -366,6 +366,7 @@ const CELL_STYLE: Record<HabitCellState, string> = {
   missed: 'bg-bad/10 text-bad hover:bg-bad/20',
   open: 'border border-line text-muted hover:border-good hover:text-good',
   future: 'border border-dashed border-line text-muted',
+  skipped: 'bg-warn/10 text-warn',
   off: 'bg-raised text-muted',
 }
 
@@ -374,6 +375,7 @@ const CELL_LABEL: Record<HabitCellState, string> = {
   missed: 'missed',
   open: 'not yet',
   future: 'upcoming',
+  skipped: 'skipped',
   off: 'not scheduled',
 }
 
@@ -390,7 +392,7 @@ function HabitCell({
   label: string
   onClick: () => void
 }) {
-  const interactive = state !== 'off' && state !== 'future'
+  const interactive = state !== 'off' && state !== 'future' && state !== 'skipped'
   return (
     <button
       type="button"
@@ -409,6 +411,7 @@ function HabitCell({
       {state === 'done' && <Check className="size-4" aria-hidden />}
       {state === 'missed' && <X className="size-3.5" aria-hidden />}
       {state === 'off' && <Minus className="size-3.5" aria-hidden />}
+      {state === 'skipped' && <SkipForward className="size-3.5" aria-hidden />}
     </button>
   )
 }

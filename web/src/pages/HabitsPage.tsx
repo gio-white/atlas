@@ -1,70 +1,51 @@
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 
-import { HabitCreateDialog } from '@/components/habits/HabitCreateDialog'
-import {
-  EmptyState,
-  PageHeader,
-  PageLoading,
-  PageUnavailable,
-  ProgressBar,
-} from '@/components/PageState'
-import { Badge } from '@/components/ui/badge'
+import { HabitCard, ProgressRing } from '@/components/habits/HabitCard'
+import { HabitFormDialog } from '@/components/habits/HabitFormDialog'
+import { Segmented } from '@/components/home/Segmented'
+import { PageHeader, PageLoading, PageUnavailable } from '@/components/PageState'
 import { Button } from '@/components/ui/button'
 import { WeekGrid } from '@/components/WeekGrid'
 import {
   ApiError,
   getHabitsBoard,
   getHabitsCalendar,
-  type HabitStatus,
   type HabitsBoard,
   type HabitsCalendar,
-  listMetrics,
-  logEntry,
-  type Metric,
   type Period,
 } from '@/lib/api'
-import { useAsOf, useShell } from '@/lib/asOf'
-import { shiftPeriodDate, shortDateLabel } from '@/lib/dates'
-import { formatComparator, formatPercent } from '@/lib/format'
-import {
-  bucketProgress,
-  flattenHabits,
-  HABIT_PERIOD_META,
-  parseHabitPeriod,
-} from '@/lib/habitsSummary'
-import { cn, todayIso } from '@/lib/utils'
+import { useAsOf } from '@/lib/asOf'
+import { longDateLabel, shiftPeriodDate, shortDateLabel } from '@/lib/dates'
+import { formatPercent } from '@/lib/format'
+import { periodHabits, todayGroups, todaySummary } from '@/lib/habits'
+import { flattenHabits, parseHabitPeriod } from '@/lib/habitsSummary'
+import { todayIso } from '@/lib/utils'
 
-const VIEW_PERIODS: { id: Period; label: string }[] = [
-  { id: 'day', label: 'Day' },
+const GRID_PERIODS: { id: Period; label: string }[] = [
   { id: 'week', label: 'Week' },
   { id: 'month', label: 'Month' },
 ]
 
 export function HabitsPage() {
   const asOf = useAsOf()
-  const { openLog } = useShell()
   const [params, setParams] = useSearchParams()
   const search = params.toString()
-  const period = parseHabitPeriod(params.get('period'))
+  const gridPeriod = parseHabitPeriod(params.get('period')) === 'month' ? 'month' : 'week'
   const [board, setBoard] = useState<HabitsBoard | null>(null)
   const [calendar, setCalendar] = useState<HabitsCalendar | null>(null)
-  const [metrics, setMetrics] = useState<Metric[]>([])
   const [error, setError] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
-  const [pending, setPending] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
-    const [nextBoard, nextCalendar, nextMetrics] = await Promise.all([
+    const [nextBoard, nextCalendar] = await Promise.all([
       getHabitsBoard(asOf),
-      getHabitsCalendar(period, asOf),
-      listMetrics(),
+      getHabitsCalendar(gridPeriod, asOf),
     ])
     setBoard(nextBoard)
     setCalendar(nextCalendar)
-    setMetrics(nextMetrics)
-  }, [asOf, period])
+  }, [asOf, gridPeriod])
 
   useEffect(() => {
     let cancelled = false
@@ -72,8 +53,6 @@ export function HabitsPage() {
     refresh().catch((caught: unknown) => {
       if (!cancelled) {
         setError(caught instanceof ApiError ? caught.message : 'Could not load habits')
-        setBoard(null)
-        setCalendar(null)
       }
     })
     return () => {
@@ -81,213 +60,198 @@ export function HabitsPage() {
     }
   }, [refresh])
 
-  const metricBySlug = useMemo(
-    () => Object.fromEntries(metrics.map((metric) => [metric.slug, metric])),
-    [metrics],
-  )
-  const habits = useMemo(() => (board === null ? [] : flattenHabits(board)), [board])
+  const statuses = useMemo(() => (board === null ? [] : flattenHabits(board)), [board])
+  const groups = useMemo(() => todayGroups(statuses), [statuses])
+  const periodic = useMemo(() => periodHabits(statuses), [statuses])
+  const today = useMemo(() => todaySummary(statuses), [statuses])
 
-  function setPeriod(next: Period) {
+  function setParam(key: string, value: string | null) {
     const copy = new URLSearchParams(params)
-    if (next === 'week') copy.delete('period')
-    else copy.set('period', next)
+    if (value === null) copy.delete(key)
+    else copy.set(key, value)
     setParams(copy, { replace: true })
   }
 
-  function shift(delta: number) {
-    const copy = new URLSearchParams(params)
-    const next = shiftPeriodDate(asOf, period, delta)
-    if (next === todayIso()) copy.delete('on')
-    else copy.set('on', next)
-    setParams(copy, { replace: true })
+  function shiftDay(delta: number) {
+    const next = shiftPeriodDate(asOf, 'day', delta)
+    setParam('on', next === todayIso() ? null : next)
   }
 
-  async function onLog(habit: HabitStatus) {
-    if (habit.satisfied) return
-    const metric = metricBySlug[habit.metric_slug]
-    if (metric?.value_type !== 'bool') {
-      openLog()
-      return
-    }
-    setPending(habit.slug)
-    try {
-      await logEntry({ metric: habit.metric_slug, occurred_on: asOf })
-      await refresh()
-    } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Could not log')
-    } finally {
-      setPending(null)
-    }
-  }
-
-  if (error !== null) {
-    return <PageUnavailable title="Habits" message={error} />
-  }
+  if (error !== null) return <PageUnavailable title="Habits" message={error} />
   if (board === null || calendar === null) return <PageLoading />
 
+  const isToday = asOf === todayIso()
+  const weekly = periodic.filter((status) => status.period === 'week')
+  const monthly = periodic.filter((status) => status.period === 'month')
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <PageHeader
           title="Habits"
-          description={`${shortDateLabel(calendar.range_start)} – ${shortDateLabel(calendar.range_end)}. Recurring commitments, not one-off tasks.`}
+          description={isToday ? `Today · ${longDateLabel(asOf)}` : longDateLabel(asOf)}
           homeLink
         />
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-full border border-line bg-surface p-1" role="tablist">
-            {VIEW_PERIODS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={period === item.id}
-                className={cn(
-                  'rounded-full px-3 py-1 text-sm motion-safe:transition-colors',
-                  period === item.id ? 'bg-goal/20 text-ink' : 'text-muted hover:text-ink',
-                )}
-                onClick={() => setPeriod(item.id)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
+        <div className="flex items-center gap-1">
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            onClick={() => shift(-1)}
-            aria-label="Previous"
+            aria-label="Previous day"
+            onClick={() => shiftDay(-1)}
           >
             <ChevronLeft className="size-4" />
           </Button>
           <Button
             type="button"
             variant="ghost"
+            size="sm"
+            disabled={isToday}
+            onClick={() => setParam('on', null)}
+          >
+            Today
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
             size="icon"
-            onClick={() => shift(1)}
-            aria-label="Next"
+            aria-label="Next day"
+            disabled={isToday}
+            onClick={() => shiftDay(1)}
           >
             <ChevronRight className="size-4" />
           </Button>
-          <Button type="button" onClick={() => setCreateOpen(true)}>
+          <Button type="button" className="ml-2" onClick={() => setCreateOpen(true)}>
             <Plus className="size-4" aria-hidden />
-            New Habit
+            New habit
           </Button>
         </div>
       </div>
-      <p className="font-mono text-xs text-muted">
-        {board.satisfied}/{board.scheduled} scheduled done
-        {board.fraction !== null ? ` · ${formatPercent(board.fraction)}` : ''}
-      </p>
-      {habits.length === 0 ? (
-        <EmptyState
-          title="No habits yet"
-          hint="Define a recurring commitment over a metric. Completing a task will not move a streak."
-        />
+
+      {statuses.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-line bg-raised/60 px-4 py-10 text-center">
+          <p className="font-medium text-ink">No habits yet</p>
+          <p className="mt-1 text-sm text-muted">
+            Start with one small thing you want to do (or stop doing) every day.
+          </p>
+          <Button type="button" className="mt-4" onClick={() => setCreateOpen(true)}>
+            <Plus className="size-4" aria-hidden />
+            Create your first habit
+          </Button>
+        </div>
       ) : (
         <>
-          <section className="rounded-2xl border border-line bg-raised/40 p-3">
-            <WeekGrid habits={calendar.habits} search={search} compact={period === 'month'} />
+          <section className="grid gap-3 sm:grid-cols-3" aria-label="Summary">
+            <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4">
+              <ProgressRing
+                value={today.due === 0 ? 0 : today.done / today.due}
+                done={today.due > 0 && today.done === today.due}
+              />
+              <div>
+                <p className="text-2xl font-semibold tracking-tight">
+                  {today.done}/{today.due}
+                </p>
+                <p className="text-xs text-muted">{isToday ? 'done today' : 'done that day'}</p>
+              </div>
+            </div>
+            <SummaryStat label="Last 7 days" value={formatPercent(board.completion_7d)} />
+            <SummaryStat label="Last 30 days" value={formatPercent(board.completion_30d)} />
           </section>
-          <ul className="grid gap-3 lg:grid-cols-2">
-            {habits.map((habit) => (
-              <li key={habit.slug}>
+
+          {groups.length > 0 ? (
+            <section className="flex flex-col gap-5" aria-label="Today">
+              {groups.map((group) => (
+                <div key={group.id} className="flex flex-col gap-2">
+                  <h2 className="text-xs font-semibold tracking-wide text-muted uppercase">
+                    {group.label}
+                  </h2>
+                  <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {group.habits.map((status) => (
+                      <li key={status.slug}>
+                        <HabitCard
+                          status={status}
+                          asOf={asOf}
+                          search={search}
+                          onChanged={refresh}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </section>
+          ) : null}
+
+          {weekly.length > 0 ? (
+            <PeriodSection
+              title={`This week · ${shortDateLabel(weekly[0].bucket_start ?? asOf)} – ${shortDateLabel(weekly[0].bucket_end ?? asOf)}`}
+            >
+              {weekly.map((status) => (
                 <HabitCard
-                  habit={habit}
+                  key={status.slug}
+                  status={status}
+                  asOf={asOf}
                   search={search}
-                  isBool={metricBySlug[habit.metric_slug]?.value_type === 'bool'}
-                  pending={pending === habit.slug}
-                  onLog={() => onLog(habit)}
+                  onChanged={refresh}
+                  layout="row"
                 />
-              </li>
-            ))}
-          </ul>
+              ))}
+            </PeriodSection>
+          ) : null}
+          {monthly.length > 0 ? (
+            <PeriodSection title="This month">
+              {monthly.map((status) => (
+                <HabitCard
+                  key={status.slug}
+                  status={status}
+                  asOf={asOf}
+                  search={search}
+                  onChanged={refresh}
+                  layout="row"
+                />
+              ))}
+            </PeriodSection>
+          ) : null}
+
+          <section className="flex min-w-0 flex-col gap-3" aria-label="Overview">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-xs font-semibold tracking-wide text-muted uppercase">
+                Overview · {shortDateLabel(calendar.range_start)} –{' '}
+                {shortDateLabel(calendar.range_end)}
+              </h2>
+              <Segmented
+                label="Overview range"
+                options={GRID_PERIODS}
+                value={gridPeriod}
+                onChange={(next) => setParam('period', next === 'week' ? null : next)}
+              />
+            </div>
+            <div className="min-w-0 rounded-2xl border border-line bg-surface p-3">
+              <WeekGrid habits={calendar.habits} search={search} compact={gridPeriod === 'month'} />
+            </div>
+          </section>
         </>
       )}
-      <HabitCreateDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        metrics={metrics}
-        onCreated={refresh}
-      />
+
+      <HabitFormDialog open={createOpen} onOpenChange={setCreateOpen} onSaved={refresh} />
     </div>
   )
 }
 
-function HabitCard({
-  habit,
-  search,
-  isBool,
-  pending,
-  onLog,
-}: {
-  habit: HabitStatus
-  search: string
-  isBool: boolean
-  pending: boolean
-  onLog: () => void
-}) {
-  const progress = bucketProgress(habit.current_value, habit.target_value)
-  const logLabel = habit.satisfied ? 'Done' : isBool ? 'Mark done' : 'Log value'
+function SummaryStat({ label, value }: { label: string; value: string }) {
   return (
-    <article className="flex flex-col gap-4 rounded-2xl border border-line bg-surface p-4 shadow-[var(--shadow-card)]">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <Link
-            to={{ pathname: `/habit/${habit.slug}`, search }}
-            className="text-lg font-semibold tracking-tight hover:underline"
-          >
-            {habit.name}
-          </Link>
-          <p className="mt-1 font-mono text-xs text-muted">
-            {formatComparator(habit.comparator)} {habit.target_value} · {habit.metric_slug}
-          </p>
-        </div>
-        <div className="flex flex-wrap justify-end gap-1">
-          <Badge>{HABIT_PERIOD_META[habit.period].label}</Badge>
-          <Badge tone={habit.satisfied ? 'good' : habit.scheduled ? 'warn' : 'default'}>
-            {habit.satisfied ? 'done' : habit.scheduled ? 'open' : 'off'}
-          </Badge>
-        </div>
-      </div>
-      <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <Stat label="Current streak" value={String(habit.current_streak)} />
-        <Stat label="Longest" value={String(habit.longest_streak)} />
-        <div className="col-span-2 sm:col-span-1">
-          <dt className="text-xs text-muted">Adherence</dt>
-          <dd className="mt-1 font-mono text-xl">{formatPercent(habit.adherence)}</dd>
-          <div className="mt-2">
-            <ProgressBar value={habit.adherence} />
-          </div>
-        </div>
-      </dl>
-      <div>
-        <p className="text-xs text-muted">This bucket</p>
-        <p className="mt-1 font-mono text-xl">
-          {habit.current_value === null ? '—' : habit.current_value}
-          <span className="text-sm text-muted">
-            {' '}
-            / {habit.target_value} {formatComparator(habit.comparator)}
-          </span>
-        </p>
-        <div className="mt-2">
-          <ProgressBar value={progress} />
-        </div>
-      </div>
-      {habit.scheduled && (
-        <Button type="button" disabled={pending || habit.satisfied} onClick={onLog}>
-          {logLabel}
-        </Button>
-      )}
-    </article>
+    <div className="flex flex-col justify-center rounded-2xl border border-line bg-surface p-4">
+      <p className="text-2xl font-semibold tracking-tight">{value}</p>
+      <p className="text-xs text-muted">{label}</p>
+    </div>
   )
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function PeriodSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div>
-      <dt className="text-xs text-muted">{label}</dt>
-      <dd className="mt-1 font-mono text-xl">{value}</dd>
-    </div>
+    <section className="flex flex-col gap-2" aria-label={title}>
+      <h2 className="text-xs font-semibold tracking-wide text-muted uppercase">{title}</h2>
+      <div className="grid gap-3 md:grid-cols-2">{children}</div>
+    </section>
   )
 }

@@ -4,6 +4,8 @@ import { Layout } from '@/components/Layout'
 import { LIFE_SECTIONS } from '@/lib/sections'
 import { AreaPage } from '@/pages/AreaPage'
 import { CatalogPage } from '@/pages/CatalogPage'
+import { EntertainmentCategoryPage } from '@/pages/EntertainmentCategoryPage'
+import { EntertainmentInsightsPage } from '@/pages/EntertainmentInsightsPage'
 import { EntertainmentPage } from '@/pages/EntertainmentPage'
 import { GoalPage } from '@/pages/GoalPage'
 import { GoalsPage } from '@/pages/GoalsPage'
@@ -31,6 +33,8 @@ export default function App() {
             />
           ))}
           <Route path="entertainment" element={<EntertainmentPage />} />
+          <Route path="entertainment/insights" element={<EntertainmentInsightsPage />} />
+          <Route path="entertainment/:category" element={<EntertainmentCategoryPage />} />
           <Route path="screen" element={<ScreenPage />} />
           <Route path="tasks" element={<TasksPage />} />
           <Route path="journal" element={<PlaceholderPage title="Journal" />} />

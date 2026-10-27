@@ -34,15 +34,17 @@ dev = [
 line-length = 100
 target-version = "py312"
 src = ["src", "tests"]
+# Skill scripts are vendored and rule examples are illustrative; .claude/hooks stays linted.
+extend-exclude = [".claude/skills", ".claude/rules"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "TID"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
-"atlas.db".msg = "domain must not import db; see .cursor/rules/architecture.mdc"
-"atlas.services".msg = "domain must not import services; see .cursor/rules/architecture.mdc"
-"atlas.api".msg = "domain must not import api; see .cursor/rules/architecture.mdc"
-"atlas.cli".msg = "domain must not import cli; see .cursor/rules/architecture.mdc"
+"atlas.db".msg = "domain must not import db; see .claude/rules/architecture.md"
+"atlas.services".msg = "domain must not import services; see .claude/rules/architecture.md"
+"atlas.api".msg = "domain must not import api; see .claude/rules/architecture.md"
+"atlas.cli".msg = "domain must not import cli; see .claude/rules/architecture.md"
 
 [tool.ruff.lint.per-file-ignores]
 "src/atlas/db/**" = ["TID251"]
