@@ -276,6 +276,19 @@ export type ScreenSessionRow = {
   note: string | null
 }
 
+export type ScreenBudget = {
+  id: number
+  slug: string
+  name: string
+  target_kind: ScreenBudgetTargetKind
+  target_slug: string
+  period: Period
+  target_value: number
+  comparator: Comparator
+  active_from: string
+  active_to: string | null
+}
+
 export type ScreenBudgetStatus = {
   slug: string
   name: string
@@ -831,6 +844,80 @@ export function logScreenSession(body: {
   note?: string | null
 }): Promise<ScreenSessionRecord> {
   return request('/screen/sessions', { method: 'POST', body: JSON.stringify(body) })
+}
+
+export function listScreenSessions(occurredOn?: string): Promise<ScreenSessionRecord[]> {
+  return request(`/screen/sessions${queryString({ occurred_on: occurredOn })}`)
+}
+
+export function updateScreenSession(
+  id: number,
+  body: {
+    minutes?: number | null
+    started_at?: string | null
+    ended_at?: string | null
+    occurred_on?: string | null
+    device?: string | null
+    note?: string | null
+  },
+): Promise<ScreenSessionRecord> {
+  return request(`/screen/sessions/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
+}
+
+export function deleteScreenSession(id: number): Promise<void> {
+  return request(`/screen/sessions/${id}`, { method: 'DELETE' })
+}
+
+export function updateScreenCategory(
+  slug: string,
+  body: { name?: string | null; judgment?: ScreenJudgment | null },
+): Promise<ScreenCategory> {
+  return request(`/screen/categories/${encodeURIComponent(slug)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+}
+
+export function updateScreenApp(
+  slug: string,
+  body: { name?: string | null; category?: string | null },
+): Promise<ScreenApp> {
+  return request(`/screen/apps/${encodeURIComponent(slug)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+}
+
+export function listScreenBudgets(): Promise<ScreenBudget[]> {
+  return request('/screen/budgets')
+}
+
+export function createScreenBudget(body: {
+  slug: string
+  name?: string | null
+  target_kind: ScreenBudgetTargetKind
+  target_slug: string
+  period: Period
+  target_value: number
+  comparator: Comparator
+  active_from?: string | null
+}): Promise<ScreenBudget> {
+  return request('/screen/budgets', { method: 'POST', body: JSON.stringify(body) })
+}
+
+export function updateScreenBudget(
+  slug: string,
+  body: {
+    name?: string | null
+    target_value?: number | null
+    comparator?: Comparator | null
+    active_to?: string | null
+  },
+): Promise<ScreenBudget> {
+  return request(`/screen/budgets/${encodeURIComponent(slug)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
 }
 
 export function getEntertainmentView(asOf?: string): Promise<EntertainmentView> {
