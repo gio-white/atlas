@@ -10,13 +10,13 @@ Consequences of that stance:
 
 - Backfilling an entry for last Tuesday automatically corrects every streak, adherence ratio, and goal percentage that depends on it. There is no recalculation step and nothing to migrate.
 - There is exactly one capture path for habits and goals. They point at metrics; they never store their own observations. Screen time is the exception: sessions are stored in `screen_session` and dual-written onto the app's backing entry.
-- The React SPA in `web/` is the only frontend. It is an HTTP client of the API: it has no privileged access and no streaks, adherence, or progress of its own to reimplement. The CLI is an in-process adapter for capture, catalog definition, and admin (`init`, `seed`, `serve`, export/import), not a review UI.
+- The React SPA in `web/` is the only frontend. It is an HTTP client of the API: it has no privileged access and no streaks, adherence, or progress of its own to reimplement. The CLI is an in-process admin adapter (`init`, `seed`, `serve`, export/import). Capture, definition, and review all go through the SPA.
 
 
 
 ## Data model
 
-Integer primary keys are internal. Slugs are the human key and are what the CLI and the API accept: unique per entity type, lowercase, `[a-z0-9-]`.
+Integer primary keys are internal. Slugs are the human key and are what the API accepts: unique per entity type, lowercase, `[a-z0-9-]`.
 
 ```mermaid
 flowchart TD
@@ -259,7 +259,7 @@ A device that can host a session: iPhone, MacBook. Optional on each session. Nul
 
 The stored screen-time fact. Two valid shapes: an **interval** (`started_at` and `ended_at` both set, UTC, `ended_at > started_at`) or **duration-only** (both timestamps null, `minutes > 0`, `occurred_on` set). When the interval is present it is the source: `minutes` is derived as `(ended_at - started_at)` in fractional minutes. Duration-only sessions count toward totals; they do not contribute to hour heatmaps or time-based insights.
 
-Capture (`POST /screen/sessions`, `atlas screen log`) writes the session and a matching backing `entry` on the app metric. Logging to that metric via `POST /entries` / `atlas log` also inserts a duration-only session. Amend and delete keep the pair in sync through optional unique `entry_id`.
+Capture (`POST /screen/sessions`) writes the session and a matching backing `entry` on the app metric. Logging to that metric via `POST /entries` also inserts a duration-only session. Amend and delete keep the pair in sync through optional unique `entry_id`.
 
 | Field         | Type             | Notes                                                                 |
 | ------------- | ---------------- | --------------------------------------------------------------------- |
@@ -304,7 +304,7 @@ One contiguous sleep phase inside a session. Stages must fall inside the session
 
 ### Life catalog
 
-Updates and Journal (API and CLI; no longer on Home) use well-known rows in the existing tables, created on first use like the `screen` area. Area `life`. Metric `checkin` (`bool`, `sum`) with habit `checkin-daily`. Metric `journal` (`text`, `last`). Check-ins and journal notes are ordinary entries; streak comes from `habit_status`; today's journal text is the latest `journal` entry on `as_of`. Slips are no longer a shared counter: each quit habit has its own slip log.
+Updates and Journal (`/journal` page) use well-known rows in the existing tables, created on first use like the `screen` area. Area `life`. Metric `checkin` (`bool`, `sum`) with habit `checkin-daily`. Metric `journal` (`text`, `last`). Check-ins and journal notes are ordinary entries; streak comes from `habit_status`; today's journal text is the latest `journal` entry on `as_of`. Slips are no longer a shared counter: each quit habit has its own slip log.
 
 ### Task
 
@@ -319,7 +319,7 @@ A one-off work-queue item, not an observation. Completing a task stamps `done_at
 | `due_on`     | date \| None     | optional local date                                |
 | `due_at`     | datetime \| None | optional precise time (UTC)                        |
 | `priority`   | enum             | `high \| normal \| low`                            |
-| `goal_id`    | int \| None      | optional FK to `Goal`; wire/CLI key is the goal slug |
+| `goal_id`    | int \| None      | optional FK to `Goal`; wire key is the goal slug |
 | `done_at`    | datetime \| None | UTC; `None` means open                             |
 | `created_at` | datetime         | UTC                                                |
 
@@ -415,7 +415,7 @@ The package lives at `src/atlas/` (src layout), so tests import the installed pa
 | `atlas/db/`         | SQLModel tables (`Area`, `Metric`, `Entry`, `Habit`, `HabitBreak`, `Goal`, `Milestone`, `ScreenCategory`, `ScreenApp`, `ScreenBudget`, `ScreenDevice`, `ScreenSession`, `EntertainmentTopic`, `EntertainmentTitle`, `EntertainmentTitleTopic`, `SleepSession`, `SleepSessionStage`, `SchemaVersion`), engine, session factory, schema creation. Implemented. Unique slugs; `Entry` indexed on `(metric_id, occurred_on)`; `ScreenSession` indexed on `(app_id, occurred_on)`; `ScreenApp.metric_id` unique. |
 | `atlas/services/`   | Use cases, each taking an explicit `Session` as its first parameter. Loads rows, hands plain values to `domain`, writes results back. Implemented. |
 | `atlas/api/`        | FastAPI routers: parse, call a service, serialize. Dedicated request/response schemas only where the wire shape must differ from the table (slugs instead of integer FKs). Implemented. Session comes from a factory dependency; CORS allows the Vite dev origins (`http://127.0.0.1:5173`, `http://localhost:5173`). If `web/dist/index.html` exists, GET 404s fall back to that SPA without shadowing API routes. `uv run uvicorn atlas.api.app:app --reload`, `python -m atlas.api`, and `atlas serve` bind to `127.0.0.1` only. |
-| `atlas/cli/`        | Typer commands calling the same services in-process (no HTTP hop). Implemented. Session comes from the factory; commands never query tables. Capture and define commands print one-line confirmations (Rich markup). `log` resolves metric slugs by unique prefix, substring, or close match. `seed` loads the demo dataset through `seed_demo`. There is no CLI review UI; today / week / area / habit / goals dashboards live in the SPA. |
+| `atlas/cli/`        | Typer commands calling the same services in-process (no HTTP hop). Implemented. Session comes from the factory; commands never query tables. Admin only: `init`, `seed` (through `seed_demo`), `serve`, `export`, `import`. Capture, definition, and review live in the SPA. |
 
 
 Import rules, enforced by review and by the always-applied architecture rule:
@@ -795,39 +795,16 @@ Package manager is pnpm (`web/pnpm-lock.yaml`, `packageManager` in `web/package.
 
 ## CLI
 
-The CLI is capture, catalog definition, and admin — not a frontend. Review (today, week, area, habit, goals, screen, entertainment) lives in the web SPA. Capture is one line; define, correct, and port take a few keystrokes. Confirmations are one line.
+The CLI is admin only: run the app, create the database, load demo data, and back it up. Capture, catalog definition, correction, and review all live in the web SPA over the HTTP API, so there is one place to add a feature. Confirmations are one line.
 
 
-| Command                                        | Purpose                                                                                                                            | Status      |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| `atlas init`                                   | Create the SQLite file and schema at `ATLAS_DB`                                                                                    | implemented |
-| `atlas seed`                                   | Load a demo dataset dated relative to today (or `--on`). Refuses if the database already has areas unless `--replace`. Prints counts of areas, metrics, habits, goals, entries, tasks, screen taxonomy/sessions, and entertainment topics/titles. | implemented |
-| `atlas log <metric> [value]`                   | Capture, the hot path: `atlas log pushups 40`, `atlas log meditated`, `atlas log weight 78.4 --on 2026-08-10 --note "post-travel"`. Metric slugs accept a unique prefix (`push` → `pushups`). | implemented |
-| `atlas area add <slug>`                        | Define an area                                                                                                                     | implemented |
-| `atlas metric add <slug> --area --type --agg`  | Define a metric                                                                                                                    | implemented |
-| `atlas habit add [slug] --name --kind`         | Define a habit habit-first (`--kind check|count|duration|quit`, `--unit`, `--time`) or over `--metric` (slug then defaults to `{metric}-{period}`). `--period` defaults to `day`; target is one of `--at-least`, `--at-most`, `--exactly` (optional for check and quit). | implemented |
-| `atlas habit check <slug> [amount]`            | Check in: mark done, add to a count or timer, or log a slip. `--on`, `--note`. | implemented |
-| `atlas habit skip <slug>`                      | Skip today, or pause `--from` … `--to`. `--note`. | implemented |
-| `atlas habit archive <slug>`                   | Retire a habit; history stays. | implemented |
-| `atlas goal add <name> --metric --target --by` | Define a goal. `--area` is optional; inferred from `--metric` when present, otherwise untagged. Slug is derived from the name. `--at-most` / `--at-least` / `--exactly` are flags; `--cumulative` selects `cumulative_since_start`. `--horizon`, `--parent`, and `--description` are optional. | implemented |
-| `atlas entry amend <id>`                       | Correct an entry                                                                                                                   | implemented |
-| `atlas entry rm <id>`                          | Delete an entry                                                                                                                    | implemented |
-| `atlas update`                                 | Log a daily check-in on the well-known `checkin` metric (creates the `life` catalog if missing). `--on` / `--note`. | implemented |
-| `atlas task add <title>`                       | Add a one-off task. `--bucket today\|upcoming\|someday`, `--priority`, `--due`, `--goal`. | implemented |
-| `atlas task done <id>`                         | Stamp `done_at` on a task. | implemented |
-| `atlas screen log <app> [minutes]`             | Record a screen session. Duration: `atlas screen log instagram 30 --on 2026-08-14`. Interval: `atlas screen log instagram --from 2026-08-14T20:00:00+00:00 --to 2026-08-14T20:30:00+00:00`. `--device` / `--note`. | implemented |
-| `atlas entertainment topic add <slug>`         | Define a subject tag. `--name`. | implemented |
-| `atlas entertainment add <name> --kind`        | Add a work. `--slug`, `--creator`, `--recommended-by`, `--topic` (repeatable, created if new), `--status`, `--progress`, `--note`, `--rating` (1–5), `--link`, `--image-url` or `--image`. | implemented |
-| `atlas entertainment status <slug> --status`   | Set `queued`, `in_progress`, `done`, or `dropped`. | implemented |
-| `atlas entertainment add-link <url>`           | Add a work from a link (looked up). `--kind`, `--status`, `--topic`, `--note`. | implemented |
-| `atlas entertainment rate <slug> <1-5>`        | Rate a work. | implemented |
-| `atlas entertainment remove <slug>`            | Delete a work and its tag links. | implemented |
-| `atlas journal <text>`                         | Log a journal entry on the well-known `journal` metric. `--on`. | implemented |
-| `atlas export`                                 | Write a JSON export to stdout                                                                                                      | implemented |
-| `atlas import <file>`                          | Load a JSON export. `--replace` clears user rows first.                                                                            | implemented |
-| `atlas serve`                                  | Serve the HTTP API and, when `web/dist` exists, the SPA on `127.0.0.1:8000`.                                                       | implemented |
-
-
+| Command               | Purpose                                                                                                                            | Status      |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `atlas init`          | Create the SQLite file and schema at `ATLAS_DB`                                                                                    | implemented |
+| `atlas seed`          | Load a demo dataset dated relative to today (or `--on`). Refuses if the database already has areas unless `--replace`. Prints counts of every seeded collection. | implemented |
+| `atlas export`        | Write a JSON export to stdout                                                                                                      | implemented |
+| `atlas import <file>` | Load a JSON export. `--replace` clears user rows first.                                                                            | implemented |
+| `atlas serve`         | Serve the HTTP API and, when `web/dist` exists, the SPA on `127.0.0.1:8000`.                                                       | implemented |
 
 
 ## Configuration

@@ -1,6 +1,6 @@
 # Atlas
 
-Single-user, local-first life tracker: a FastAPI + SQLModel backend over SQLite, a Typer CLI for capture and admin, and a React SPA in `web/` for review. Entries are the stored facts; streaks, adherence, goal progress, and pace are computed on read.
+Single-user, local-first life tracker: a FastAPI + SQLModel backend over SQLite, a small Typer admin CLI, and a React SPA in `web/` for review. Entries are the stored facts; streaks, adherence, goal progress, and pace are computed on read.
 
 - How to install and run: [README.md](README.md).
 - Data model, layering, API, CLI, web surface, and the development log: [docs/architecture.md](docs/architecture.md). It is the source of truth and changes in the same commit as the behavior it describes.
