@@ -13,7 +13,7 @@ import { GoalsPage } from '@/pages/GoalsPage'
 import { HabitPage } from '@/pages/HabitPage'
 import { HabitsPage } from '@/pages/HabitsPage'
 import { HomePage } from '@/pages/HomePage'
-import { PlaceholderPage } from '@/pages/PlaceholderPage'
+import { JournalPage } from '@/pages/JournalPage'
 import { ScreenPage } from '@/pages/ScreenPage'
 import { SectionPage } from '@/pages/SectionPage'
 import { TasksPage } from '@/pages/TasksPage'
@@ -38,7 +38,7 @@ export default function App() {
           <Route path="entertainment/:category" element={<EntertainmentCategoryPage />} />
           <Route path="screen" element={<ScreenPage />} />
           <Route path="tasks" element={<TasksPage />} />
-          <Route path="journal" element={<PlaceholderPage title="Journal" />} />
+          <Route path="journal" element={<JournalPage />} />
           <Route path="area/:slug" element={<AreaPage />} />
           <Route path="habit" element={<HabitsPage />} />
           <Route path="habit/:slug" element={<HabitPage />} />
