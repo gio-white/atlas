@@ -7,6 +7,7 @@ import { CatalogPage } from '@/pages/CatalogPage'
 import { EntertainmentCategoryPage } from '@/pages/EntertainmentCategoryPage'
 import { EntertainmentInsightsPage } from '@/pages/EntertainmentInsightsPage'
 import { EntertainmentPage } from '@/pages/EntertainmentPage'
+import { EntriesPage } from '@/pages/EntriesPage'
 import { GoalPage } from '@/pages/GoalPage'
 import { GoalsPage } from '@/pages/GoalsPage'
 import { HabitPage } from '@/pages/HabitPage'
@@ -43,6 +44,7 @@ export default function App() {
           <Route path="habit/:slug" element={<HabitPage />} />
           <Route path="goal" element={<GoalsPage />} />
           <Route path="goal/:slug" element={<GoalPage />} />
+          <Route path="history" element={<EntriesPage />} />
           <Route path="catalog" element={<CatalogPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

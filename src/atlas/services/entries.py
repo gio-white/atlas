@@ -1,12 +1,18 @@
 from datetime import UTC, date, datetime
 
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
-from atlas.db.models import Entry, ScreenApp, ScreenSession
+from atlas.db.models import Entry, Metric, ScreenApp, ScreenSession
 from atlas.domain import Source, ValueType
 from atlas.services.clock import resolve_today
 from atlas.services.errors import ValidationError
-from atlas.services.lookups import metric_by_id, require_active_metric, require_entry
+from atlas.services.lookups import (
+    metric_by_id,
+    require_active_metric,
+    require_area,
+    require_entry,
+    require_metric,
+)
 from atlas.services.slugs import normalize_slug
 
 _UNSET = object()
@@ -75,6 +81,37 @@ def amend_entry(
     session.commit()
     session.refresh(entry)
     return entry
+
+
+def list_entries(
+    session: Session,
+    *,
+    metric_slug: str | None = None,
+    area_slug: str | None = None,
+    start_on: date | None = None,
+    end_on: date | None = None,
+    limit: int = 200,
+) -> list[tuple[Entry, str]]:
+    """Entries newest first, each paired with its metric slug."""
+    if limit < 1:
+        raise ValidationError("limit must be at least 1")
+    if start_on is not None and end_on is not None and start_on > end_on:
+        raise ValidationError("start_on must be on or before end_on")
+    statement = select(Entry, Metric.slug).join(Metric, col(Metric.id) == col(Entry.metric_id))
+    if metric_slug is not None:
+        metric = require_metric(session, normalize_slug(metric_slug))
+        statement = statement.where(Entry.metric_id == metric.id)
+    if area_slug is not None:
+        area = require_area(session, normalize_slug(area_slug))
+        statement = statement.where(Metric.area_id == area.id)
+    if start_on is not None:
+        statement = statement.where(Entry.occurred_on >= start_on)
+    if end_on is not None:
+        statement = statement.where(Entry.occurred_on <= end_on)
+    statement = statement.order_by(
+        col(Entry.occurred_on).desc(), col(Entry.created_at).desc(), col(Entry.id).desc()
+    ).limit(limit)
+    return [(entry, slug) for entry, slug in session.exec(statement).all()]
 
 
 def delete_entry(session: Session, entry_id: int) -> None:

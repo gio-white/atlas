@@ -1,12 +1,35 @@
-from fastapi import APIRouter
+from datetime import date
+from typing import Annotated
+
+from fastapi import APIRouter, Query
 
 from atlas.api.deps import SessionDep
 from atlas.api.schemas import EntryAmend, EntryCreate, EntryOut
-from atlas.api.serialize import entry_out_for
+from atlas.api.serialize import entry_out, entry_out_for
 from atlas.domain import Source
-from atlas.services import amend_entry, delete_entry, log_entry
+from atlas.services import amend_entry, delete_entry, list_entries, log_entry
 
 router = APIRouter(prefix="/entries", tags=["entries"])
+
+
+@router.get("", response_model=list[EntryOut])
+def get_entries(
+    session: SessionDep,
+    metric: str | None = None,
+    area: str | None = None,
+    start_on: date | None = None,
+    end_on: date | None = None,
+    limit: Annotated[int, Query(ge=1, le=1000)] = 200,
+) -> list[EntryOut]:
+    rows = list_entries(
+        session,
+        metric_slug=metric,
+        area_slug=area,
+        start_on=start_on,
+        end_on=end_on,
+        limit=limit,
+    )
+    return [entry_out(entry, slug) for entry, slug in rows]
 
 
 @router.post("", response_model=EntryOut, status_code=201)

@@ -9,6 +9,7 @@ from atlas.services import (
     amend_entry,
     archive_metric,
     delete_entry,
+    list_entries,
     log_entry,
 )
 from atlas.settings import load_settings
@@ -107,3 +108,42 @@ def test_delete_entry_removes_the_row(session):
 def test_unknown_metric_is_not_found(session):
     with pytest.raises(NotFoundError, match="metric"):
         log_entry(session, "missing", 1)
+
+
+def test_list_entries_is_newest_first_with_metric_slugs(session):
+    seed_health(session)
+    older = log_entry(session, "pushups", 10, occurred_on=date(2026, 8, 10))
+    weight = log_entry(session, "weight", 78.4, occurred_on=date(2026, 8, 12))
+    newer = log_entry(session, "pushups", 20, occurred_on=date(2026, 8, 12))
+
+    rows = list_entries(session)
+
+    assert [(entry.id, slug) for entry, slug in rows] == [
+        (newer.id, "pushups"),
+        (weight.id, "weight"),
+        (older.id, "pushups"),
+    ]
+
+
+def test_list_entries_filters_by_metric_area_and_date_range(session):
+    seed_health(session)
+    log_entry(session, "pushups", 10, occurred_on=date(2026, 8, 9))
+    kept = log_entry(session, "pushups", 20, occurred_on=date(2026, 8, 11))
+    log_entry(session, "weight", 78.4, occurred_on=date(2026, 8, 11))
+
+    rows = list_entries(
+        session, metric_slug="pushups", start_on=date(2026, 8, 10), end_on=date(2026, 8, 12)
+    )
+    assert [entry.id for entry, _ in rows] == [kept.id]
+    assert len(list_entries(session, area_slug="health")) == 3
+    assert len(list_entries(session, limit=2)) == 2
+
+
+def test_list_entries_rejects_bad_filters(session):
+    seed_health(session)
+    with pytest.raises(NotFoundError):
+        list_entries(session, metric_slug="missing")
+    with pytest.raises(ValidationError, match="start_on"):
+        list_entries(session, start_on=date(2026, 8, 12), end_on=date(2026, 8, 10))
+    with pytest.raises(ValidationError, match="limit"):
+        list_entries(session, limit=0)

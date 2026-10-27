@@ -29,9 +29,7 @@ export function LogForm({ metrics, occurredOn, initialMetric, onLogged }: LogFor
   )
 
   if (metrics.length === 0 || metric === undefined) {
-    return (
-      <p className="text-sm text-muted">No metrics yet. Define one in Catalog or via the CLI.</p>
-    )
+    return <p className="text-sm text-muted">No metrics yet. Define one in Catalog.</p>
   }
 
   async function onSubmit(event: FormEvent) {

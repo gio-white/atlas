@@ -716,8 +716,18 @@ export function listAreas(includeArchived = false): Promise<Area[]> {
   return request(`/areas${queryString({ include_archived: includeArchived || undefined })}`)
 }
 
-export function listMetrics(area?: string): Promise<Metric[]> {
-  return request(`/metrics${queryString({ area })}`)
+export function listMetrics(area?: string, includeArchived = false): Promise<Metric[]> {
+  return request(`/metrics${queryString({ area, include_archived: includeArchived || undefined })}`)
+}
+
+export function listEntries(filters?: {
+  metric?: string
+  area?: string
+  start_on?: string
+  end_on?: string
+  limit?: number
+}): Promise<Entry[]> {
+  return request(`/entries${queryString(filters ?? {})}`)
 }
 
 export function listHabits(metric?: string): Promise<Habit[]> {

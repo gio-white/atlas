@@ -26,7 +26,7 @@ from atlas.services.entertainment_lookup import (
     lookup_link,
     unique_title_slug,
 )
-from atlas.services.entries import amend_entry, delete_entry, log_entry
+from atlas.services.entries import amend_entry, delete_entry, list_entries, log_entry
 from atlas.services.errors import (
     AlreadyExistsError,
     NotFoundError,
@@ -235,6 +235,7 @@ __all__ = [
     "list_areas",
     "list_entertainment_titles",
     "list_entertainment_topics",
+    "list_entries",
     "list_goals",
     "list_habits",
     "list_metrics",
