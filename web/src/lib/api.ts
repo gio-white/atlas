@@ -1057,6 +1057,14 @@ export function logSleepSession(body: {
   return request('/sleep/sessions', { method: 'POST', body: JSON.stringify(body) })
 }
 
+export function listSleepSessions(occurredOn?: string): Promise<SleepSessionRecord[]> {
+  return request(`/sleep/sessions${queryString({ occurred_on: occurredOn })}`)
+}
+
+export function deleteSleepSession(id: number): Promise<void> {
+  return request(`/sleep/sessions/${id}`, { method: 'DELETE' })
+}
+
 export function getUpdates(asOf?: string): Promise<UpdatesStatus> {
   return request(`/updates${queryString({ as_of: asOf })}`)
 }

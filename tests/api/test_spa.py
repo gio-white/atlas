@@ -101,3 +101,19 @@ def test_resolve_spa_dir_finds_index(tmp_path):
     dist.mkdir()
     (dist / "index.html").write_text("<!doctype html>", encoding="utf-8")
     assert resolve_spa_dir([dist]) == dist
+
+
+def test_document_navigation_to_shadowed_pages_gets_the_spa(tmp_path):
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<!doctype html><title>Atlas</title>", encoding="utf-8")
+    client = _client(spa_dir=dist)
+
+    for path in ("/journal", "/tasks"):
+        page = client.get(path, headers={"Accept": "text/html,application/xhtml+xml"})
+        assert page.status_code == 200
+        assert "text/html" in page.headers["content-type"]
+
+        api = client.get(path)
+        assert api.status_code == 200
+        assert "application/json" in api.headers["content-type"]

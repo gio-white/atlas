@@ -16,6 +16,7 @@ import { HomePage } from '@/pages/HomePage'
 import { JournalPage } from '@/pages/JournalPage'
 import { ScreenPage } from '@/pages/ScreenPage'
 import { SectionPage } from '@/pages/SectionPage'
+import { SleepPage } from '@/pages/SleepPage'
 import { TasksPage } from '@/pages/TasksPage'
 import { WeekPage } from '@/pages/WeekPage'
 
@@ -26,13 +27,16 @@ export default function App() {
         <Route element={<Layout />}>
           <Route index element={<HomePage />} />
           <Route path="week" element={<WeekPage />} />
-          {LIFE_SECTIONS.filter((section) => section.slug !== 'entertainment').map((section) => (
+          {LIFE_SECTIONS.filter(
+            (section) => section.slug !== 'entertainment' && section.slug !== 'sleep',
+          ).map((section) => (
             <Route
               key={section.slug}
               path={section.slug}
               element={<SectionPage title={section.label} description={section.description} />}
             />
           ))}
+          <Route path="sleep" element={<SleepPage />} />
           <Route path="entertainment" element={<EntertainmentPage />} />
           <Route path="entertainment/insights" element={<EntertainmentInsightsPage />} />
           <Route path="entertainment/:category" element={<EntertainmentCategoryPage />} />

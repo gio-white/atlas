@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
 import type { ScreenSessionRecord } from './api'
+import { toLocalInput } from './dates'
 import {
-  budgetIsActive,
   budgetSlug,
+  budgetState,
   budgetSummary,
   draftFromSession,
   sessionTimeLabel,
   sessionUpdateBody,
-  toLocalInput,
 } from './screenManage'
 
 function record(overrides: Partial<ScreenSessionRecord> = {}): ScreenSessionRecord {
@@ -38,11 +38,26 @@ describe('budgets', () => {
     )
   })
 
-  it('is active inside its window only', () => {
+  it('reads an inclusive end date as a last day, then as ended', () => {
     const budget = { active_from: '2026-08-01', active_to: '2026-08-10' }
-    expect(budgetIsActive(budget, '2026-08-10')).toBe(true)
-    expect(budgetIsActive(budget, '2026-08-11')).toBe(false)
-    expect(budgetIsActive({ active_from: '2026-08-01', active_to: null }, '2027-01-01')).toBe(true)
+    expect(budgetState(budget, '2026-08-10')).toEqual({
+      label: 'last day 2026-08-10',
+      open: false,
+      counting: true,
+    })
+    expect(budgetState(budget, '2026-08-11')).toEqual({
+      label: 'ended 2026-08-10',
+      open: false,
+      counting: false,
+    })
+    expect(budgetState({ active_from: '2026-08-01', active_to: null }, '2027-01-01')).toEqual({
+      label: 'active',
+      open: true,
+      counting: true,
+    })
+    expect(budgetState({ active_from: '2026-09-01', active_to: null }, '2026-08-01').counting).toBe(
+      false,
+    )
   })
 })
 

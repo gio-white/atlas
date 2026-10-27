@@ -1,5 +1,5 @@
-import { Moon, Plus } from 'lucide-react'
-import { type FormEvent, useState } from 'react'
+import { Moon, Plus, X } from 'lucide-react'
+import { type FormEvent, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,10 +12,25 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ApiError, logSleepSession, type SleepNight, type SleepView } from '@/lib/api'
+import { Select } from '@/components/ui/select'
+import {
+  ApiError,
+  logSleepSession,
+  type SleepNight,
+  type SleepStage,
+  type SleepView,
+} from '@/lib/api'
 import { shiftPeriodDate, weekdayLabel } from '@/lib/dates'
 import { formatMinutes } from '@/lib/format'
-import { formatClock, SLEEP_STAGE_META, SLEEP_STAGES, stageShares, weekAxis } from '@/lib/sleep'
+import {
+  formatClock,
+  SLEEP_STAGE_META,
+  SLEEP_STAGES,
+  type StageDraft,
+  stageShares,
+  stagesFromDrafts,
+  weekAxis,
+} from '@/lib/sleep'
 import { cn } from '@/lib/utils'
 
 export function SleepCard({
@@ -325,8 +340,15 @@ function LogSleepDialog({
 }) {
   const [bed, setBed] = useState(`${shiftPeriodDate(asOf, 'day', -1)}T23:00`)
   const [wake, setWake] = useState(`${asOf}T07:00`)
+  const [stages, setStages] = useState<(StageDraft & { id: number })[]>([])
+  const nextStageId = useRef(0)
+  const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+
+  function updateStage(index: number, patch: Partial<StageDraft>) {
+    setStages((rows) => rows.map((row, at) => (at === index ? { ...row, ...patch } : row)))
+  }
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -336,10 +358,18 @@ function LogSleepDialog({
       await logSleepSession({
         started_at: new Date(bed).toISOString(),
         ended_at: new Date(wake).toISOString(),
+        stages: stagesFromDrafts(stages),
+        note: note.trim() === '' ? null : note.trim(),
       })
+      setStages([])
+      setNote('')
       await onLogged()
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Could not log sleep')
+      setError(
+        caught instanceof ApiError || caught instanceof Error
+          ? caught.message
+          : 'Could not log sleep',
+      )
     } finally {
       setPending(false)
     }
@@ -351,7 +381,8 @@ function LogSleepDialog({
         <DialogHeader>
           <DialogTitle>Log a night</DialogTitle>
           <DialogDescription>
-            When you went to bed and woke up. Stages come from a tracker import.
+            When you went to bed and woke up. Stages are optional; add them if a tracker gave you
+            deep, light, REM, and awake times.
           </DialogDescription>
         </DialogHeader>
         <form className="flex flex-col gap-3" onSubmit={(event) => void onSubmit(event)}>
@@ -374,6 +405,74 @@ function LogSleepDialog({
               onChange={(event) => setWake(event.target.value)}
               required
             />
+          </div>
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-1 text-sm font-medium text-ink">Stages</legend>
+            {stages.map((row, index) => (
+              <div
+                key={row.id}
+                className="grid grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-2"
+              >
+                <Select
+                  aria-label={`Stage ${index + 1}`}
+                  value={row.stage}
+                  onChange={(event) =>
+                    updateStage(index, { stage: event.target.value as SleepStage })
+                  }
+                >
+                  {SLEEP_STAGES.map((stage) => (
+                    <option key={stage} value={stage}>
+                      {SLEEP_STAGE_META[stage].label}
+                    </option>
+                  ))}
+                </Select>
+                <Input
+                  type="datetime-local"
+                  aria-label={`Stage ${index + 1} start`}
+                  value={row.started}
+                  onChange={(event) => updateStage(index, { started: event.target.value })}
+                />
+                <Input
+                  type="datetime-local"
+                  aria-label={`Stage ${index + 1} end`}
+                  value={row.ended}
+                  onChange={(event) => updateStage(index, { ended: event.target.value })}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Remove stage ${index + 1}`}
+                  onClick={() => setStages((rows) => rows.filter((_, at) => at !== index))}
+                >
+                  <X className="size-4" aria-hidden />
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="self-start"
+              onClick={() =>
+                setStages((rows) => [
+                  ...rows,
+                  {
+                    id: nextStageId.current++,
+                    stage: 'light',
+                    started: rows.at(-1)?.ended ?? bed,
+                    ended: rows.at(-1)?.ended ?? bed,
+                  },
+                ])
+              }
+            >
+              <Plus className="size-4" aria-hidden />
+              Add stage
+            </Button>
+          </fieldset>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="sleep-note">Note</Label>
+            <Input id="sleep-note" value={note} onChange={(event) => setNote(event.target.value)} />
           </div>
           {error !== null && (
             <p className="text-sm text-bad" role="alert">

@@ -41,3 +41,23 @@ export function weekAxis(view: SleepView): { start: number; end: number; ticks: 
   for (let tick = Math.ceil(start / step) * step; tick <= end; tick += step) ticks.push(tick)
   return { start, end, ticks }
 }
+
+export type StageDraft = { stage: SleepStage; started: string; ended: string }
+
+/** Local datetime-input rows → the ISO stage spans POST /sleep/sessions expects. */
+export function stagesFromDrafts(
+  rows: StageDraft[],
+): { stage: SleepStage; started_at: string; ended_at: string }[] {
+  return rows.map((row) => {
+    if (row.started === '' || row.ended === '') throw new Error('each stage needs a start and end')
+    return {
+      stage: row.stage,
+      started_at: new Date(row.started).toISOString(),
+      ended_at: new Date(row.ended).toISOString(),
+    }
+  })
+}
+
+export function newestNightsFirst<T extends { started_at: string; id: number }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => b.started_at.localeCompare(a.started_at) || b.id - a.id)
+}

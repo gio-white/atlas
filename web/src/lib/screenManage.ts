@@ -1,4 +1,5 @@
 import type { Period, ScreenBudget, ScreenSessionRecord } from './api'
+import { toLocalInput } from './dates'
 import { formatComparator, formatMinutes } from './format'
 
 const PERIOD_PHRASE: Record<Period, string> = { day: 'a day', week: 'a week', month: 'a month' }
@@ -13,22 +14,27 @@ export function budgetSummary(
   return `${formatComparator(budget.comparator)} ${formatMinutes(budget.target_value)} ${PERIOD_PHRASE[budget.period]}`
 }
 
-/** A budget is live on `asOf` when its active window contains that day. */
-export function budgetIsActive(
+export type BudgetState = { label: string; open: boolean; counting: boolean }
+
+/**
+ * `active_to` is inclusive, so a cap ended today still counts today ("last day"). `open` is
+ * whether it has no end date yet, which decides between End and Resume.
+ */
+export function budgetState(
   budget: Pick<ScreenBudget, 'active_from' | 'active_to'>,
   asOf: string,
-) {
-  return budget.active_from <= asOf && (budget.active_to === null || budget.active_to >= asOf)
-}
-
-function pad(value: number): string {
-  return String(value).padStart(2, '0')
-}
-
-/** ISO instant → the browser-local `YYYY-MM-DDTHH:mm` a datetime-local input expects. */
-export function toLocalInput(iso: string): string {
-  const date = new Date(iso)
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+): BudgetState {
+  if (budget.active_from > asOf) {
+    return {
+      label: `starts ${budget.active_from}`,
+      open: budget.active_to === null,
+      counting: false,
+    }
+  }
+  if (budget.active_to === null) return { label: 'active', open: true, counting: true }
+  if (budget.active_to < asOf)
+    return { label: `ended ${budget.active_to}`, open: false, counting: false }
+  return { label: `last day ${budget.active_to}`, open: false, counting: true }
 }
 
 export function sessionTimeLabel(record: ScreenSessionRecord): string {

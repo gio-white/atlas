@@ -27,8 +27,8 @@ import {
 } from '@/lib/api'
 import { formatMinutes } from '@/lib/format'
 import {
-  budgetIsActive,
   budgetSlug,
+  budgetState,
   budgetSummary,
   draftFromSession,
   type SessionDraft,
@@ -42,16 +42,19 @@ function message(caught: unknown, fallback: string): string {
   return caught instanceof ApiError || caught instanceof Error ? caught.message : fallback
 }
 
+const PERIOD_ADJECTIVE: Record<Period, string> = { day: 'daily', week: 'weekly', month: 'monthly' }
+
 function capName(
   kind: ScreenBudgetTargetKind,
   target: string,
+  period: Period,
   categories: ScreenCategory[],
 ): string {
   const base =
     kind === 'judgment'
       ? target.charAt(0).toUpperCase() + target.slice(1)
       : (categories.find((row) => row.slug === target)?.name ?? target)
-  return `${base} cap`
+  return `${base} ${PERIOD_ADJECTIVE[period]} cap`
 }
 
 function targetName(budget: ScreenBudget, categories: ScreenCategory[]): string {
@@ -109,7 +112,7 @@ export function BudgetsCard({
           ) : (
             <ul className="flex flex-col divide-y divide-line">
               {budgets.map((budget) => {
-                const active = budgetIsActive(budget, asOf)
+                const state = budgetState(budget, asOf)
                 return (
                   <li key={budget.slug} className="flex flex-col gap-2 py-2 first:pt-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -117,9 +120,7 @@ export function BudgetsCard({
                       <span className="text-sm text-muted">
                         {targetName(budget, categories)} {budgetSummary(budget)}
                       </span>
-                      <Badge tone={active ? 'good' : 'default'}>
-                        {active ? 'active' : `ended ${budget.active_to ?? ''}`}
-                      </Badge>
+                      <Badge tone={state.counting ? 'good' : 'default'}>{state.label}</Badge>
                       <div className="ml-auto flex gap-1">
                         <Button
                           type="button"
@@ -137,13 +138,13 @@ export function BudgetsCard({
                             run(
                               () =>
                                 updateScreenBudget(budget.slug, {
-                                  active_to: active ? asOf : null,
+                                  active_to: state.open ? asOf : null,
                                 }),
                               'Could not update cap',
                             )
                           }
                         >
-                          {active ? 'End' : 'Resume'}
+                          {state.open ? 'End' : 'Resume'}
                         </Button>
                       </div>
                     </div>
@@ -267,7 +268,7 @@ function BudgetCreateForm({
     setPending(true)
     await onCreate({
       slug: budgetSlug(target, period),
-      name: capName(kind, target, categories),
+      name: capName(kind, target, period, categories),
       target_kind: kind,
       target_slug: target,
       period,
