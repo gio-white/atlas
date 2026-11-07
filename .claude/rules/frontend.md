@@ -1,0 +1,58 @@
+---
+paths:
+  - "web/**"
+---
+
+# Frontend tooling
+
+The SPA lives in `web/`. Python stays on uv and ruff. This layer does not.
+
+## pnpm only
+
+Every install, script, and lockfile in `web/` goes through `pnpm`. Never `npm`, never `yarn`, never `npx` (use `pnpm dlx` or a `package.json` script). A hook denies them; see `.claude/rules/tooling.md`. The lockfile is `pnpm-lock.yaml`; do not commit `package-lock.json` or `yarn.lock`.
+
+```bash
+# ❌ BAD
+npm install
+npm run dev
+npx vitest
+yarn add lucide-react
+
+# ✅ GOOD
+pnpm install
+pnpm add lucide-react
+pnpm add -D @biomejs/biome
+pnpm dev
+pnpm test
+pnpm lint
+pnpm build
+```
+
+`packageManager` in `web/package.json` pins pnpm. Run commands from `web/`.
+
+## Biome only
+
+Biome is the linter **and** the formatter. Do not add ESLint, Prettier, oxlint, or a second format config. Config is `web/biome.json`.
+
+```bash
+# ❌ BAD
+npx eslint .
+npx prettier --write .
+oxlint
+
+# ✅ GOOD
+pnpm lint              # biome check .  (gate: lint + format)
+pnpm format            # biome check --write .
+```
+
+Match the existing style: 2-space indent, line width 100, single quotes, trailing commas, semicolons as needed.
+
+## Pre-commit gates (when `web/` changes)
+
+All three must pass:
+
+1. `pnpm lint`
+2. `pnpm test`
+3. `pnpm build`
+
+A finding is work. If Biome marks it fixable, run `pnpm format` then `pnpm lint` again; inspect the rest and edit to match nearby code. See `.claude/rules/checks.md`. Do not commit with a known failure.

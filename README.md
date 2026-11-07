@@ -34,15 +34,17 @@ uv run atlas seed
 
 `seed` loads a demo dataset dated relative to today so the web UI has something to show. It refuses if the database already has areas; pass `--replace` to wipe user data and load it again. `--on YYYY-MM-DD` pins the "today" the demo is built around.
 
-Capture (the hot path):
+Back up and restore:
 
 ```bash
-uv run atlas log pushups 40
-uv run atlas log meditated
-uv run atlas log weight 78.4 --on 2026-08-10 --note "post-travel"
+uv run atlas export > atlas-backup.json
 ```
 
-Define, correct, and port (`export` / `import`) are listed in the [CLI](docs/architecture.md#cli) section of the architecture doc. `uv run atlas --help` prints the same surface. Review is the web UI, not the CLI.
+```bash
+uv run atlas import atlas-backup.json --replace
+```
+
+That is the whole CLI (`uv run atlas --help`). Capture, definition, correction, and review all live in the web UI.
 
 ## API and web UI
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { SleepNight, SleepView } from './api'
-import { formatClock, stageShares, weekAxis } from './sleep'
+import { formatClock, newestNightsFirst, stageShares, stagesFromDrafts, weekAxis } from './sleep'
 
 function night(bed: number, wake: number): SleepNight {
   return {
@@ -66,5 +66,34 @@ describe('weekAxis', () => {
     const axis = weekAxis(view([null, null]))
     expect(axis.start).toBe(-120)
     expect(axis.end).toBe(480)
+  })
+})
+
+describe('stagesFromDrafts', () => {
+  it('converts local inputs to ISO spans and requires both ends', () => {
+    const local = '2026-08-13T01:00'
+    expect(
+      stagesFromDrafts([{ stage: 'deep', started: local, ended: '2026-08-13T02:00' }]),
+    ).toEqual([
+      {
+        stage: 'deep',
+        started_at: new Date(local).toISOString(),
+        ended_at: new Date('2026-08-13T02:00').toISOString(),
+      },
+    ])
+    expect(() => stagesFromDrafts([{ stage: 'rem', started: local, ended: '' }])).toThrow(
+      'start and end',
+    )
+  })
+})
+
+describe('newestNightsFirst', () => {
+  it('orders by bedtime descending without mutating the input', () => {
+    const rows = [
+      { id: 1, started_at: '2026-08-11T23:00:00Z' },
+      { id: 2, started_at: '2026-08-12T23:00:00Z' },
+    ]
+    expect(newestNightsFirst(rows).map((row) => row.id)).toEqual([2, 1])
+    expect(rows[0].id).toBe(1)
   })
 })

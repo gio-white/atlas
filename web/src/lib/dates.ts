@@ -40,3 +40,13 @@ export function shiftPeriodDate(
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
+
+function pad(value: number): string {
+  return String(value).padStart(2, '0')
+}
+
+/** ISO instant → the browser-local `YYYY-MM-DDTHH:mm` a datetime-local input expects. */
+export function toLocalInput(iso: string): string {
+  const date = new Date(iso)
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}

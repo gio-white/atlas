@@ -55,3 +55,30 @@ def test_unknown_metric_is_not_found(client):
 
     assert response.status_code == 404
     assert "metric" in response.json()["detail"]
+
+
+def test_list_entries_filters_and_orders_newest_first(client, seed_health):
+    for body in (
+        {"metric": "pushups", "value": 10, "occurred_on": "2026-08-10"},
+        {"metric": "weight", "value": 78.4, "occurred_on": "2026-08-11"},
+        {"metric": "pushups", "value": 20, "occurred_on": "2026-08-12"},
+    ):
+        assert client.post("/entries", json=body).status_code == 201
+
+    everything = client.get("/entries")
+    assert everything.status_code == 200
+    assert [row["occurred_on"] for row in everything.json()] == [
+        "2026-08-12",
+        "2026-08-11",
+        "2026-08-10",
+    ]
+
+    pushups = client.get(
+        "/entries", params={"metric": "pushups", "start_on": "2026-08-11", "limit": 5}
+    )
+    assert [(row["metric"], row["value_num"]) for row in pushups.json()] == [("pushups", 20.0)]
+
+    assert client.get("/entries", params={"metric": "missing"}).status_code == 404
+    bad_range = client.get("/entries", params={"start_on": "2026-08-12", "end_on": "2026-08-10"})
+    assert bad_range.status_code == 400
+    assert client.get("/entries", params={"limit": 0}).status_code == 422

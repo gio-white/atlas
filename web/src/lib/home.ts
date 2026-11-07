@@ -43,10 +43,11 @@ function localDate(iso: string): string {
   return `${date.getFullYear()}-${month}-${day}`
 }
 
-export type HabitCellState = 'off' | 'future' | 'done' | 'missed' | 'open'
+export type HabitCellState = 'off' | 'skipped' | 'future' | 'done' | 'missed' | 'open'
 
 export function habitCellState(habit: WeekHabit, cell: WeekDayCell, asOf: string): HabitCellState {
   if (!cell.scheduled) return 'off'
+  if (cell.excused) return 'skipped'
   if (cell.day > asOf) return 'future'
   if (habit.period === 'day') {
     if (cell.satisfied === true) return 'done'

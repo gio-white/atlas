@@ -70,7 +70,7 @@ def demo_payload(as_of: date) -> dict[str, Any]:
         "schema_version": CURRENT_SCHEMA_VERSION,
         "areas": _areas(),
         "metrics": _metrics(),
-        "habits": _habits(start),
+        "habits": _habits(start, as_of),
         "goals": _goals(as_of),
         "milestones": _milestones(as_of),
         "tasks": _tasks(as_of),
@@ -93,6 +93,7 @@ def _areas() -> list[dict[str, Any]]:
         _area("finance", "Finance", "Runway and buffers."),
         _area("relationships", "Relationships", "People who matter."),
         _area("screen", "Screen", "Apps, categories, and budgets."),
+        _area("habits", "Habits", "Measurements created for habits."),
     ]
 
 
@@ -110,6 +111,14 @@ def _metrics() -> list[dict[str, Any]]:
         _metric("meditated", "health", "bool", "sum", direction="higher_is_better"),
         _metric("coffee", "health", "count", "sum", unit="cups", direction="lower_is_better"),
         _metric("runs", "health", "count", "sum", direction="higher_is_better"),
+        _metric(
+            "no-doomscrolling",
+            "habits",
+            "count",
+            "sum",
+            unit="slips",
+            direction="lower_is_better",
+        ),
         _metric("mood", "health", "rating", "mean", direction="higher_is_better"),
         _metric(
             "deep-work",
@@ -187,12 +196,42 @@ def _metrics() -> list[dict[str, Any]]:
     ]
 
 
-def _habits(start: date) -> list[dict[str, Any]]:
+def _habits(start: date, as_of: date) -> list[dict[str, Any]]:
+    travel_day = as_of - timedelta(days=10)
     return [
-        _habit("pushups-daily", "pushups", "day", 40.0, "at_least", start, weekdays=WEEKDAYS),
-        _habit("meditated-daily", "meditated", "day", 1.0, "at_least", start),
-        _habit("coffee-daily", "coffee", "day", 1.0, "at_most", start),
-        _habit("runs-weekly", "runs", "week", 3.0, "at_least", start),
+        _habit(
+            "pushups-daily",
+            "pushups",
+            "day",
+            40.0,
+            "at_least",
+            start,
+            weekdays=WEEKDAYS,
+            kind="count",
+            time_of_day="morning",
+        ),
+        _habit(
+            "meditated-daily",
+            "meditated",
+            "day",
+            1.0,
+            "at_least",
+            start,
+            kind="check",
+            time_of_day="morning",
+            breaks=[(travel_day, travel_day, "Travel day")],
+        ),
+        _habit(
+            "coffee-daily",
+            "coffee",
+            "day",
+            1.0,
+            "at_most",
+            start,
+            kind="count",
+            time_of_day="afternoon",
+        ),
+        _habit("runs-weekly", "runs", "week", 3.0, "at_least", start, kind="count"),
         _habit(
             "deep-work-weekdays",
             "deep-work",
@@ -201,8 +240,29 @@ def _habits(start: date) -> list[dict[str, Any]]:
             "at_least",
             start,
             weekdays=WEEKDAYS,
+            kind="duration",
+            time_of_day="morning",
         ),
-        _habit("family-monthly", "called-family", "month", 2.0, "at_least", start),
+        _habit(
+            "family-monthly",
+            "called-family",
+            "month",
+            2.0,
+            "at_least",
+            start,
+            kind="check",
+            time_of_day="evening",
+        ),
+        _habit(
+            "no-doomscrolling",
+            "no-doomscrolling",
+            "day",
+            0.0,
+            "at_most",
+            start,
+            kind="quit",
+            time_of_day="evening",
+        ),
     ]
 
 
@@ -342,6 +402,8 @@ def _entries(start: date, as_of: date) -> list[dict[str, Any]]:
         entries.append(_num("books", as_of - timedelta(days=offset), 1.0, note=f"book {i + 1}"))
     for offset, value in ((150, 1000.0), (90, 1800.0), (40, 2600.0), (0, 3200.0)):
         entries.append(_num("savings", as_of - timedelta(days=offset), value))
+    for offset, note in ((23, "Late night feed"), (9, "Couldn't sleep")):
+        entries.append(_num("no-doomscrolling", as_of - timedelta(days=offset), 1.0, note=note))
     entries.append(_text("journal", as_of - timedelta(days=7), "Week started slow."))
     entries.append(_text("journal", as_of - timedelta(days=1), "Wrapped the deep-work block."))
     return entries
@@ -405,6 +467,7 @@ def _entertainment_titles(as_of: date) -> list[dict[str, Any]]:
             topics=["finance"],
             finished_on=as_of - timedelta(days=10),
             started_on=as_of - timedelta(days=24),
+            rating=4,
         ),
         _entertainment_title(
             "the-office",
@@ -425,6 +488,7 @@ def _entertainment_titles(as_of: date) -> list[dict[str, Any]]:
             topics=["physics"],
             finished_on=as_of - timedelta(days=3),
             started_on=as_of - timedelta(days=3),
+            rating=5,
         ),
         _entertainment_title(
             "lex-fridman-109",
@@ -434,6 +498,8 @@ def _entertainment_titles(as_of: date) -> list[dict[str, Any]]:
             status="done",
             topics=["programming"],
             finished_on=as_of - timedelta(days=1),
+            rating=3,
+            link="https://lexfridman.com/podcast/",
         ),
         _entertainment_title(
             "three-body",
@@ -452,6 +518,17 @@ def _entertainment_titles(as_of: date) -> list[dict[str, Any]]:
             status="dropped",
             started_on=as_of - timedelta(days=15),
             progress="S1E6",
+            rating=2,
+        ),
+        _entertainment_title(
+            "kind-of-blue",
+            "Kind of Blue",
+            "music",
+            creator="Miles Davis",
+            recommended_by="Alex",
+            status="done",
+            finished_on=as_of - timedelta(days=2),
+            rating=5,
         ),
         _entertainment_title(
             "3blue1brown-linear",
@@ -461,6 +538,8 @@ def _entertainment_titles(as_of: date) -> list[dict[str, Any]]:
             status="done",
             topics=["math"],
             finished_on=as_of - timedelta(days=5),
+            rating=5,
+            link="https://www.3blue1brown.com/topics/linear-algebra",
         ),
         _entertainment_title(
             "rich-dad",
@@ -486,6 +565,8 @@ def _entertainment_title(
     finished_on: date | None = None,
     progress: str | None = None,
     note: str | None = None,
+    rating: int | None = None,
+    link: str | None = None,
 ) -> dict[str, Any]:
     created = finished_on or started_on or date(2026, 8, 1)
     created_at = datetime(created.year, created.month, created.day, 12, 0, tzinfo=UTC)
@@ -500,6 +581,8 @@ def _entertainment_title(
         "finished_on": finished_on.isoformat() if finished_on else None,
         "progress": progress,
         "note": note,
+        "rating": rating,
+        "link": link,
         "topics": topics or [],
         "image_url": None,
         "image_media_type": None,
@@ -736,6 +819,9 @@ def _habit(
     active_from: date,
     *,
     weekdays: list[int] | None = None,
+    kind: str = "count",
+    time_of_day: str = "anytime",
+    breaks: list[tuple[date, date, str | None]] | None = None,
 ) -> dict[str, Any]:
     return {
         "slug": slug,
@@ -747,6 +833,14 @@ def _habit(
         "weekdays": weekdays,
         "active_from": active_from.isoformat(),
         "active_to": None,
+        "kind": kind,
+        "time_of_day": time_of_day,
+        "goal": None,
+        "archived_at": None,
+        "breaks": [
+            {"start_on": start_on.isoformat(), "end_on": end_on.isoformat(), "note": note}
+            for start_on, end_on, note in breaks or []
+        ],
     }
 
 

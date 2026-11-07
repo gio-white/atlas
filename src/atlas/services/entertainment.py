@@ -26,6 +26,8 @@ from atlas.services.lookups import (
 from atlas.services.slugs import display_name, normalize_slug
 
 _UNSET = object()
+RATING_MIN = 1
+RATING_MAX = 5
 IMAGE_MAX_BYTES = 2 * 1024 * 1024
 IMAGE_MEDIA_TYPES = frozenset({"image/jpeg", "image/png", "image/webp", "image/gif"})
 _SUFFIX_MEDIA_TYPES = {
@@ -108,6 +110,8 @@ def create_entertainment_title(
     finished_on: date | None = None,
     progress: str | None = None,
     note: str | None = None,
+    rating: int | None = None,
+    link: str | None = None,
     topics: list[str] | None = None,
     image_url: str | None = None,
 ) -> EntertainmentTitle:
@@ -127,6 +131,8 @@ def create_entertainment_title(
         finished_on=finished_on,
         progress=_optional_text(progress, "progress"),
         note=_optional_text(note, "note"),
+        rating=_validate_rating(rating),
+        link=_validate_link(link),
         image_url=_validate_image_url(image_url) if image_url else None,
     )
     _stamp_status_dates(title, status, today)
@@ -183,6 +189,8 @@ def update_entertainment_title(
     finished_on: date | None | object = _UNSET,
     progress: str | None | object = _UNSET,
     note: str | None | object = _UNSET,
+    rating: int | None | object = _UNSET,
+    link: str | None | object = _UNSET,
     topics: list[str] | None = None,
     image_url: str | None | object = _UNSET,
 ) -> EntertainmentTitle:
@@ -210,6 +218,10 @@ def update_entertainment_title(
         title.progress = _optional_text(progress if isinstance(progress, str) else None, "progress")
     if note is not _UNSET:
         title.note = _optional_text(note if isinstance(note, str) else None, "note")
+    if rating is not _UNSET:
+        title.rating = _validate_rating(rating)
+    if link is not _UNSET:
+        title.link = _validate_link(link)
     if status is not None:
         _stamp_status_dates(title, EntertainmentStatus(status), resolve_today(None))
     if topics is not None:
@@ -220,6 +232,17 @@ def update_entertainment_title(
     session.commit()
     session.refresh(title)
     return title
+
+
+def delete_entertainment_title(session: Session, slug: str) -> None:
+    title = require_entertainment_title(session, normalize_slug(slug))
+    for link in session.exec(
+        select(EntertainmentTitleTopic).where(EntertainmentTitleTopic.title_id == title.id)
+    ).all():
+        session.delete(link)
+    session.flush()
+    session.delete(title)
+    session.commit()
 
 
 def set_title_image(
@@ -334,8 +357,11 @@ def _title_view(
         finished_on=title.finished_on,
         progress=title.progress,
         note=title.note,
+        rating=title.rating,
+        link=title.link,
         topics=tuple(EntertainmentTopicRef(slug=topic.slug, name=topic.name) for topic in topics),
         image=title_image_href(title),
+        created_at=title.created_at,
     )
 
 
@@ -363,7 +389,7 @@ def _replace_title_topics(session: Session, title: EntertainmentTitle, slugs: li
             continue
         seen.add(slug)
         unique.append(slug)
-    topics = [require_entertainment_topic(session, slug) for slug in unique]
+    topics = [_topic_for_tag(session, slug) for slug in unique]
     for topic in topics:
         if topic.archived_at is not None:
             raise ValidationError(f"entertainment_topic {topic.slug!r} is archived")
@@ -377,6 +403,16 @@ def _replace_title_topics(session: Session, title: EntertainmentTitle, slugs: li
     session.flush()
     for topic in topics:
         session.add(EntertainmentTitleTopic(title_id=title.id, topic_id=topic.id))
+
+
+def _topic_for_tag(session: Session, slug: str) -> EntertainmentTopic:
+    topic = session.exec(select(EntertainmentTopic).where(EntertainmentTopic.slug == slug)).first()
+    if topic is not None:
+        return topic
+    topic = EntertainmentTopic(slug=slug, name=display_name(slug))
+    session.add(topic)
+    session.flush()
+    return topic
 
 
 def _stamp_status_dates(
@@ -406,6 +442,29 @@ def _validate_image_url(url: str) -> str:
     cleaned = url.strip()
     if not cleaned.startswith(("http://", "https://")):
         raise ValidationError("image_url must be an http or https URL")
+    return cleaned
+
+
+def _validate_rating(rating: object) -> int | None:
+    if rating is None:
+        return None
+    if isinstance(rating, bool) or not isinstance(rating, int):
+        raise ValidationError("rating must be an integer or None")
+    if not RATING_MIN <= rating <= RATING_MAX:
+        raise ValidationError(f"rating must be between {RATING_MIN} and {RATING_MAX}")
+    return rating
+
+
+def _validate_link(link: object) -> str | None:
+    if link is None:
+        return None
+    if not isinstance(link, str):
+        raise ValidationError("link must be a string or None")
+    cleaned = link.strip()
+    if not cleaned:
+        return None
+    if not cleaned.startswith(("http://", "https://")):
+        raise ValidationError("link must be an http or https URL")
     return cleaned
 
 

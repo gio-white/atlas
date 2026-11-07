@@ -4,15 +4,19 @@ import { Layout } from '@/components/Layout'
 import { LIFE_SECTIONS } from '@/lib/sections'
 import { AreaPage } from '@/pages/AreaPage'
 import { CatalogPage } from '@/pages/CatalogPage'
+import { EntertainmentCategoryPage } from '@/pages/EntertainmentCategoryPage'
+import { EntertainmentInsightsPage } from '@/pages/EntertainmentInsightsPage'
 import { EntertainmentPage } from '@/pages/EntertainmentPage'
+import { EntriesPage } from '@/pages/EntriesPage'
 import { GoalPage } from '@/pages/GoalPage'
 import { GoalsPage } from '@/pages/GoalsPage'
 import { HabitPage } from '@/pages/HabitPage'
 import { HabitsPage } from '@/pages/HabitsPage'
 import { HomePage } from '@/pages/HomePage'
-import { PlaceholderPage } from '@/pages/PlaceholderPage'
+import { JournalPage } from '@/pages/JournalPage'
 import { ScreenPage } from '@/pages/ScreenPage'
 import { SectionPage } from '@/pages/SectionPage'
+import { SleepPage } from '@/pages/SleepPage'
 import { TasksPage } from '@/pages/TasksPage'
 import { WeekPage } from '@/pages/WeekPage'
 
@@ -23,22 +27,28 @@ export default function App() {
         <Route element={<Layout />}>
           <Route index element={<HomePage />} />
           <Route path="week" element={<WeekPage />} />
-          {LIFE_SECTIONS.filter((section) => section.slug !== 'entertainment').map((section) => (
+          {LIFE_SECTIONS.filter(
+            (section) => section.slug !== 'entertainment' && section.slug !== 'sleep',
+          ).map((section) => (
             <Route
               key={section.slug}
               path={section.slug}
               element={<SectionPage title={section.label} description={section.description} />}
             />
           ))}
+          <Route path="sleep" element={<SleepPage />} />
           <Route path="entertainment" element={<EntertainmentPage />} />
+          <Route path="entertainment/insights" element={<EntertainmentInsightsPage />} />
+          <Route path="entertainment/:category" element={<EntertainmentCategoryPage />} />
           <Route path="screen" element={<ScreenPage />} />
           <Route path="tasks" element={<TasksPage />} />
-          <Route path="journal" element={<PlaceholderPage title="Journal" />} />
+          <Route path="journal" element={<JournalPage />} />
           <Route path="area/:slug" element={<AreaPage />} />
           <Route path="habit" element={<HabitsPage />} />
           <Route path="habit/:slug" element={<HabitPage />} />
           <Route path="goal" element={<GoalsPage />} />
           <Route path="goal/:slug" element={<GoalPage />} />
+          <Route path="history" element={<EntriesPage />} />
           <Route path="catalog" element={<CatalogPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

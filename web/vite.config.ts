@@ -17,6 +17,7 @@ const apiPrefixes = [
   '/screen',
   '/updates',
   '/slips',
+  '/sleep',
   '/tasks',
   '/journal',
   '/entertainment',

@@ -105,3 +105,82 @@ def test_export_includes_entertainment(client):
     assert [row["slug"] for row in payload["entertainment_topics"]] == ["math"]
     assert payload["entertainment_titles"][0]["topics"] == ["math"]
     assert payload["entries"] == []
+
+
+def test_rating_link_and_delete(client):
+    created = client.post(
+        "/entertainment/titles",
+        json={
+            "slug": "kind-of-blue",
+            "kind": "music",
+            "rating": 5,
+            "link": "https://open.spotify.com/album/kind-of-blue",
+            "topics": ["jazz"],
+        },
+    )
+    assert created.status_code == 201, created.text
+    body = created.json()
+    assert body["rating"] == 5
+    assert body["link"] == "https://open.spotify.com/album/kind-of-blue"
+    assert body["topics"] == [{"slug": "jazz", "name": "Jazz"}]
+    assert body["created_at"] is not None
+
+    too_high = client.patch("/entertainment/titles/kind-of-blue", json={"rating": 6})
+    assert too_high.status_code == 400
+
+    cleared = client.patch("/entertainment/titles/kind-of-blue", json={"rating": None})
+    assert cleared.status_code == 200
+    assert cleared.json()["rating"] is None
+    assert cleared.json()["link"] == "https://open.spotify.com/album/kind-of-blue"
+
+    deleted = client.delete("/entertainment/titles/kind-of-blue")
+    assert deleted.status_code == 204
+    assert client.get("/entertainment/titles/kind-of-blue").status_code == 404
+    assert client.delete("/entertainment/titles/kind-of-blue").status_code == 404
+
+
+def test_lookup_and_create_from_link(client):
+    from atlas.api.deps import get_link_fetch
+
+    def fetch(url: str) -> str:
+        if url.startswith("https://open.spotify.com/oembed"):
+            return '{"title": "Kind of Blue", "thumbnail_url": "https://i.scdn.co/kob.jpg"}'
+        return (
+            '<meta property="og:title" content="Kind of Blue">'
+            '<meta name="author" content="Miles Davis">'
+        )
+
+    client.app.dependency_overrides[get_link_fetch] = lambda: fetch
+    url = "https://open.spotify.com/album/1weenld61qoidwYuZ1GESA"
+    looked = client.post("/entertainment/lookup", json={"url": url})
+    assert looked.status_code == 200, looked.text
+    assert looked.json() == {
+        "link": url,
+        "name": "Kind of Blue",
+        "kind": "music",
+        "creator": "Miles Davis",
+        "image_url": "https://i.scdn.co/kob.jpg",
+        "existing": None,
+    }
+
+    created = client.post("/entertainment/titles/from-link", json={"url": url, "topics": ["jazz"]})
+    assert created.status_code == 201, created.text
+    assert created.json()["slug"] == "kind-of-blue"
+    assert created.json()["image"] == "https://i.scdn.co/kob.jpg"
+    assert client.post("/entertainment/lookup", json={"url": url}).json()["existing"] == (
+        "kind-of-blue"
+    )
+    assert client.post("/entertainment/titles/from-link", json={"url": url}).status_code == 409
+
+
+def test_lookup_reports_unreachable_links_as_bad_gateway(client):
+    from atlas.api.deps import get_link_fetch
+    from atlas.services import UpstreamError
+
+    def fetch(url: str) -> str:
+        raise UpstreamError("could not reach example.com")
+
+    client.app.dependency_overrides[get_link_fetch] = lambda: fetch
+    response = client.post("/entertainment/lookup", json={"url": "https://example.com/x"})
+    assert response.status_code == 502
+    assert "example.com" in response.json()["detail"]

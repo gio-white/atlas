@@ -16,14 +16,20 @@ from atlas.domain import (
 )
 from atlas.services.clock import resolve_today
 from atlas.services.goals import GoalProgressReport, goal_progress
-from atlas.services.habits import HabitStatus, active_habits, habit_status, habit_statuses
+from atlas.services.habits import (
+    HabitStatus,
+    active_habits,
+    habit_status,
+    habit_statuses,
+    spec_for,
+)
 from atlas.services.lookups import (
     entries_for_metric,
     metric_by_id,
     not_archived,
     require_area,
 )
-from atlas.services.mapping import entry_view, habit_spec
+from atlas.services.mapping import entry_view
 from atlas.services.slugs import normalize_slug
 
 
@@ -52,6 +58,7 @@ class WeekDayCell:
     scheduled: bool
     value: float | None
     satisfied: bool | None
+    excused: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,7 +150,7 @@ def habit_calendar(
     window = bucket_for(as_of, period)
     habits: list[WeekHabit] = []
     for habit, metric in active_habits(session):
-        spec = habit_spec(habit, metric)
+        spec = spec_for(session, habit, metric)
         status = habit_status(session, habit.slug, as_of=as_of)
         views = [entry_view(entry) for entry in entries_for_metric(session, metric.id)]
         days: list[WeekDayCell] = []
@@ -159,13 +166,20 @@ def habit_calendar(
                 scheduled = in_window
             day_views = [view for view in views if view.occurred_on == cursor]
             value = rollup(day_views, spec.aggregation)
+            excused = scheduled and spec.on_break(cursor)
             satisfied: bool | None
-            if spec.period is Period.DAY and scheduled and cursor <= as_of:
+            if spec.period is Period.DAY and scheduled and not excused and cursor <= as_of:
                 satisfied = is_satisfied(value, spec.comparator, spec.target_value)
             else:
                 satisfied = None
             days.append(
-                WeekDayCell(day=cursor, scheduled=scheduled, value=value, satisfied=satisfied)
+                WeekDayCell(
+                    day=cursor,
+                    scheduled=scheduled,
+                    value=value,
+                    satisfied=satisfied,
+                    excused=excused,
+                )
             )
             cursor = cursor + timedelta(days=1)
         habits.append(

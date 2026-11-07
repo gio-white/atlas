@@ -1,20 +1,13 @@
-from datetime import date
-
 from sqlmodel import Session, select
 
-from atlas.db.models import Area, Habit, Metric
-from atlas.domain import Aggregation, Comparator, Direction, Period, ValueType
+from atlas.db.models import Area, Metric
+from atlas.domain import Aggregation, Direction, ValueType
 from atlas.services.errors import ValidationError
-from atlas.services.habits import create_habit
 from atlas.services.metrics import create_metric
 from atlas.services.slugs import display_name
 
 LIFE_AREA_SLUG = "life"
-CHECKIN_METRIC_SLUG = "checkin"
-CHECKIN_HABIT_SLUG = "checkin-daily"
-SLIP_METRIC_SLUG = "slip"
 JOURNAL_METRIC_SLUG = "journal"
-SYSTEM_ACTIVE_FROM = date(2000, 1, 1)
 
 
 def ensure_life_area(session: Session) -> Area:
@@ -26,7 +19,7 @@ def ensure_life_area(session: Session) -> Area:
     area = Area(
         slug=LIFE_AREA_SLUG,
         name="Life",
-        description="Daily check-ins, slips, and journal.",
+        description="Journal.",
     )
     session.add(area)
     session.flush()
@@ -63,28 +56,4 @@ def ensure_life_metric(
         direction=direction,
         unit=unit,
         name=name if name is not None else display_name(slug),
-    )
-
-
-def ensure_checkin_habit(session: Session) -> Habit:
-    metric = ensure_life_metric(
-        session,
-        CHECKIN_METRIC_SLUG,
-        value_type=ValueType.BOOL,
-        aggregation=Aggregation.SUM,
-        direction=Direction.HIGHER_IS_BETTER,
-        name="Check-in",
-    )
-    existing = session.exec(select(Habit).where(Habit.slug == CHECKIN_HABIT_SLUG)).first()
-    if existing is not None:
-        return existing
-    return create_habit(
-        session,
-        CHECKIN_HABIT_SLUG,
-        metric_slug=metric.slug,
-        period=Period.DAY,
-        target_value=1.0,
-        comparator=Comparator.AT_LEAST,
-        name="Daily check-in",
-        active_from=SYSTEM_ACTIVE_FROM,
     )

@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { type FormEvent, useCallback, useEffect, useState } from 'react'
+import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { Sparkline } from '@/components/home/Charts'
@@ -15,6 +15,7 @@ import {
   ShareDonut,
   StackedJudgmentBars,
 } from '@/components/screen/Charts'
+import { BudgetsCard, SessionsCard } from '@/components/screen/ManageCards'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -37,6 +38,8 @@ import {
   type ScreenDashboard,
   type ScreenDevice,
   type ScreenJudgment,
+  updateScreenApp,
+  updateScreenCategory,
 } from '@/lib/api'
 import { useAsOf } from '@/lib/asOf'
 import { shiftPeriodDate, shortDateLabel } from '@/lib/dates'
@@ -65,6 +68,10 @@ export function ScreenPage() {
   const [devices, setDevices] = useState<ScreenDevice[]>([])
   const [error, setError] = useState<string | null>(null)
   const [breakdown, setBreakdown] = useState(true)
+  const [sessionsDay, setSessionsDay] = useState(asOf)
+  const [sessionsVersion, setSessionsVersion] = useState(0)
+
+  useEffect(() => setSessionsDay(asOf), [asOf])
 
   const refresh = useCallback(async () => {
     const [nextDash, nextApps, nextCategories, nextDevices] = await Promise.all([
@@ -343,7 +350,7 @@ export function ScreenPage() {
                 <CardTitle className="text-base">Budgets</CardTitle>
               </CardHeader>
               {dash.budgets.length === 0 ? (
-                <p className="text-sm text-muted">Add a waste cap so overages show up here.</p>
+                <p className="text-sm text-muted">Add a cap below so overages show up here.</p>
               ) : (
                 <ul className="flex flex-col gap-2 text-sm">
                   {dash.budgets.map((budget) => (
@@ -361,7 +368,26 @@ export function ScreenPage() {
         </>
       )}
 
-      <CaptureForm apps={apps} devices={devices} asOf={asOf} onLogged={refresh} />
+      <CaptureForm
+        apps={apps}
+        devices={devices}
+        asOf={asOf}
+        onLogged={async () => {
+          await refresh()
+          setSessionsVersion((value) => value + 1)
+        }}
+      />
+      {apps.length > 0 && (
+        <SessionsCard
+          key={sessionsVersion}
+          day={sessionsDay}
+          onDayChange={setSessionsDay}
+          apps={apps}
+          devices={devices}
+          onChanged={refresh}
+        />
+      )}
+      <BudgetsCard asOf={asOf} categories={categories} onChanged={refresh} />
       <ManagePanel apps={apps} categories={categories} devices={devices} onChanged={refresh} />
     </div>
   )
@@ -575,7 +601,22 @@ function ManagePanel({
             }}
             extraLabel="Judgment"
             extraOptions={['useful', 'waste', 'neutral']}
-            rows={categories.map((row) => `${row.name} · ${JUDGMENT_LABEL[row.judgment]}`)}
+            rows={categories.map((row) => (
+              <EditableRow
+                key={row.slug}
+                name={row.name}
+                label={`${row.name} judgment`}
+                value={row.judgment}
+                options={(['useful', 'waste', 'neutral'] as const).map((judgment) => ({
+                  value: judgment,
+                  label: JUDGMENT_LABEL[judgment],
+                }))}
+                onChange={async (judgment) => {
+                  await updateScreenCategory(row.slug, { judgment: judgment as ScreenJudgment })
+                  await onChanged()
+                }}
+              />
+            ))}
           />
           <TaxonomyForm
             title="App"
@@ -585,7 +626,22 @@ function ManagePanel({
             }}
             extraLabel="Category"
             extraOptions={categories.map((row) => row.slug)}
-            rows={apps.map((row) => `${row.name} · ${row.category}`)}
+            rows={apps.map((row) => (
+              <EditableRow
+                key={row.slug}
+                name={row.name}
+                label={`${row.name} category`}
+                value={row.category}
+                options={categories.map((category) => ({
+                  value: category.slug,
+                  label: category.name,
+                }))}
+                onChange={async (category) => {
+                  await updateScreenApp(row.slug, { category })
+                  await onChanged()
+                }}
+              />
+            ))}
           />
           <TaxonomyForm
             title="Device"
@@ -593,7 +649,7 @@ function ManagePanel({
               await createScreenDevice({ slug })
               await onChanged()
             }}
-            rows={devices.map((row) => row.name)}
+            rows={devices.map((row) => <li key={row.slug}>{row.name}</li>)}
           />
         </div>
       )}
@@ -612,7 +668,7 @@ function TaxonomyForm({
   onCreate: (slug: string, extra: string) => Promise<void>
   extraLabel?: string
   extraOptions?: string[]
-  rows: string[]
+  rows: ReactNode[]
 }) {
   const [slug, setSlug] = useState('')
   const extraDefault = extraOptions?.[0] ?? ''
@@ -637,11 +693,7 @@ function TaxonomyForm({
   return (
     <div>
       <p className="mb-2 text-sm font-medium">{title}</p>
-      <ul className="mb-3 max-h-28 overflow-auto text-xs text-muted">
-        {rows.map((row) => (
-          <li key={row}>{row}</li>
-        ))}
-      </ul>
+      <ul className="mb-3 flex max-h-48 flex-col gap-1 overflow-auto text-xs text-muted">{rows}</ul>
       <form className="flex flex-col gap-2" onSubmit={onSubmit}>
         <Input
           value={slug}
@@ -672,5 +724,50 @@ function TaxonomyForm({
         )}
       </form>
     </div>
+  )
+}
+
+function EditableRow({
+  name,
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  name: string
+  label: string
+  value: string
+  options: { value: string; label: string }[]
+  onChange: (value: string) => Promise<void>
+}) {
+  const [error, setError] = useState<string | null>(null)
+  return (
+    <li className="flex flex-col gap-0.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate text-ink">{name}</span>
+        <Select
+          aria-label={label}
+          className="h-7 w-28 text-xs"
+          value={value}
+          onChange={(event) => {
+            setError(null)
+            onChange(event.target.value).catch((caught: unknown) => {
+              setError(caught instanceof ApiError ? caught.message : 'Could not save')
+            })
+          }}
+        >
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
+      </div>
+      {error !== null && (
+        <span className="text-bad" role="alert">
+          {error}
+        </span>
+      )}
+    </li>
   )
 }

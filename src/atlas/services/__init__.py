@@ -4,6 +4,7 @@ from atlas.services.entertainment import (
     clear_title_image,
     create_entertainment_title,
     create_entertainment_topic,
+    delete_entertainment_title,
     entertainment_dashboard,
     entertainment_view,
     get_entertainment_title,
@@ -18,8 +19,21 @@ from atlas.services.entertainment import (
     update_entertainment_title,
     update_entertainment_topic,
 )
-from atlas.services.entries import amend_entry, delete_entry, log_entry
-from atlas.services.errors import AlreadyExistsError, NotFoundError, ServiceError, ValidationError
+from atlas.services.entertainment_lookup import (
+    LinkLookup,
+    create_title_from_link,
+    http_get_text,
+    lookup_link,
+    unique_title_slug,
+)
+from atlas.services.entries import amend_entry, delete_entry, list_entries, log_entry
+from atlas.services.errors import (
+    AlreadyExistsError,
+    NotFoundError,
+    ServiceError,
+    UpstreamError,
+    ValidationError,
+)
 from atlas.services.goals import (
     GoalBoardColumn,
     GoalBoardTask,
@@ -38,15 +52,27 @@ from atlas.services.goals import (
     update_goal,
 )
 from atlas.services.habits import (
+    HABITS_AREA_SLUG,
+    HabitCheckIn,
+    HabitDetail,
     HabitsBoard,
     HabitStatus,
+    add_habit_break,
+    archive_habit,
+    check_in,
     create_habit,
+    delete_habit,
+    delete_habit_break,
     get_habit,
+    habit_detail,
     habit_status,
     habit_statuses,
     habits_board,
+    list_habit_breaks,
     list_habits,
     set_habit_day,
+    unarchive_habit,
+    undo_check_in,
     update_habit,
 )
 from atlas.services.home import HomeWeek, home_week
@@ -96,9 +122,7 @@ from atlas.services.sleep import (
     sleep_stages,
     sleep_view,
 )
-from atlas.services.slips import SlipsWeek, log_slip, slips_week
 from atlas.services.tasks import create_task, list_tasks, tasks_done_in_week, update_task
-from atlas.services.updates import UpdatesStatus, log_update, updates_status
 from atlas.services.views import (
     AreaView,
     HabitsCalendar,
@@ -126,6 +150,18 @@ __all__ = [
     "GoalsBoard",
     "HabitStatus",
     "HabitsBoard",
+    "HABITS_AREA_SLUG",
+    "HabitCheckIn",
+    "HabitDetail",
+    "add_habit_break",
+    "archive_habit",
+    "check_in",
+    "delete_habit",
+    "delete_habit_break",
+    "habit_detail",
+    "list_habit_breaks",
+    "unarchive_habit",
+    "undo_check_in",
     "HabitsCalendar",
     "HomeWeek",
     "JournalDay",
@@ -138,10 +174,14 @@ __all__ = [
     "ScreenDashboard",
     "ScreenView",
     "ServiceError",
-    "SlipsWeek",
     "TodayView",
-    "UpdatesStatus",
+    "UpstreamError",
     "ValidationError",
+    "LinkLookup",
+    "create_title_from_link",
+    "http_get_text",
+    "lookup_link",
+    "unique_title_slug",
     "WeekDayCell",
     "WeekHabit",
     "WeekView",
@@ -153,6 +193,7 @@ __all__ = [
     "create_area",
     "create_entertainment_title",
     "create_entertainment_topic",
+    "delete_entertainment_title",
     "create_goal",
     "create_habit",
     "create_metric",
@@ -192,6 +233,7 @@ __all__ = [
     "list_areas",
     "list_entertainment_titles",
     "list_entertainment_topics",
+    "list_entries",
     "list_goals",
     "list_habits",
     "list_metrics",
@@ -204,13 +246,10 @@ __all__ = [
     "log_entry",
     "log_journal",
     "log_screen_session",
-    "log_slip",
-    "log_update",
     "screen_dashboard",
     "screen_view",
     "seed_demo",
     "set_title_image",
-    "slips_week",
     "tasks_done_in_week",
     "title_image_href",
     "title_topics",
@@ -229,7 +268,6 @@ __all__ = [
     "update_screen_device",
     "update_screen_session",
     "update_task",
-    "updates_status",
     "week_view",
     "set_habit_day",
     "delete_sleep_session",

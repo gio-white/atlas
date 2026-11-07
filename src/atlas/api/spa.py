@@ -14,6 +14,10 @@ VITE_ORIGINS = (
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
+# SPA pages whose path is also a GET API route. A browser navigation (reload, typed URL) to
+# one of these must get the page, not the JSON the route returns; fetches still reach the API.
+SPA_PATHS_SHADOWED_BY_API = frozenset({"/tasks", "/journal"})
+
 
 def resolve_spa_dir(candidates: list[Path] | None = None) -> Path | None:
     paths = candidates or [
@@ -36,6 +40,14 @@ class SpaFallbackMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
+        index = self.dist / "index.html"
+        if (
+            request.method == "GET"
+            and request.url.path in SPA_PATHS_SHADOWED_BY_API
+            and _is_document_request(request)
+            and index.is_file()
+        ):
+            return FileResponse(index)
         response = await call_next(request)
         if request.method != "GET" or response.status_code != 404:
             return response
@@ -47,10 +59,15 @@ class SpaFallbackMiddleware(BaseHTTPMiddleware):
             return response
         if relative and target.is_file():
             return FileResponse(target)
-        index = self.dist / "index.html"
         if index.is_file():
             return FileResponse(index)
         return response
+
+
+def _is_document_request(request: Request) -> bool:
+    if request.headers.get("sec-fetch-dest") == "document":
+        return True
+    return "text/html" in request.headers.get("accept", "")
 
 
 def mount_spa(app: FastAPI, dist: Path) -> None:

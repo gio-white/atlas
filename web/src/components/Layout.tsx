@@ -7,6 +7,7 @@ import {
   Flag,
   Flame,
   HeartPulse,
+  History,
   Home,
   Menu,
   Monitor,
@@ -47,6 +48,7 @@ const NAV = [
   { to: '/habit', label: 'Habits', icon: Flame },
   { to: '/tasks', label: 'Tasks', icon: CheckSquare },
   { to: '/journal', label: 'Journal', icon: BookOpen },
+  { to: '/history', label: 'History', icon: History },
 ] as const
 
 function navClass({ isActive }: { isActive: boolean }) {
