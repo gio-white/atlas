@@ -1,0 +1,6 @@
+#!/bin/sh
+# Docs gate (hard block): code staged under src/ or web/src/ needs docs/ staged too, or the
+# message line "Docs-Reviewed: no change needed". See docs/development/docs-sync.md.
+# Enable once per clone: git config core.hooksPath .githooks
+root=$(git rev-parse --show-toplevel) || exit 1
+exec python3 "$root/.claude/hooks/docs_gate.py" commit-msg "$1"
