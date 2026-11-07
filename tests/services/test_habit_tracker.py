@@ -11,8 +11,10 @@ from atlas.services import (
     NotFoundError,
     ValidationError,
     add_habit_break,
+    archive_area,
     archive_habit,
     check_in,
+    create_area,
     create_habit,
     delete_habit,
     delete_habit_break,
@@ -236,3 +238,38 @@ def test_export_import_round_trips_habit_fields(session):
     import_all(session, legacy, replace=True)
     assert get_habit(session, "stretch").kind is HabitKind.CHECK
     assert list_habit_breaks(session, "stretch") == []
+
+
+def test_habit_first_create_puts_the_metric_in_a_chosen_area(session):
+    create_area(session, "health", name="Health")
+    habit = create_habit(
+        session, name="Meditate", kind=HabitKind.CHECK, period=Period.DAY, area_slug="health"
+    )
+    assert habit.name == "Meditate"
+    metric = _metric(session, habit.slug)
+    assert metric.name == "Meditate"
+    assert session.get(Area, metric.area_id).slug == "health"
+    assert session.exec(select(Area).where(Area.slug == HABITS_AREA_SLUG)).first() is None
+
+
+def test_habit_area_must_exist_be_active_and_not_clash_with_a_metric(session):
+    with pytest.raises(NotFoundError):
+        create_habit(
+            session, name="Stretch", kind=HabitKind.CHECK, period=Period.DAY, area_slug="nope"
+        )
+    create_area(session, "career", name="Career")
+    archive_area(session, "career")
+    with pytest.raises(ValidationError):
+        create_habit(
+            session, name="Stretch", kind=HabitKind.CHECK, period=Period.DAY, area_slug="career"
+        )
+    create_area(session, "health", name="Health")
+    create_habit(session, name="Stretch", kind=HabitKind.CHECK, period=Period.DAY)
+    with pytest.raises(ValidationError):
+        create_habit(
+            session,
+            name="Stretch again",
+            period=Period.DAY,
+            metric_slug="stretch",
+            area_slug="health",
+        )

@@ -117,6 +117,7 @@ export type HabitStatus = {
   skipped_today: boolean
   today_value: number | null
   last_entry_on: string | null
+  weekdays: number[] | null
 }
 
 export type HabitBreak = {
@@ -180,6 +181,8 @@ export type WeekHabit = {
   satisfied: boolean
   current_streak: number
   days: WeekDayCell[]
+  kind: HabitKind
+  weekdays: number[] | null
 }
 
 export type HabitsCalendar = {
@@ -1009,6 +1012,7 @@ export function createHabit(body: {
   goal?: string | null
   active_from?: string | null
   active_to?: string | null
+  area?: string | null
 }): Promise<Habit> {
   return request('/habits', { method: 'POST', body: JSON.stringify(body) })
 }

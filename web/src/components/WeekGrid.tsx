@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import type { WeekDayCell, WeekHabit } from '@/lib/api'
 import { weekdayLabel } from '@/lib/dates'
 import { formatComparator } from '@/lib/format'
-import { HABIT_PERIOD_META } from '@/lib/habitsSummary'
+import { frequencyLabel } from '@/lib/habits'
 
 export function WeekGrid({
   habits,
@@ -60,7 +60,7 @@ export function WeekGrid({
                 </Link>
                 <div className="font-mono text-xs text-muted">
                   {formatComparator(habit.comparator)} {habit.target_value} ·{' '}
-                  {HABIT_PERIOD_META[habit.period].label} · streak {habit.current_streak}
+                  {frequencyLabel(habit)} · streak {habit.current_streak}
                 </div>
               </td>
               {habit.days.map((cell) => (

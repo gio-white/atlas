@@ -58,6 +58,8 @@ def test_breaks_archive_edit_and_delete(client):
     calendar = client.get(
         "/views/habits/calendar", params={"period": "week", "as_of": "2026-08-10"}
     ).json()
+    assert calendar["habits"][0]["kind"] == "check"
+    assert calendar["habits"][0]["weekdays"] is None
     monday = calendar["habits"][0]["days"][0]
     assert monday["excused"] is True
     assert monday["satisfied"] is None
@@ -93,3 +95,21 @@ def test_quit_habit_counts_clean_days(client):
     slipped = client.post("/habits/no-sugar/checkins", params=params, json={"note": "cake"}).json()
     assert slipped["current_streak"] == 0
     assert slipped["last_entry_on"] == "2026-08-10"
+
+
+def test_habit_create_accepts_an_area_for_its_metric(client):
+    client.post("/areas", json={"slug": "health", "name": "Health"})
+    created = client.post(
+        "/habits",
+        json={"name": "Meditate", "kind": "check", "area": "health", "active_from": "2026-08-03"},
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["name"] == "Meditate"
+    metric = client.get(f"/metrics/{created.json()['metric']}").json()
+    assert metric["area"] == "health"
+
+    default = client.post("/habits", json={"name": "Stretch", "kind": "check"}).json()
+    assert client.get(f"/metrics/{default['metric']}").json()["area"] == "habits"
+
+    missing = client.post("/habits", json={"name": "Walk", "kind": "check", "area": "nope"})
+    assert missing.status_code == 404

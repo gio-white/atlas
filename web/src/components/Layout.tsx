@@ -1,5 +1,4 @@
 import {
-  Bell,
   BookOpen,
   CheckSquare,
   Clapperboard,
@@ -65,7 +64,6 @@ export function Layout() {
   const [displayName, setDisplayName] = useState(readDisplayName)
   const [logOpen, setLogOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
-  const [notesOpen, setNotesOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   function onDateChange(value: string) {
@@ -170,23 +168,6 @@ export function Layout() {
           </Button>
           <p className="text-sm font-medium text-muted">{longDateLabel(asOf)}</p>
           <div className="ml-auto flex items-center gap-1">
-            <div className="relative">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label="Notifications"
-                aria-expanded={notesOpen}
-                onClick={() => setNotesOpen((open) => !open)}
-              >
-                <Bell className="size-4" aria-hidden />
-              </Button>
-              {notesOpen && (
-                <div className="absolute right-0 z-30 mt-2 w-64 rounded-xl border border-line bg-surface p-3 text-sm text-muted shadow-[var(--shadow-card)]">
-                  No notifications.
-                </div>
-              )}
-            </div>
             <Button
               type="button"
               variant="ghost"

@@ -133,6 +133,7 @@ class HabitCreate(BaseModel):
     goal: str | None = None
     active_from: date | None = None
     active_to: date | None = None
+    area: str | None = None
 
 
 class HabitUpdate(BaseModel):
@@ -300,6 +301,7 @@ class HabitStatusOut(BaseModel):
     skipped_today: bool
     today_value: float | None
     last_entry_on: date | None
+    weekdays: list[int] | None
 
 
 class HabitDetailOut(BaseModel):
@@ -360,6 +362,8 @@ class WeekHabitOut(BaseModel):
     satisfied: bool
     current_streak: int
     days: list[WeekDayCellOut]
+    kind: HabitKind
+    weekdays: list[int] | None
 
 
 class HabitsCalendarOut(BaseModel):

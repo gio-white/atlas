@@ -1,5 +1,5 @@
 import { Check, CheckSquare, ListChecks, Minus, Plus, SkipForward, X } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { LogForm } from '@/components/LogForm'
@@ -26,6 +26,7 @@ import {
   type WeekHabit,
 } from '@/lib/api'
 import { shortDateLabel, weekdayLabel } from '@/lib/dates'
+import { frequencyLabel } from '@/lib/habits'
 import { type HabitCellState, habitCellState, habitWeekSummary, visibleTasks } from '@/lib/home'
 import { goalNameBySlug, resolveGoalName, TASK_BUCKET_META, TASK_BUCKETS } from '@/lib/tasks'
 import { cn } from '@/lib/utils'
@@ -124,7 +125,7 @@ export function TasksCard({
       <div
         className="mb-3 flex gap-1 rounded-lg bg-raised p-1"
         role="tablist"
-        aria-label="Task buckets"
+        aria-label="Task lists"
       >
         {TASK_BUCKETS.map((bucket) => (
           <button
@@ -229,6 +230,17 @@ export function HabitsWeekCard({
   const metricBySlug = new Map(metrics.map((metric) => [metric.slug, metric]))
   const habits = calendar?.habits ?? []
   const headings = habits[0]?.days ?? []
+  const scroller = useRef<HTMLDivElement>(null)
+
+  // On a narrow screen the day columns scroll; bring today into view instead of Monday.
+  useEffect(() => {
+    const box = scroller.current
+    if (calendar === null || !box) return
+    const today = box.querySelector<HTMLElement>(`[data-day="${asOf}"]`)
+    if (!today) return
+    const overflow = today.offsetLeft + today.offsetWidth + 4 - box.clientWidth
+    if (overflow > 0) box.scrollLeft = overflow
+  }, [calendar, asOf])
 
   async function onCell(habit: WeekHabit, cell: WeekDayCell, state: HabitCellState) {
     if (state === 'off' || state === 'future') return
@@ -281,14 +293,17 @@ export function HabitsWeekCard({
           board.
         </p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[22rem] border-collapse text-sm">
+        <div ref={scroller} className="-mx-1 overflow-x-auto px-1">
+          <table className="w-full min-w-[24rem] border-collapse text-sm">
             <thead>
               <tr>
-                <th className="pb-2 pr-2 text-left text-xs font-medium text-muted">Habit</th>
+                <th className="sticky left-0 z-10 bg-surface pb-2 pr-2 text-left text-xs font-medium text-muted">
+                  Habit
+                </th>
                 {headings.map((cell) => (
                   <th
                     key={cell.day}
+                    data-day={cell.day}
                     className={cn(
                       'px-0.5 pb-2 text-center text-[11px] font-medium',
                       cell.day === asOf ? 'text-ink' : 'text-muted',
@@ -302,14 +317,17 @@ export function HabitsWeekCard({
             <tbody>
               {habits.map((habit) => (
                 <tr key={habit.slug} className="border-t border-line">
-                  <td className="py-2 pr-2">
+                  <td className="sticky left-0 z-10 max-w-36 bg-surface py-2 pr-2 sm:max-w-48">
                     <Link
                       to={{ pathname: `/habit/${habit.slug}`, search }}
-                      className="block max-w-40 truncate font-medium hover:underline"
+                      className="block truncate font-medium hover:underline"
                     >
                       {habit.name}
                     </Link>
-                    <span className="text-xs text-muted">{habitWeekSummary(habit, asOf)}</span>
+                    <span className="block truncate text-xs text-muted">
+                      {habit.period === 'day' ? `${frequencyLabel(habit)} · ` : ''}
+                      {habitWeekSummary(habit, asOf)}
+                    </span>
                   </td>
                   {habit.days.map((cell) => {
                     const state = habitCellState(habit, cell, asOf)

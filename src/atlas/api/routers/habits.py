@@ -64,6 +64,7 @@ def post_habit(session: SessionDep, body: HabitCreate) -> HabitOut:
         goal_slug=body.goal,
         active_from=body.active_from,
         active_to=body.active_to,
+        area_slug=body.area,
     )
     return habits_out(session, [habit])[0]
 

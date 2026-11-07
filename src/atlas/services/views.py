@@ -8,6 +8,7 @@ from atlas.domain import (
     Aggregation,
     Comparator,
     GoalStatus,
+    HabitKind,
     Period,
     bucket_for,
     is_satisfied,
@@ -52,6 +53,8 @@ class WeekHabit:
     satisfied: bool
     current_streak: int
     days: list[WeekDayCell]
+    kind: HabitKind = HabitKind.COUNT
+    weekdays: list[int] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,6 +141,8 @@ def habit_calendar(
                 satisfied=status.satisfied,
                 current_streak=status.current_streak,
                 days=days,
+                kind=HabitKind(habit.kind),
+                weekdays=sorted(habit.weekdays) if habit.weekdays else None,
             )
         )
     return HabitsCalendar(

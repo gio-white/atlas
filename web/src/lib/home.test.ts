@@ -67,6 +67,8 @@ function habit(overrides: Partial<WeekHabit> = {}): WeekHabit {
     current_value: null,
     satisfied: false,
     current_streak: 2,
+    kind: 'check',
+    weekdays: null,
     days: [
       { day: '2026-08-10', scheduled: true, value: 1, satisfied: true, excused: false },
       { day: '2026-08-11', scheduled: true, value: null, satisfied: false, excused: false },
