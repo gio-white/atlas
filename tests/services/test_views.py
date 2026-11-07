@@ -1,6 +1,6 @@
 from datetime import date
 
-from atlas.domain import Comparator, GoalKind, Measure, Period
+from atlas.domain import Comparator, GoalKind, HabitKind, Measure, Period
 from atlas.services import (
     archive_metric,
     area_view,
@@ -98,3 +98,23 @@ def test_area_view_groups_metrics_habits_and_goals(session):
     assert weight.latest_on == date(2026, 8, 13)
     assert [habit.slug for habit in view.habits] == ["pushups-daily"]
     assert [goal.slug for goal in view.goals] == ["bodyweight-75"]
+
+
+def test_habit_calendar_carries_kind_and_weekdays_for_labels(session):
+    seed_health(session)
+    create_habit(
+        session,
+        name="Deep work on weekdays",
+        kind=HabitKind.DURATION,
+        period=Period.DAY,
+        target_value=90,
+        weekdays=[5, 1, 2, 3, 4],
+        active_from=date(2026, 8, 1),
+    )
+
+    calendar = habit_calendar(session, period=Period.WEEK, as_of=date(2026, 8, 13))
+
+    habit = calendar.habits[0]
+    assert habit.name == "Deep work on weekdays"
+    assert habit.kind is HabitKind.DURATION
+    assert habit.weekdays == [1, 2, 3, 4, 5]

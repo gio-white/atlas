@@ -85,6 +85,7 @@ class HabitStatus:
     skipped_today: bool = False
     today_value: float | None = None
     last_entry_on: date | None = None
+    weekdays: list[int] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -549,6 +550,7 @@ def _status_for(session: Session, habit: Habit, metric: Metric, as_of: date) -> 
         skipped_today=spec.on_break(as_of),
         today_value=rollup([view for view in views if view.occurred_on == as_of], spec.aggregation),
         last_entry_on=max((day for day in logged_days if day <= as_of), default=None),
+        weekdays=sorted(habit.weekdays) if habit.weekdays else None,
     )
 
 

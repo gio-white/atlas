@@ -37,6 +37,7 @@ function habit(
     skipped_today: false,
     today_value: null,
     last_entry_on: null,
+    weekdays: null,
     ...overrides,
   }
 }

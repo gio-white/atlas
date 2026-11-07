@@ -22,6 +22,7 @@ import {
   quickAmounts,
   streakLabel,
   targetFor,
+  weekdaysLabel,
 } from '@/lib/habits'
 import { cn } from '@/lib/utils'
 
@@ -87,6 +88,9 @@ export function HabitCard({
   )
   const meta = (
     <p className="truncate text-xs text-muted">
+      {status.period === 'day' && status.weekdays !== null
+        ? `${weekdaysLabel(status.weekdays)} · `
+        : null}
       {goalLabel(status)} · <Flame className="inline size-3 text-warn" aria-hidden />{' '}
       {streakLabel(status)}
     </p>

@@ -58,6 +58,8 @@ def test_breaks_archive_edit_and_delete(client):
     calendar = client.get(
         "/views/habits/calendar", params={"period": "week", "as_of": "2026-08-10"}
     ).json()
+    assert calendar["habits"][0]["kind"] == "check"
+    assert calendar["habits"][0]["weekdays"] is None
     monday = calendar["habits"][0]["days"][0]
     assert monday["excused"] is True
     assert monday["satisfied"] is None
