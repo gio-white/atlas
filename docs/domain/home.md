@@ -1,0 +1,35 @@
+# Home
+
+## Purpose
+
+The dashboard at `/`: four cards summarising sleep, screen time, tasks, and this week's habits.
+
+## Concepts
+
+- **Card** — one self-contained summary that loads and fails on its own.
+
+## Data model
+
+Home stores nothing. It reads the sleep, screen, task, and habit endpoints.
+
+## Rules and calculations
+
+Nothing is computed in the browser; each card shows server-computed values.
+
+## API
+
+Home has no endpoints of its own. It calls `GET /sleep/view`, `POST /sleep/sessions`, `GET /screen/dashboard`, `GET /tasks`, `GET /views/habits/calendar`, and `PUT /habits/{slug}/days/{day}` (documented in each feature's doc).
+
+## Screens
+
+Home is four cards and nothing else. Top row: **Sleep** from `GET /sleep/view` (last night: asleep time, bed → wake, a four-lane stage timeline, and per-stage minutes and share; past 7 nights: average sleep / bedtime / wake and a bed-to-wake range bar per night drawn in stage colors; Log night posts bed and wake times, optional stage rows, and a note to `POST /sleep/sessions`) and **Screen Time** from `GET /screen/dashboard` for `day` and `week` (Today shows the day total, Week avg shows the week's `daily_average` and each row's minutes divided by elapsed days; a second toggle splits by category, device, or app as ranked bars; View all goes to `/screen`). Main row: **Tasks** from `GET /tasks` (inline add into the selected bucket with an optional goal, today / upcoming / someday tabs with open counts, tasks done before today hidden) and **Habits** from `GET /views/habits/calendar?period=week` (one row per habit, Monday–Sunday cells; tapping a scheduled past-or-today cell confirms or clears a bool habit via `PUT /habits/{slug}/days/{day}`, and opens the log form for that metric and date otherwise). Each card degrades to its own unavailable message if its request fails. The quote on Home is static copy. Habits are not tasks: Home copy says habits scheduled, not tasks planned.
+
+Route inventory with status: [navigation](../product/navigation.md).
+
+## Tests
+
+- `web/src/lib/home.test.ts`, `web/src/lib/greeting.test.ts`
+
+## Status
+
+Implemented.
