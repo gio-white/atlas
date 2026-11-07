@@ -96,6 +96,13 @@ blocked commit should review, so keep it a plain two-column table.
 | `web/src/pages/EntriesPage.tsx` | `docs/domain/history.md` |
 | `web/src/pages/AreaPage.tsx` | `docs/domain/life-areas.md` |
 | `web/src/pages/CatalogPage.tsx` | `docs/product/navigation.md` |
+| `web/src/components/sleep/*` | `docs/domain/sleep.md` |
+| `web/src/lib/sleep.ts` | `docs/domain/sleep.md` |
+| `web/src/components/settings/*` | `docs/domain/screen-time.md`, `docs/data-sources/overview.md` |
+| `web/src/lib/freshness.ts` | `docs/domain/sleep.md`, `docs/domain/screen-time.md` |
+| `web/src/lib/habits.ts` | `docs/domain/habits.md` |
+| `web/src/components/WeekGrid.tsx` | `docs/domain/habits.md` |
+| `web/src/pages/SectionPage.tsx` | `docs/product/navigation.md` |
 | `web/src/components/LogDialog.tsx` | `docs/domain/trackers-and-entries.md` |
 | `web/src/components/LogForm.tsx` | `docs/domain/trackers-and-entries.md` |
 | `web/src/components/ui/*` | `docs/product/design-system.md` |

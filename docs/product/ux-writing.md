@@ -25,7 +25,7 @@ The UI speaks about your life, not about the database. Nothing below may appear 
 | `at_most 1` | At most 1 |
 | `sum` / `last` | Add up the day / Keep the latest |
 | One capture path. Counts for 2026-11-07. | Log a value for today |
-| This section ships with the matching domain cycle. | Nothing here yet |
+| This section ships with the matching domain cycle. | Coming soon |
 | Good + half of Neutral, over total. | How much of your screen time went to good apps |
 | Zeros included across the clipped range. | Daily average, counting days with no use |
 | · 22 stages | (omit, or show time asleep) |

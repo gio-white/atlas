@@ -51,7 +51,7 @@ Service functions (in `src/atlas/services/`, each taking an explicit `Session` f
 
 ## Screens
 
-`/tasks` is the three-column work queue from `GET /tasks` (today / upcoming / someday, optional goal link, create / complete / move). Completing a task never writes an entry. The Goals week column and goal detail also link to `/tasks` (goal detail can preselect `?goal=`).
+`/tasks` is the three-column work queue from `GET /tasks` (today / upcoming / someday, optional goal link, create / complete / move). The page description reads "Things to get done. Check them off as you go." and the button "New task". Each task card has a compact "Move to… ▾" button opening a menu with the other two lists (`PATCH /tasks/{id}` with the new bucket); it closes on Escape or an outside click. Completing a task never writes an entry. The Goals week column and goal detail also link to `/tasks` (goal detail can preselect `?goal=`).
 
 Route inventory with status: [navigation](../product/navigation.md).
 

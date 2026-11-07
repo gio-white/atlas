@@ -15,7 +15,8 @@ caps, devices) stays editable, separate from the display.
 
 ## Consequences
 
-- Manual capture controls are removed from the UI (Track T3).
+- Manual capture controls are removed from the UI (Track T3, done 2026-11-07): no Log night,
+  night delete, Log a session, or session edit/delete; History hides automatic data by default.
 - Until a pipeline exists, the demo seed provides synthetic data.
 - De-duplication with an external id is future work.
 

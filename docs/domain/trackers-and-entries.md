@@ -85,7 +85,7 @@ Conventions shared by every endpoint (slugs, `as_of`, errors): [api-conventions]
 
 | Method   | Path                     | Purpose                                       | Status      |
 | -------- | ------------------------ | --------------------------------------------- | ----------- |
-| `GET`    | `/entries`               | List entries newest first (`metric`, `area`, `start_on`, `end_on`, `limit` 1–1000, default 200) | implemented |
+| `GET`    | `/entries`               | List entries newest first (`metric`, `area`, `exclude_area`, `start_on`, `end_on`, `limit` 1–1000, default 200) | implemented |
 | `POST`   | `/entries`               | Record an observation (accepts a metric slug) | implemented |
 | `PATCH`  | `/entries/{id}`          | Amend an entry                                | implemented |
 | `DELETE` | `/entries/{id}`          | Delete an entry                               | implemented |
@@ -100,11 +100,11 @@ Service functions (in `src/atlas/services/`, each taking an explicit `Session` f
 | Function | Role |
 | -------- | ---- |
 | `create_metric` / `list_metrics` / `get_metric` / `update_metric` / `archive_metric` | Metrics, keyed by slug, created under an area slug. `list_metrics` can filter by area and hides archived metrics and metrics whose area is archived. `update_metric` may change name, unit, and direction, not `value_type` or `aggregation`. |
-| `log_entry` / `list_entries` / `amend_entry` / `delete_entry` | Capture, history, and correction. `list_entries` returns `(entry, metric slug)` pairs newest first (`occurred_on`, then `created_at`, then `id`), optionally filtered by metric slug, area slug, and an inclusive `start_on` / `end_on` range, capped by `limit` (at least 1). `log_entry` accepts a metric slug and a single `value`; a bool metric with no value stores `true`. Multiple entries per day remain allowed. Logging to an archived metric is rejected; amend and delete still work. Logging to a screen-app metric also inserts a duration-only `screen_session`. |
+| `log_entry` / `list_entries` / `amend_entry` / `delete_entry` | Capture, history, and correction. `list_entries` returns `(entry, metric slug)` pairs newest first (`occurred_on`, then `created_at`, then `id`), optionally filtered by metric slug, area slug, an excluded area slug (`exclude_area_slug` drops entries whose metric is in that area; an unknown area excludes nothing rather than 404), and an inclusive `start_on` / `end_on` range, capped by `limit` (at least 1). `log_entry` accepts a metric slug and a single `value`; a bool metric with no value stores `true`. Multiple entries per day remain allowed. Logging to an archived metric is rejected; amend and delete still work. Logging to a screen-app metric also inserts a duration-only `screen_session`. |
 
 ## Screens
 
-Capture is a dialog wrapping the existing log form (`POST /entries`).
+Capture is the **New Entry** dialog (`LogDialog`) wrapping the log form (`LogForm`, `POST /entries`). Its description is "Log a value for today." (or "for <date>" when *As of* is set). No metric is preselected: the select starts on "Choose…", except when only one metric is offered (the Home habit grid), which is picked automatically. The value field is empty with a placeholder per value type ("How many?", "Amount", "Minutes", "1 to 10", "Write something") and shows the metric's unit beside it ("min" for a duration without a unit). Yes/no values read "Yes" / "No"; the note is "Optional"; the button is "Save".
 
 History of entries: [history](history.md). Route inventory with status: [navigation](../product/navigation.md).
 
@@ -114,6 +114,7 @@ History of entries: [history](history.md). Route inventory with status: [navigat
 - `tests/services/test_metrics.py`, `tests/services/test_entries.py`
 - `tests/api/test_metrics.py`, `tests/api/test_entries.py`
 - `web/src/lib/value.test.ts`, `web/src/lib/entries.test.ts`
+- `web/src/components/LogForm.test.tsx`
 
 ## Status
 

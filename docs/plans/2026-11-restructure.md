@@ -1,8 +1,9 @@
 # Atlas restructure plan — November 2026
 
-Status: **approved except T2 (navigation) and T5 (goals)**, which first go through a
-discussion: `docs/plans/discussions/navigation-and-organization.md` and
-`docs/plans/discussions/goals.md`. T1, T3, and T4 are in progress. See §7 for the decisions.
+Status (7 Nov 2026): **T0, T1, T3 phase 1, and T4 merged** (PRs #11–#14). Waiting: T2
+(navigation) and T5 (goals) on their discussions — `docs/plans/discussions/navigation-and-organization.md`
+and `docs/plans/discussions/goals.md`; T3 phase 2 (configuration into Settings) on T2; T6 (polish
+sweep) can start now. See §7 for the decisions.
 
 This plan turns the review from 7 Nov 2026 into tracks that can run **in parallel, each on its
 own feature branch**, without stepping on each other. It covers:
