@@ -317,6 +317,7 @@ export type ScreenDashboard = {
   trend: ScreenTrendPoint[]
   insights: ScreenInsight[]
   budgets: ScreenBudgetStatus[]
+  last_recorded_at: string | null
 }
 
 export type ScreenCategory = {
@@ -341,20 +342,6 @@ export type ScreenDevice = {
   slug: string
   name: string
   archived_at: string | null
-}
-
-export type ScreenSessionRecord = {
-  id: number
-  app: string
-  device: string | null
-  started_at: string | null
-  ended_at: string | null
-  minutes: number
-  occurred_on: string
-  note: string | null
-  source: Source
-  created_at: string
-  entry_id: number | null
 }
 
 export type SleepStage = 'awake' | 'rem' | 'light' | 'deep'
@@ -391,17 +378,9 @@ export type SleepView = {
   average_bed_offset: number | null
   average_wake_offset: number | null
   average_stages: SleepStageMinutes | null
-}
-
-export type SleepSessionRecord = {
-  id: number
-  started_at: string
-  ended_at: string
-  occurred_on: string
-  note: string | null
-  source: Source
-  created_at: string
-  stages: { stage: SleepStage; started_at: string; ended_at: string }[]
+  bed_spread: number | null
+  wake_spread: number | null
+  last_recorded_at: string | null
 }
 
 export type TaskBucket = 'today' | 'upcoming' | 'someday'
@@ -646,6 +625,7 @@ export function listMetrics(area?: string, includeArchived = false): Promise<Met
 export function listEntries(filters?: {
   metric?: string
   area?: string
+  exclude_area?: string
   start_on?: string
   end_on?: string
   limit?: number
@@ -726,40 +706,6 @@ export function createScreenDevice(body: {
   name?: string | null
 }): Promise<ScreenDevice> {
   return request('/screen/devices', { method: 'POST', body: JSON.stringify(body) })
-}
-
-export function logScreenSession(body: {
-  app: string
-  minutes?: number | null
-  started_at?: string | null
-  ended_at?: string | null
-  occurred_on?: string | null
-  device?: string | null
-  note?: string | null
-}): Promise<ScreenSessionRecord> {
-  return request('/screen/sessions', { method: 'POST', body: JSON.stringify(body) })
-}
-
-export function listScreenSessions(occurredOn?: string): Promise<ScreenSessionRecord[]> {
-  return request(`/screen/sessions${queryString({ occurred_on: occurredOn })}`)
-}
-
-export function updateScreenSession(
-  id: number,
-  body: {
-    minutes?: number | null
-    started_at?: string | null
-    ended_at?: string | null
-    occurred_on?: string | null
-    device?: string | null
-    note?: string | null
-  },
-): Promise<ScreenSessionRecord> {
-  return request(`/screen/sessions/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
-}
-
-export function deleteScreenSession(id: number): Promise<void> {
-  return request(`/screen/sessions/${id}`, { method: 'DELETE' })
 }
 
 export function updateScreenCategory(
@@ -914,25 +860,8 @@ export async function uploadEntertainmentImage(
   return (await response.json()) as EntertainmentTitle
 }
 
-export function getSleepView(asOf?: string): Promise<SleepView> {
-  return request(`/sleep/view${queryString({ as_of: asOf })}`)
-}
-
-export function logSleepSession(body: {
-  started_at: string
-  ended_at: string
-  stages?: { stage: SleepStage; started_at: string; ended_at: string }[]
-  note?: string | null
-}): Promise<SleepSessionRecord> {
-  return request('/sleep/sessions', { method: 'POST', body: JSON.stringify(body) })
-}
-
-export function listSleepSessions(occurredOn?: string): Promise<SleepSessionRecord[]> {
-  return request(`/sleep/sessions${queryString({ occurred_on: occurredOn })}`)
-}
-
-export function deleteSleepSession(id: number): Promise<void> {
-  return request(`/sleep/sessions/${id}`, { method: 'DELETE' })
+export function getSleepView(asOf?: string, days?: number): Promise<SleepView> {
+  return request(`/sleep/view${queryString({ as_of: asOf, days })}`)
 }
 
 export function listTasks(filters?: {

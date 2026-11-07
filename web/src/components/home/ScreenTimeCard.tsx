@@ -78,9 +78,15 @@ export function ScreenTimeCard({
       </div>
       {dash === null ? (
         <p className="mt-4 text-sm text-muted">Screen time is unavailable right now.</p>
+      ) : dash.last_recorded_at === null ? (
+        <p className="mt-4 text-sm text-muted">
+          No screen time data yet. It will appear here once a data source is connected.
+        </p>
       ) : shown.length === 0 ? (
         <p className="mt-4 text-sm text-muted">
-          {range === 'day' ? 'No screen time logged today.' : 'No screen time logged this week.'}
+          {range === 'day'
+            ? 'No screen time recorded today.'
+            : 'No screen time recorded this week.'}
         </p>
       ) : (
         <ul className="mt-4 flex flex-col gap-2.5">

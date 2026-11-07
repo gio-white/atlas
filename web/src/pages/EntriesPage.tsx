@@ -32,6 +32,10 @@ import {
   groupEntriesByDay,
   historyRange,
 } from '@/lib/entries'
+import { cn } from '@/lib/utils'
+
+/** Area whose entries are written by device data, not typed: screen time sessions. */
+const AUTOMATIC_AREA = 'screen'
 
 function message(caught: unknown, fallback: string): string {
   return caught instanceof ApiError || caught instanceof Error ? caught.message : fallback
@@ -42,6 +46,9 @@ export function EntriesPage() {
   const [params, setParams] = useSearchParams()
   const defaults = useMemo(() => historyRange(asOf), [asOf])
   const metricFilter = params.get('metric') ?? ''
+  const hideAutomatic = params.get('automatic') !== 'show'
+  // Picking one metric shows it even when it is automatic; the switch only thins "All metrics".
+  const excludeArea = hideAutomatic && metricFilter === '' ? AUTOMATIC_AREA : undefined
   const start = params.get('from') ?? defaults.start
   const end = params.get('to') ?? defaults.end
   const [entries, setEntries] = useState<Entry[] | null>(null)
@@ -53,6 +60,7 @@ export function EntriesPage() {
     const [nextEntries, nextMetrics] = await Promise.all([
       listEntries({
         metric: metricFilter || undefined,
+        exclude_area: excludeArea,
         start_on: start,
         end_on: end,
         limit: 500,
@@ -61,7 +69,7 @@ export function EntriesPage() {
     ])
     setEntries(nextEntries)
     setMetrics(nextMetrics)
-  }, [metricFilter, start, end])
+  }, [metricFilter, excludeArea, start, end])
 
   useEffect(() => {
     let cancelled = false
@@ -80,7 +88,7 @@ export function EntriesPage() {
   const bySlug = useMemo(() => new Map(metrics.map((metric) => [metric.slug, metric])), [metrics])
   const days = useMemo(() => groupEntriesByDay(entries ?? []), [entries])
 
-  function setFilter(key: 'metric' | 'from' | 'to', value: string) {
+  function setFilter(key: 'metric' | 'from' | 'to' | 'automatic', value: string) {
     const next = new URLSearchParams(params)
     if (value === '') next.delete(key)
     else next.set(key, value)
@@ -109,7 +117,7 @@ export function EntriesPage() {
         description="Everything you have logged. Fix a value, move it to another day, or delete it — streaks and goals recompute on their own."
         homeLink
       />
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="flex flex-col gap-1">
           <Label htmlFor="history-metric">Metric</Label>
           <Select
@@ -146,6 +154,11 @@ export function EntriesPage() {
             onChange={(event) => setFilter('to', event.target.value)}
           />
         </div>
+        <HideAutomaticSwitch
+          checked={hideAutomatic}
+          disabled={metricFilter !== ''}
+          onChange={(next) => setFilter('automatic', next ? '' : 'show')}
+        />
       </div>
       {actionError !== null && <PageError message={actionError} />}
       {days.length === 0 ? (
@@ -176,6 +189,47 @@ export function EntriesPage() {
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+function HideAutomaticSwitch({
+  checked,
+  disabled,
+  onChange,
+}: {
+  checked: boolean
+  disabled: boolean
+  onChange: (next: boolean) => void
+}) {
+  return (
+    <div className="flex min-h-9 items-center gap-3">
+      <button
+        id="history-hide-automatic"
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-describedby="history-hide-automatic-hint"
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className={cn(
+          'relative inline-flex h-6 w-10 shrink-0 items-center rounded-full border border-line motion-safe:transition-colors disabled:opacity-50',
+          checked ? 'bg-accent' : 'bg-raised',
+        )}
+      >
+        <span
+          className={cn(
+            'inline-block size-4 rounded-full bg-surface shadow-sm motion-safe:transition-transform',
+            checked ? 'translate-x-5' : 'translate-x-1',
+          )}
+        />
+      </button>
+      <div className="flex flex-col">
+        <Label htmlFor="history-hide-automatic">Hide automatic data</Label>
+        <span id="history-hide-automatic-hint" className="text-xs text-muted">
+          Screen time recorded by your devices
+        </span>
+      </div>
     </div>
   )
 }

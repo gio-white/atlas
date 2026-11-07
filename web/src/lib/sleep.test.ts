@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest'
 
 import type { SleepNight, SleepView } from './api'
-import { formatClock, newestNightsFirst, stageShares, stagesFromDrafts, weekAxis } from './sleep'
+import {
+  asleepAxis,
+  consistencyLabel,
+  daysNewestFirst,
+  formatClock,
+  formatSpread,
+  parseSleepRange,
+  rangeDays,
+  stageShares,
+  weekAxis,
+} from './sleep'
 
 function night(bed: number, wake: number): SleepNight {
   return {
@@ -30,6 +40,9 @@ function view(nights: (SleepNight | null)[]): SleepView {
     average_bed_offset: null,
     average_wake_offset: null,
     average_stages: null,
+    bed_spread: null,
+    wake_spread: null,
+    last_recorded_at: null,
   }
 }
 
@@ -69,31 +82,42 @@ describe('weekAxis', () => {
   })
 })
 
-describe('stagesFromDrafts', () => {
-  it('converts local inputs to ISO spans and requires both ends', () => {
-    const local = '2026-08-13T01:00'
-    expect(
-      stagesFromDrafts([{ stage: 'deep', started: local, ended: '2026-08-13T02:00' }]),
-    ).toEqual([
-      {
-        stage: 'deep',
-        started_at: new Date(local).toISOString(),
-        ended_at: new Date('2026-08-13T02:00').toISOString(),
-      },
-    ])
-    expect(() => stagesFromDrafts([{ stage: 'rem', started: local, ended: '' }])).toThrow(
-      'start and end',
-    )
+describe('ranges', () => {
+  it('parses known ranges and falls back to a week', () => {
+    expect(parseSleepRange('quarter')).toBe('quarter')
+    expect(parseSleepRange('year')).toBe('week')
+    expect(parseSleepRange(null)).toBe('week')
+    expect(rangeDays('month')).toBe(30)
+    expect(rangeDays('quarter')).toBe(90)
   })
 })
 
-describe('newestNightsFirst', () => {
-  it('orders by bedtime descending without mutating the input', () => {
-    const rows = [
-      { id: 1, started_at: '2026-08-11T23:00:00Z' },
-      { id: 2, started_at: '2026-08-12T23:00:00Z' },
-    ]
-    expect(newestNightsFirst(rows).map((row) => row.id)).toEqual([2, 1])
-    expect(rows[0].id).toBe(1)
+describe('consistency', () => {
+  it('formats a spread in minutes or hours', () => {
+    expect(formatSpread(null)).toBe('—')
+    expect(formatSpread(24.6)).toBe('±25m')
+    expect(formatSpread(60)).toBe('±1h')
+    expect(formatSpread(95)).toBe('±1h 35m')
+  })
+
+  it('names the spread in plain words', () => {
+    expect(consistencyLabel(null)).toBe('Needs two nights')
+    expect(consistencyLabel(20)).toBe('Steady')
+    expect(consistencyLabel(45)).toBe('Varies a little')
+    expect(consistencyLabel(90)).toBe('Irregular')
+  })
+})
+
+describe('asleepAxis', () => {
+  it('reaches at least eight hours and rounds up to two-hour ticks', () => {
+    expect(asleepAxis(view([null])).ticks).toEqual([0, 120, 240, 360, 480])
+    expect(asleepAxis(view([night(-60, 570)])).max).toBe(720)
+  })
+})
+
+describe('daysNewestFirst', () => {
+  it('keeps the days without a night', () => {
+    const days = daysNewestFirst(view([night(-60, 420), null]))
+    expect(days.map((day) => day.night === null)).toEqual([true, false])
   })
 })
