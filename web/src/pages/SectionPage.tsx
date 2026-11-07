@@ -4,10 +4,7 @@ export function SectionPage({ title, description }: { title: string; description
   return (
     <div className="flex flex-col gap-5">
       <PageHeader title={title} description={description} homeLink />
-      <EmptyState
-        title="Nothing here yet"
-        hint="This section ships with the matching domain cycle."
-      />
+      <EmptyState title="Coming soon" hint="There is nothing to show on this page yet." />
     </div>
   )
 }

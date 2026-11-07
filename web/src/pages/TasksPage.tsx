@@ -1,11 +1,10 @@
-import { CheckSquare, Plus } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { CheckSquare, ChevronDown, Plus } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { EmptyState, PageHeader, PageLoading, PageUnavailable } from '@/components/PageState'
 import { TaskCreateDialog } from '@/components/tasks/TaskCreateDialog'
 import { Button } from '@/components/ui/button'
-import { Select } from '@/components/ui/select'
 import {
   ApiError,
   type Goal,
@@ -86,12 +85,12 @@ export function TasksPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <PageHeader
           title="Tasks"
-          description="Day-to-day operative work. Not habits, not metrics — check them off as you go."
+          description="Things to get done. Check them off as you go."
           homeLink
         />
         <Button type="button" onClick={() => setCreateOpen(true)}>
           <Plus className="size-4" aria-hidden />
-          New Task
+          New task
         </Button>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -292,18 +291,8 @@ function TaskBoardRow({
             High
           </span>
         )}
+        <MoveMenu title={task.title} current={task.bucket} onMove={onMove} />
       </div>
-      <Select
-        aria-label={`Move ${task.title}`}
-        value={task.bucket}
-        onChange={(event) => onMove(event.target.value as TaskBucket)}
-      >
-        {TASK_BUCKETS.map((item) => (
-          <option key={item} value={item}>
-            {TASK_BUCKET_META[item].label}
-          </option>
-        ))}
-      </Select>
     </li>
   )
 }
@@ -317,4 +306,71 @@ function taskWhen(task: TaskItem): string | null {
   }
   if (task.due_on !== null) return weekdayLabel(task.due_on)
   return null
+}
+
+/** A small "Move to…" button that opens a menu of the other lists. */
+function MoveMenu({
+  title,
+  current,
+  onMove,
+}: {
+  title: string
+  current: TaskBucket
+  onMove: (bucket: TaskBucket) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const root = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function onPointer(event: PointerEvent) {
+      if (!root.current?.contains(event.target as Node)) setOpen(false)
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointer)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onPointer)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  return (
+    <div ref={root} className="relative">
+      <button
+        type="button"
+        className="-my-1 inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs text-muted hover:bg-raised hover:text-ink"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Move ${title} to…`}
+        onClick={() => setOpen((value) => !value)}
+      >
+        Move to…
+        <ChevronDown className="size-3" aria-hidden />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 z-20 mt-1 flex min-w-32 flex-col rounded-xl border border-line bg-surface p-1 shadow-[var(--shadow-card)]"
+        >
+          {TASK_BUCKETS.filter((item) => item !== current).map((item) => (
+            <button
+              key={item}
+              type="button"
+              role="menuitem"
+              className="rounded-lg px-3 py-1.5 text-left text-sm hover:bg-raised"
+              onClick={() => {
+                setOpen(false)
+                onMove(item)
+              }}
+            >
+              {TASK_BUCKET_META[item].label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }

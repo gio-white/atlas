@@ -9,6 +9,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { ApiError, listMetrics, type Metric } from '@/lib/api'
+import { longDateLabel } from '@/lib/dates'
+import { todayIso } from '@/lib/utils'
 
 type LogDialogProps = {
   open: boolean
@@ -44,7 +46,11 @@ export function LogDialog({ open, onOpenChange, occurredOn }: LogDialogProps) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>New entry</DialogTitle>
-          <DialogDescription>One capture path. Counts for {occurredOn}.</DialogDescription>
+          <DialogDescription>
+            {occurredOn === todayIso()
+              ? 'Log a value for today.'
+              : `Log a value for ${longDateLabel(occurredOn)}.`}
+          </DialogDescription>
         </DialogHeader>
         {error !== null && (
           <p className="text-sm text-bad" role="alert">
@@ -52,7 +58,7 @@ export function LogDialog({ open, onOpenChange, occurredOn }: LogDialogProps) {
           </p>
         )}
         {metrics === null ? (
-          <p className="text-sm text-muted">Loading metrics…</p>
+          <p className="text-sm text-muted">Loading…</p>
         ) : (
           <LogForm metrics={metrics} occurredOn={occurredOn} onLogged={() => onOpenChange(false)} />
         )}
