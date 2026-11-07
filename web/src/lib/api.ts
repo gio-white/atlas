@@ -161,23 +161,6 @@ export type GoalProgress = {
   description: string | null
 }
 
-export type LoggedEntry = {
-  id: number
-  metric_slug: string
-  occurred_on: string
-  value_num: number | null
-  value_bool: boolean | null
-  value_text: string | null
-  note: string | null
-}
-
-export type TodayView = {
-  as_of: string
-  habits: HabitStatus[]
-  entries: LoggedEntry[]
-  goals: GoalProgress[]
-}
-
 export type WeekDayCell = {
   day: string
   scheduled: boolean
@@ -199,31 +182,12 @@ export type WeekHabit = {
   days: WeekDayCell[]
 }
 
-export type WeekView = {
-  as_of: string
-  week_start: string
-  week_end: string
-  habits: WeekHabit[]
-}
-
 export type HabitsCalendar = {
   as_of: string
   period: Period
   range_start: string
   range_end: string
   habits: WeekHabit[]
-}
-
-export type HomeWeek = {
-  as_of: string
-  week_start: string
-  week_end: string
-  focus_minutes: number
-  focus_minutes_last_week: number
-  focus_delta: number | null
-  tasks_done: number
-  tasks_done_last_week: number
-  tasks_delta: number | null
 }
 
 export type ScreenJudgment = 'useful' | 'waste' | 'neutral'
@@ -242,34 +206,6 @@ export type ScreenJudgmentTotals = {
   waste: number | null
   neutral: number | null
   total: number | null
-}
-
-export type ScreenAppRow = {
-  slug: string
-  name: string
-  category: string
-  metric: string
-  minutes: number | null
-  archived_at: string | null
-}
-
-export type ScreenCategoryRow = {
-  slug: string
-  name: string
-  judgment: ScreenJudgment
-  minutes: number | null
-  apps: ScreenAppRow[]
-  archived_at: string | null
-}
-
-export type ScreenSessionRow = {
-  id: number
-  app: string
-  category: string
-  metric: string
-  occurred_on: string
-  minutes: number | null
-  note: string | null
 }
 
 export type ScreenBudget = {
@@ -300,14 +236,6 @@ export type ScreenBudgetStatus = {
   longest_streak: number
   adherence: number | null
   as_of: string
-}
-
-export type ScreenView = {
-  as_of: string
-  categories: ScreenCategoryRow[]
-  judgments: ScreenJudgmentTotals
-  sessions: ScreenSessionRow[]
-  budgets: ScreenBudgetStatus[]
 }
 
 export type ScreenAppShare = {
@@ -602,13 +530,6 @@ export type EntertainmentLibrary = {
   dropped: EntertainmentTitle[]
 }
 
-export type EntertainmentView = {
-  as_of: string
-  in_progress: number
-  finished_this_week: number
-  last_finished: EntertainmentTitle | null
-}
-
 export type EntertainmentDashboard = {
   period: Period
   as_of: string
@@ -764,22 +685,6 @@ export function getHabitsCalendar(period: Period, asOf?: string): Promise<Habits
   return request(`/views/habits/calendar${queryString({ period, as_of: asOf })}`)
 }
 
-export function getToday(asOf?: string): Promise<TodayView> {
-  return request(`/views/today${queryString({ as_of: asOf })}`)
-}
-
-export function getWeek(asOf?: string): Promise<WeekView> {
-  return request(`/views/week${queryString({ as_of: asOf })}`)
-}
-
-export function getHomeWeek(asOf?: string): Promise<HomeWeek> {
-  return request(`/views/home${queryString({ as_of: asOf })}`)
-}
-
-export function getScreenView(asOf?: string): Promise<ScreenView> {
-  return request(`/screen/view${queryString({ as_of: asOf })}`)
-}
-
 export function getScreenDashboard(period: Period, asOf?: string): Promise<ScreenDashboard> {
   return request(`/screen/dashboard${queryString({ period, as_of: asOf })}`)
 }
@@ -909,10 +814,6 @@ export function updateScreenBudget(
   })
 }
 
-export function getEntertainmentView(asOf?: string): Promise<EntertainmentView> {
-  return request(`/entertainment/view${queryString({ as_of: asOf })}`)
-}
-
 export function getEntertainmentDashboard(
   period: Period,
   asOf?: string,
@@ -924,13 +825,6 @@ export function listEntertainmentTopics(includeArchived = false): Promise<Entert
   return request(
     `/entertainment/topics${queryString({ include_archived: includeArchived || undefined })}`,
   )
-}
-
-export function createEntertainmentTopic(body: {
-  slug: string
-  name?: string | null
-}): Promise<EntertainmentTopic> {
-  return request('/entertainment/topics', { method: 'POST', body: JSON.stringify(body) })
 }
 
 export function listEntertainmentTitles(filters?: {
@@ -992,19 +886,6 @@ export function updateEntertainmentTitle(
 
 export function lookupEntertainmentLink(url: string): Promise<EntertainmentLinkSuggestion> {
   return request('/entertainment/lookup', { method: 'POST', body: JSON.stringify({ url }) })
-}
-
-export function createEntertainmentTitleFromLink(body: {
-  url: string
-  kind?: EntertainmentKind | null
-  status?: EntertainmentStatus
-  topics?: string[]
-  note?: string | null
-}): Promise<EntertainmentTitle> {
-  return request('/entertainment/titles/from-link', {
-    method: 'POST',
-    body: JSON.stringify(body),
-  })
 }
 
 export function deleteEntertainmentTitle(slug: string): Promise<void> {
@@ -1104,10 +985,6 @@ export function logJournal(body: { text: string; occurred_on?: string | null }):
 
 export function getAreaView(slug: string, asOf?: string): Promise<AreaView> {
   return request(`/views/areas/${encodeURIComponent(slug)}${queryString({ as_of: asOf })}`)
-}
-
-export function getHabitStatus(slug: string, asOf?: string): Promise<HabitStatus> {
-  return request(`/habits/${encodeURIComponent(slug)}/status${queryString({ as_of: asOf })}`)
 }
 
 export function setHabitDay(

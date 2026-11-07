@@ -57,7 +57,7 @@ uv run atlas serve
 Equivalent: `uv run uvicorn atlas.api.app:app --reload --host 127.0.0.1` or `uv run python -m atlas.api`. OpenAPI UI is at <http://127.0.0.1:8000/docs>. During UI development the Vite app on port 5173 is allowed by CORS; see [frontend](docs/architecture.md#frontend).
 
 ```bash
-curl -s http://127.0.0.1:8000/views/today
+curl -s http://127.0.0.1:8000/views/habits
 curl -s -X POST http://127.0.0.1:8000/entries \
   -H 'content-type: application/json' \
   -d '{"metric":"pushups","value":40}'

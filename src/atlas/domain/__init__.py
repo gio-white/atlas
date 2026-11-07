@@ -13,8 +13,6 @@ from atlas.domain.entertainment import (
     EntertainmentLibrary,
     EntertainmentTopicCount,
     entertainment_dashboard_math,
-    finished_in_week,
-    last_finished,
 )
 from atlas.domain.entertainment_link import (
     LinkSuggestion,
@@ -188,10 +186,8 @@ __all__ = [
     "day_minutes",
     "direction_for_judgment",
     "entertainment_dashboard_math",
-    "finished_in_week",
     "goal_progress",
     "infer_horizon",
-    "last_finished",
     "interval_minutes",
     "is_column_on_track",
     "is_satisfied",

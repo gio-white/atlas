@@ -29,4 +29,4 @@ cd web && pnpm lint && pnpm test && pnpm build   # when web/ changes
 
 Only `uv` (Python) and `pnpm` (web) are allowed: `.claude/settings.json` runs a hook that denies `pip`, bare `python` / `pytest` / `ruff`, `npm`, `npx`, `yarn`, and friends, and pre-approves the gate commands above.
 
-When a gate fails, use the `fix-checks` skill. Design and UI skills (`ui-ux-pro-max`, `ui-styling`, `design`, `design-system`, `brand`, `banner-design`, `slides`) live in `.claude/skills/`.
+When a gate fails, use the `fix-checks` skill. UI skills (`ui-ux-pro-max`, `ui-styling`) live in `.claude/skills/`.

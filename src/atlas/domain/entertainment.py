@@ -2,7 +2,6 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 
-from atlas.domain.buckets import bucket_for
 from atlas.domain.enums import EntertainmentKind, EntertainmentStatus, Period
 from atlas.domain.models import EntertainmentTitleView, EntertainmentTopicRef
 from atlas.domain.screen import clipped_period_range
@@ -92,29 +91,6 @@ def entertainment_dashboard_math(
         recently_finished=_recently_finished(titles, as_of),
         library=grouped,
     )
-
-
-def finished_in_week(
-    titles: Sequence[EntertainmentTitleView],
-    *,
-    as_of: date,
-) -> int:
-    week = bucket_for(as_of, Period.WEEK)
-    end = min(week.end, as_of)
-    return sum(
-        1
-        for title in titles
-        if title.finished_on is not None and week.start <= title.finished_on <= end
-    )
-
-
-def last_finished(
-    titles: Sequence[EntertainmentTitleView],
-    *,
-    as_of: date,
-) -> EntertainmentTitleView | None:
-    recent = _recently_finished(titles, as_of, limit=1)
-    return recent[0] if recent else None
 
 
 def _library(titles: Sequence[EntertainmentTitleView]) -> EntertainmentLibrary:

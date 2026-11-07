@@ -7,10 +7,12 @@ from atlas.domain import Period
 from atlas.services import (
     ValidationError,
     export_all,
+    habit_statuses,
+    list_entries,
+    list_goals,
     screen_dashboard,
     seed_demo,
     sleep_view,
-    today_view,
 )
 
 
@@ -139,13 +141,12 @@ def test_seed_demo_loads_the_demo_dataset(session):
 def test_seed_demo_makes_today_reviewable(session):
     as_of = date(2026, 8, 13)
     seed_demo(session, as_of=as_of)
-    view = today_view(session, as_of=as_of)
-    slugs = {habit.slug for habit in view.habits}
+    slugs = {status.slug for status in habit_statuses(session, as_of=as_of) if status.scheduled}
     assert "pushups-daily" in slugs
     assert "meditated-daily" in slugs
     assert "coffee-daily" in slugs
-    assert view.entries
-    assert view.goals
+    assert list_entries(session, start_on=as_of, end_on=as_of)
+    assert list_goals(session)
 
 
 def test_seed_demo_fills_screen_dashboard(session, monkeypatch):

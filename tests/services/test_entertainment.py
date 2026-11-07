@@ -13,7 +13,6 @@ from atlas.services import (
     create_entertainment_topic,
     delete_entertainment_title,
     entertainment_dashboard,
-    entertainment_view,
     export_all,
     get_entertainment_title,
     get_entertainment_topic,
@@ -118,11 +117,6 @@ def test_dashboard_and_view_count_library_status(session):
     assert dash.in_progress == 1
     assert dash.library.done[0].slug == "lex"
     assert dash.library.done[0].topics[0].slug == "programming"
-    view = entertainment_view(session, as_of=date(2026, 8, 14))
-    assert view.finished_this_week == 1
-    assert view.in_progress == 1
-    assert view.last_finished is not None
-    assert view.last_finished.slug == "lex"
 
 
 def test_export_includes_entertainment_without_entries(session):

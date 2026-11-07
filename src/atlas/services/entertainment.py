@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from datetime import date
 
 from sqlmodel import Session, col, select
@@ -12,8 +11,6 @@ from atlas.domain import (
     EntertainmentTopicRef,
     Period,
     entertainment_dashboard_math,
-    finished_in_week,
-    last_finished,
 )
 from atlas.services.clock import resolve_today
 from atlas.services.errors import NotFoundError, ValidationError
@@ -37,14 +34,6 @@ _SUFFIX_MEDIA_TYPES = {
     ".webp": "image/webp",
     ".gif": "image/gif",
 }
-
-
-@dataclass(frozen=True, slots=True)
-class EntertainmentView:
-    as_of: date
-    in_progress: int
-    finished_this_week: int
-    last_finished: EntertainmentTitleView | None
 
 
 def create_entertainment_topic(
@@ -313,17 +302,6 @@ def title_topics(session: Session, title: EntertainmentTitle) -> list[Entertainm
 
 def title_view_for(session: Session, title: EntertainmentTitle) -> EntertainmentTitleView:
     return _title_view(title, title_topics(session, title))
-
-
-def entertainment_view(session: Session, *, as_of: date | None = None) -> EntertainmentView:
-    as_of = resolve_today(as_of)
-    titles = _title_views(session)
-    return EntertainmentView(
-        as_of=as_of,
-        in_progress=sum(1 for title in titles if title.status is EntertainmentStatus.IN_PROGRESS),
-        finished_this_week=finished_in_week(titles, as_of=as_of),
-        last_finished=last_finished(titles, as_of=as_of),
-    )
 
 
 def entertainment_dashboard(
