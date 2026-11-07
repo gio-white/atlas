@@ -763,6 +763,7 @@ class ScreenDashboardOut(BaseModel):
     trend: list[ScreenTrendPointOut]
     insights: list[ScreenInsightOut]
     budgets: list[ScreenBudgetStatusOut]
+    last_recorded_at: datetime | None
 
 
 class TaskCreate(BaseModel):
@@ -1061,3 +1062,6 @@ class SleepViewOut(BaseModel):
     average_bed_offset: float | None
     average_wake_offset: float | None
     average_stages: SleepStageMinutesOut | None
+    bed_spread: float | None
+    wake_spread: float | None
+    last_recorded_at: datetime | None

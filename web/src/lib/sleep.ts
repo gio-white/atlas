@@ -42,22 +42,53 @@ export function weekAxis(view: SleepView): { start: number; end: number; ticks: 
   return { start, end, ticks }
 }
 
-export type StageDraft = { stage: SleepStage; started: string; ended: string }
+export type SleepRange = 'week' | 'month' | 'quarter'
 
-/** Local datetime-input rows → the ISO stage spans POST /sleep/sessions expects. */
-export function stagesFromDrafts(
-  rows: StageDraft[],
-): { stage: SleepStage; started_at: string; ended_at: string }[] {
-  return rows.map((row) => {
-    if (row.started === '' || row.ended === '') throw new Error('each stage needs a start and end')
-    return {
-      stage: row.stage,
-      started_at: new Date(row.started).toISOString(),
-      ended_at: new Date(row.ended).toISOString(),
-    }
-  })
+export const SLEEP_RANGES: { id: SleepRange; label: string; days: number }[] = [
+  { id: 'week', label: 'Week', days: 7 },
+  { id: 'month', label: 'Month', days: 30 },
+  { id: 'quarter', label: '90 days', days: 90 },
+]
+
+export function parseSleepRange(raw: string | null): SleepRange {
+  return SLEEP_RANGES.some((range) => range.id === raw) ? (raw as SleepRange) : 'week'
 }
 
-export function newestNightsFirst<T extends { started_at: string; id: number }>(rows: T[]): T[] {
-  return [...rows].sort((a, b) => b.started_at.localeCompare(a.started_at) || b.id - a.id)
+export function rangeDays(range: SleepRange): number {
+  return SLEEP_RANGES.find((item) => item.id === range)?.days ?? 7
+}
+
+/** "±25m" for a spread in minutes; a dash when there are too few nights to measure. */
+export function formatSpread(spread: number | null): string {
+  if (spread === null) return '—'
+  const minutes = Math.round(spread)
+  if (minutes < 60) return `±${minutes}m`
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  return rest === 0 ? `±${hours}h` : `±${hours}h ${rest}m`
+}
+
+/** Plain words for how much bed or wake time moves from night to night. */
+export function consistencyLabel(spread: number | null): string {
+  if (spread === null) return 'Needs two nights'
+  if (spread <= 30) return 'Steady'
+  if (spread <= 60) return 'Varies a little'
+  return 'Irregular'
+}
+
+/** Whole-hour ticks from 0 up to at least the longest night, for the time-asleep chart. */
+export function asleepAxis(view: SleepView): { max: number; ticks: number[] } {
+  const longest = Math.max(
+    0,
+    ...view.days.flatMap((day) => (day.night === null ? [] : [day.night.asleep_minutes])),
+  )
+  const max = Math.max(8 * 60, Math.ceil(longest / 120) * 120)
+  const ticks: number[] = []
+  for (let tick = 0; tick <= max; tick += 120) ticks.push(tick)
+  return { max, ticks }
+}
+
+/** Every day in the window, newest first, keeping days without a night so gaps stay visible. */
+export function daysNewestFirst(view: SleepView): SleepView['days'] {
+  return [...view.days].reverse()
 }

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 
-from sqlmodel import Session, select
+from sqlmodel import Session, col, func, select
 
 from atlas.db.models import (
     Area,
@@ -165,6 +165,7 @@ class ScreenDashboard:
     trend: list[ScreenTrendPoint]
     insights: list[ScreenInsight]
     budgets: list[ScreenBudgetStatus]
+    last_recorded_at: datetime | None
 
 
 def create_screen_category(
@@ -727,7 +728,14 @@ def screen_dashboard(
         trend=list(math.trend),
         insights=insights,
         budgets=budgets,
+        last_recorded_at=latest_screen_recorded_at(session),
     )
+
+
+def latest_screen_recorded_at(session: Session) -> datetime | None:
+    """The newest `created_at` over every screen session: when data last arrived."""
+    latest = session.exec(select(func.max(col(ScreenSession.created_at)))).one()
+    return _coerce_utc(latest)
 
 
 def _ensure_screen_area(session: Session) -> Area:

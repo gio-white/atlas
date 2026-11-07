@@ -1,6 +1,7 @@
 from datetime import date
+from typing import Annotated
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from atlas.api.deps import SessionDep
 from atlas.api.schemas import SleepSessionCreate, SleepSessionOut, SleepViewOut
@@ -18,8 +19,12 @@ router = APIRouter(prefix="/sleep", tags=["sleep"])
 
 
 @router.get("/view", response_model=SleepViewOut)
-def get_sleep_view(session: SessionDep, as_of: date | None = None) -> SleepViewOut:
-    return SleepViewOut.model_validate(sleep_view(session, as_of=as_of))
+def get_sleep_view(
+    session: SessionDep,
+    as_of: date | None = None,
+    days: Annotated[int, Query(ge=1, le=366)] = 7,
+) -> SleepViewOut:
+    return SleepViewOut.model_validate(sleep_view(session, as_of=as_of, days=days))
 
 
 @router.get("/sessions", response_model=list[SleepSessionOut])

@@ -127,3 +127,26 @@ def test_screen_dashboard_week(client):
     assert len(body["trend"]) == 8
     assert body["apps"][0]["slug"] == "instagram"
     assert body["devices"][0]["slug"] == "unknown"
+
+
+def test_ingestion_door_accepts_sessions_and_dashboard_reports_freshness(client):
+    client.post("/screen/categories", json={"slug": "entertainment", "judgment": "waste"})
+    client.post("/screen/apps", json={"slug": "instagram", "category": "entertainment"})
+    before = client.get("/screen/dashboard", params={"as_of": "2026-08-14"})
+    assert before.json()["last_recorded_at"] is None
+
+    for body in (
+        {"app": "instagram", "minutes": 15, "occurred_on": "2026-08-14"},
+        {
+            "app": "instagram",
+            "started_at": "2026-08-14T20:00:00+00:00",
+            "ended_at": "2026-08-14T20:30:00+00:00",
+        },
+    ):
+        created = client.post("/screen/sessions", json=body)
+        assert created.status_code == 201, created.text
+
+    after = client.get("/screen/dashboard", params={"as_of": "2026-08-14", "period": "day"})
+    assert after.status_code == 200, after.text
+    assert after.json()["total"] == 45
+    assert after.json()["last_recorded_at"] is not None

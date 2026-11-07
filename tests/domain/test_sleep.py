@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -152,3 +152,35 @@ def test_week_math_picks_the_longest_session_per_day_and_averages_logged_nights(
     assert week.average_bed_offset == (-60 + 0) / 2
     assert week.average_wake_offset == (420 + 360) / 2
     assert week.average_stages is None
+
+
+def test_sleep_week_math_takes_a_window_and_measures_consistency():
+    nights = [
+        SleepSessionView(
+            id=index,
+            started_at=_at(day - 1, 23) + timedelta(minutes=offset),
+            ended_at=_at(day, 7),
+            occurred_on=date(2026, 8, day),
+            stages=(),
+            created_at=_at(day, 8),
+        )
+        for index, (day, offset) in enumerate(((10, 0), (12, 60)), start=1)
+    ]
+
+    window = sleep_week_math(nights, date(2026, 8, 13), UTC_ZONE, days=30)
+
+    assert len(window.days) == 30
+    assert window.range_start == date(2026, 7, 15)
+    assert window.nights_logged == 2
+    assert window.bed_spread == 30
+    assert window.wake_spread == 0
+    assert window.last_recorded_at == _at(12, 8)
+
+
+def test_sleep_week_math_spread_needs_two_nights():
+    week = sleep_week_math([], date(2026, 8, 13), UTC_ZONE)
+
+    assert week.bed_spread is None
+    assert week.last_recorded_at is None
+    with pytest.raises(ValueError):
+        sleep_week_math([], date(2026, 8, 13), UTC_ZONE, days=0)

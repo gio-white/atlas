@@ -84,7 +84,7 @@ export function HomePage() {
         aria-label="Overview"
         className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]"
       >
-        <SleepCard view={data.sleep} asOf={asOf} onLogged={refresh} />
+        <SleepCard view={data.sleep} search={search} />
         <ScreenTimeCard day={data.screenDay} week={data.screenWeek} search={search} />
       </section>
       <section

@@ -1,4 +1,11 @@
-import type { ScreenDayBar, ScreenDeviceShare, ScreenJudgment } from '@/lib/api'
+import type {
+  ScreenCategoryShare,
+  ScreenDayBar,
+  ScreenDeviceShare,
+  ScreenJudgment,
+} from '@/lib/api'
+import { shortDateLabel, weekdayLabel } from '@/lib/dates'
+import { formatMinutes } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 export const JUDGMENT_LABEL: Record<ScreenJudgment, string> = {
@@ -69,6 +76,25 @@ export function ScoreRing({
   )
 }
 
+const BAR_AXIS = 34
+const BAR_FOOT = 16
+const BAR_TOP = 8
+
+/** Step between y-axis ticks so a chart gets three to five gridlines. */
+export function minuteTicks(max: number): number[] {
+  const steps = [15, 30, 60, 120, 180, 240, 360, 480, 720]
+  const step = steps.find((candidate) => max / candidate <= 4) ?? 720
+  const top = Math.max(step, Math.ceil(max / step) * step)
+  const ticks: number[] = []
+  for (let tick = 0; tick <= top; tick += step) ticks.push(tick)
+  return ticks
+}
+
+function barLabel(date: string, index: number, count: number): string | null {
+  if (count <= 7) return weekdayLabel(date).slice(0, 2)
+  return (count - 1 - index) % 5 === 0 ? String(Number(date.slice(8))) : null
+}
+
 export function StackedJudgmentBars({
   days,
   breakdown,
@@ -76,52 +102,87 @@ export function StackedJudgmentBars({
   days: ScreenDayBar[]
   breakdown: boolean
 }) {
-  const max = Math.max(...days.map((day) => day.total), 1)
-  const width = Math.max(days.length * 28, 240)
-  const height = 140
-  const gap = 4
-  const barWidth = days.length === 0 ? 0 : (width - gap * (days.length - 1)) / days.length
+  const ticks = minuteTicks(Math.max(...days.map((day) => day.total), 1))
+  const max = ticks.at(-1) ?? 60
+  const width = 560
+  const height = 180
+  const plot = height - BAR_FOOT - BAR_TOP
+  const column = (width - BAR_AXIS) / Math.max(1, days.length)
+  const barWidth = Math.min(40, column * 0.7)
+  const h = (minutes: number) => (minutes / max) * plot
+  const base = BAR_TOP + plot
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
-      className="h-36 w-full"
+      className="h-auto w-full"
       role="img"
       aria-label="Daily screen time"
     >
       <title>Daily screen time</title>
+      {ticks.map((tick) => (
+        <g key={tick}>
+          <line
+            x1={BAR_AXIS}
+            x2={width}
+            y1={base - h(tick)}
+            y2={base - h(tick)}
+            className="stroke-line"
+            strokeWidth="1"
+          />
+          <text
+            x="0"
+            y={base - h(tick)}
+            dominantBaseline="middle"
+            className="fill-muted text-[10px] tabular-nums"
+          >
+            {formatMinutes(tick)}
+          </text>
+        </g>
+      ))}
       {days.map((day, index) => {
-        const x = index * (barWidth + gap)
-        if (!breakdown) {
-          const h = (day.total / max) * (height - 4)
-          return (
-            <rect
-              key={day.date}
-              x={x}
-              y={height - h}
-              width={barWidth}
-              height={h}
-              className="fill-screen"
-              rx="3"
-            />
-          )
-        }
-        const usefulH = (day.useful / max) * (height - 4)
-        const wasteH = (day.waste / max) * (height - 4)
-        const neutralH = (day.neutral / max) * (height - 4)
-        const wasteY = height - usefulH - wasteH
-        const neutralY = wasteY - neutralH
+        const cx = BAR_AXIS + column * index + column / 2
+        const x = cx - barWidth / 2
+        const label = barLabel(day.date, index, days.length)
+        const stack = breakdown
+          ? [
+              { key: 'useful', minutes: day.useful, fill: JUDGMENT_FILL.useful },
+              { key: 'neutral', minutes: day.neutral, fill: JUDGMENT_FILL.neutral },
+              { key: 'waste', minutes: day.waste, fill: JUDGMENT_FILL.waste },
+            ]
+          : [{ key: 'total', minutes: day.total, fill: 'fill-screen' }]
+        let top = base
         return (
           <g key={day.date}>
-            <rect
-              x={x}
-              y={height - usefulH}
-              width={barWidth}
-              height={usefulH}
-              className="fill-good"
-              rx="2"
-            />
-            <rect x={x} y={wasteY} width={barWidth} height={wasteH} className="fill-bad" />
-            <rect x={x} y={neutralY} width={barWidth} height={neutralH} className="fill-warn" />
+            <title>
+              {shortDateLabel(day.date)} · {formatMinutes(day.total)}
+              {breakdown
+                ? ` (Good ${formatMinutes(day.useful)}, Neutral ${formatMinutes(day.neutral)}, Bad ${formatMinutes(day.waste)})`
+                : ''}
+            </title>
+            {stack.map((part) => {
+              const partHeight = h(part.minutes)
+              top -= partHeight
+              return partHeight <= 0 ? null : (
+                <rect
+                  key={part.key}
+                  x={x}
+                  y={top}
+                  width={barWidth}
+                  height={partHeight}
+                  className={part.fill}
+                />
+              )
+            })}
+            {label !== null && (
+              <text
+                x={cx}
+                y={height - 2}
+                textAnchor="middle"
+                className={cn('text-[10px]', index === days.length - 1 ? 'fill-ink' : 'fill-muted')}
+              >
+                {label}
+              </text>
+            )}
           </g>
         )
       })}
@@ -172,7 +233,14 @@ export function ShareDonut({
   slices,
   label,
 }: {
-  slices: { slug: string; name: string; minutes: number; stroke: string; swatch: string }[]
+  slices: {
+    slug: string
+    name: string
+    minutes: number
+    stroke: string
+    swatch: string
+    detail?: string
+  }[]
   label: string
 }) {
   const total = slices.reduce((sum, slice) => sum + slice.minutes, 0)
@@ -180,7 +248,7 @@ export function ShareDonut({
   const circ = 2 * Math.PI * radius
   let offset = 0
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex flex-wrap items-center gap-4">
       <svg viewBox="0 0 100 100" className="size-28 -rotate-90" role="img" aria-label={label}>
         <title>{label}</title>
         <circle cx="50" cy="50" r={radius} fill="none" className="stroke-raised" strokeWidth="14" />
@@ -204,14 +272,20 @@ export function ShareDonut({
             return circle
           })}
       </svg>
-      <ul className="flex flex-col gap-1 text-xs">
+      <ul className="flex min-w-0 flex-col gap-1.5 text-xs">
         {slices.length === 0 ? (
-          <li className="text-muted">No minutes in range.</li>
+          <li className="text-muted">No screen time in this range.</li>
         ) : (
           slices.map((slice) => (
-            <li key={slice.slug} className="flex items-center gap-2">
-              <span className={cn('size-2 rounded-full', slice.swatch)} />
-              {slice.name}
+            <li key={slice.slug} className="flex items-start gap-2">
+              <span className={cn('mt-1 size-2 shrink-0 rounded-full', slice.swatch)} aria-hidden />
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate text-ink">{slice.name}</span>
+                <span className="whitespace-nowrap tabular-nums text-muted">
+                  {formatMinutes(slice.minutes)}
+                  {slice.detail !== undefined ? ` · ${slice.detail}` : ''}
+                </span>
+              </span>
             </li>
           ))
         )}
@@ -281,5 +355,35 @@ export function deviceSlices(devices: ScreenDeviceShare[]) {
     name: device.name,
     minutes: device.minutes,
     ...palette[index % palette.length],
+  }))
+}
+
+/**
+ * Distinct hues for categories. Good / Bad / Neutral colours are left out on purpose, so a
+ * category's colour never reads as a judgment.
+ */
+export const CATEGORY_PALETTE = [
+  { stroke: 'stroke-screen', swatch: 'bg-screen' },
+  { stroke: 'stroke-ember', swatch: 'bg-ember' },
+  { stroke: 'stroke-adventure', swatch: 'bg-adventure' },
+  { stroke: 'stroke-entertainment', swatch: 'bg-entertainment' },
+  { stroke: 'stroke-iris', swatch: 'bg-iris' },
+  { stroke: 'stroke-health', swatch: 'bg-health' },
+  { stroke: 'stroke-stage-light', swatch: 'bg-stage-light' },
+  { stroke: 'stroke-stage-awake', swatch: 'bg-stage-awake' },
+] as const
+
+/**
+ * Slices coloured per category. Colours follow the alphabetical order of every known category
+ * slug, so a category keeps its colour when the period or the ranking changes.
+ */
+export function categorySlices(categories: ScreenCategoryShare[], known: string[] = []) {
+  const order = [...new Set([...known, ...categories.map((category) => category.slug)])].sort()
+  return categories.map((category) => ({
+    slug: category.slug,
+    name: category.name,
+    minutes: category.minutes,
+    detail: JUDGMENT_LABEL[category.judgment],
+    ...CATEGORY_PALETTE[order.indexOf(category.slug) % CATEGORY_PALETTE.length],
   }))
 }

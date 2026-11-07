@@ -1,4 +1,3 @@
-import { Pencil, Trash2 } from 'lucide-react'
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
 
 import { JUDGMENT_LABEL } from '@/components/screen/Charts'
@@ -12,29 +11,14 @@ import {
   ApiError,
   type Comparator,
   createScreenBudget,
-  deleteScreenSession,
   listScreenBudgets,
-  listScreenSessions,
   type Period,
-  type ScreenApp,
   type ScreenBudget,
   type ScreenBudgetTargetKind,
   type ScreenCategory,
-  type ScreenDevice,
-  type ScreenSessionRecord,
   updateScreenBudget,
-  updateScreenSession,
 } from '@/lib/api'
-import { formatMinutes } from '@/lib/format'
-import {
-  budgetSlug,
-  budgetState,
-  budgetSummary,
-  draftFromSession,
-  type SessionDraft,
-  sessionTimeLabel,
-  sessionUpdateBody,
-} from '@/lib/screenManage'
+import { budgetSlug, budgetState, budgetSummary } from '@/lib/screenManage'
 
 const JUDGMENTS = ['waste', 'neutral', 'useful'] as const
 
@@ -100,7 +84,7 @@ export function BudgetsCard({
       <CardHeader>
         <div>
           <CardTitle className="text-base">Caps</CardTitle>
-          <CardDescription>Limits on a judgment (all waste) or on one category</CardDescription>
+          <CardDescription>Limits on all Bad apps, or on one category</CardDescription>
         </div>
       </CardHeader>
       {budgets === null ? (
@@ -338,245 +322,5 @@ function BudgetCreateForm({
         </Button>
       </div>
     </form>
-  )
-}
-
-export function SessionsCard({
-  day,
-  onDayChange,
-  apps,
-  devices,
-  onChanged,
-}: {
-  day: string
-  onDayChange: (day: string) => void
-  apps: ScreenApp[]
-  devices: ScreenDevice[]
-  onChanged: () => Promise<void>
-}) {
-  const [rows, setRows] = useState<ScreenSessionRecord[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  const load = useCallback(async () => setRows(await listScreenSessions(day)), [day])
-
-  useEffect(() => {
-    load().catch((caught: unknown) => setError(message(caught, 'Could not load sessions')))
-  }, [load])
-
-  async function run(action: () => Promise<unknown>, fallback: string): Promise<boolean> {
-    setError(null)
-    try {
-      await action()
-      await Promise.all([load(), onChanged()])
-      return true
-    } catch (caught) {
-      setError(message(caught, fallback))
-      return false
-    }
-  }
-
-  const appName = (slug: string) => apps.find((row) => row.slug === slug)?.name ?? slug
-  const deviceName = (slug: string | null) =>
-    slug === null ? 'Unknown' : (devices.find((row) => row.slug === slug)?.name ?? slug)
-
-  return (
-    <Card>
-      <CardHeader>
-        <div>
-          <CardTitle className="text-base">Sessions</CardTitle>
-          <CardDescription>Fix or remove a logged session</CardDescription>
-        </div>
-        <div className="flex items-center gap-2">
-          <Label htmlFor="sessions-day" className="sr-only">
-            Day
-          </Label>
-          <Input
-            id="sessions-day"
-            type="date"
-            className="w-40"
-            value={day}
-            onChange={(event) => event.target.value && onDayChange(event.target.value)}
-          />
-        </div>
-      </CardHeader>
-      {error !== null && (
-        <p className="mb-2 text-sm text-bad" role="alert">
-          {error}
-        </p>
-      )}
-      {rows === null ? (
-        <p className="text-sm text-muted">Loading…</p>
-      ) : rows.length === 0 ? (
-        <p className="text-sm text-muted">No sessions on this day.</p>
-      ) : (
-        <ul className="flex flex-col divide-y divide-line">
-          {rows.map((row) => (
-            <SessionRow
-              key={row.id}
-              row={row}
-              appName={appName(row.app)}
-              deviceName={deviceName(row.device)}
-              devices={devices}
-              onSave={(body) => run(() => updateScreenSession(row.id, body), 'Could not save')}
-              onDelete={() => run(() => deleteScreenSession(row.id), 'Could not delete')}
-            />
-          ))}
-        </ul>
-      )}
-    </Card>
-  )
-}
-
-function SessionRow({
-  row,
-  appName,
-  deviceName,
-  devices,
-  onSave,
-  onDelete,
-}: {
-  row: ScreenSessionRecord
-  appName: string
-  deviceName: string
-  devices: ScreenDevice[]
-  onSave: (body: ReturnType<typeof sessionUpdateBody>) => Promise<boolean>
-  onDelete: () => Promise<boolean>
-}) {
-  const [draft, setDraft] = useState<SessionDraft | null>(null)
-  const [confirming, setConfirming] = useState(false)
-  const [formError, setFormError] = useState<string | null>(null)
-  const id = `session-${row.id}`
-
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault()
-    if (draft === null) return
-    setFormError(null)
-    let body: ReturnType<typeof sessionUpdateBody>
-    try {
-      body = sessionUpdateBody(row, draft)
-    } catch (caught) {
-      setFormError(message(caught, 'Invalid session'))
-      return
-    }
-    if (Object.keys(body).length === 0 || (await onSave(body))) setDraft(null)
-  }
-
-  return (
-    <li className="flex flex-col gap-2 py-2 first:pt-0">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-        <span className="font-medium text-ink">{appName}</span>
-        <span className="font-mono text-muted">{formatMinutes(row.minutes)}</span>
-        <span className="text-muted">{sessionTimeLabel(row)}</span>
-        <span className="text-muted">· {deviceName}</span>
-        {row.note !== null && <span className="text-muted">· {row.note}</span>}
-        <div className="ml-auto flex items-center gap-1">
-          {confirming ? (
-            <>
-              <Button type="button" size="sm" variant="destructive" onClick={() => onDelete()}>
-                Delete
-              </Button>
-              <Button type="button" size="sm" variant="ghost" onClick={() => setConfirming(false)}>
-                Keep
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                aria-label={`Edit ${appName} session`}
-                onClick={() => setDraft(draft === null ? draftFromSession(row) : null)}
-              >
-                <Pencil className="size-4" aria-hidden />
-              </Button>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                aria-label={`Delete ${appName} session`}
-                onClick={() => setConfirming(true)}
-              >
-                <Trash2 className="size-4" aria-hidden />
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-      {draft !== null && (
-        <form className="grid gap-2 sm:grid-cols-4" onSubmit={onSubmit}>
-          {row.started_at !== null ? (
-            <>
-              <div className="flex flex-col gap-1">
-                <Label htmlFor={`${id}-from`}>From</Label>
-                <Input
-                  id={`${id}-from`}
-                  type="datetime-local"
-                  value={draft.started}
-                  onChange={(event) => setDraft({ ...draft, started: event.target.value })}
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label htmlFor={`${id}-to`}>To</Label>
-                <Input
-                  id={`${id}-to`}
-                  type="datetime-local"
-                  value={draft.ended}
-                  onChange={(event) => setDraft({ ...draft, ended: event.target.value })}
-                />
-              </div>
-            </>
-          ) : (
-            <div className="flex flex-col gap-1">
-              <Label htmlFor={`${id}-minutes`}>Minutes</Label>
-              <Input
-                id={`${id}-minutes`}
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={draft.minutes}
-                onChange={(event) => setDraft({ ...draft, minutes: event.target.value })}
-              />
-            </div>
-          )}
-          <div className="flex flex-col gap-1">
-            <Label htmlFor={`${id}-device`}>Device</Label>
-            <Select
-              id={`${id}-device`}
-              value={draft.device}
-              onChange={(event) => setDraft({ ...draft, device: event.target.value })}
-            >
-              <option value="">Unknown</option>
-              {devices.map((device) => (
-                <option key={device.slug} value={device.slug}>
-                  {device.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor={`${id}-note`}>Note</Label>
-            <Input
-              id={`${id}-note`}
-              value={draft.note}
-              onChange={(event) => setDraft({ ...draft, note: event.target.value })}
-            />
-          </div>
-          <div className="flex items-end gap-2">
-            <Button type="submit" size="sm">
-              Save
-            </Button>
-            <Button type="button" size="sm" variant="ghost" onClick={() => setDraft(null)}>
-              Cancel
-            </Button>
-          </div>
-          {formError !== null && (
-            <p className="text-sm text-bad sm:col-span-4" role="alert">
-              {formError}
-            </p>
-          )}
-        </form>
-      )}
-    </li>
   )
 }
