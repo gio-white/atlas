@@ -408,16 +408,12 @@ class HomeWeekOut(BaseModel):
     as_of: date
     week_start: date
     week_end: date
-    updates: float
-    updates_last_week: float
-    updates_delta: float | None
     focus_minutes: float
     focus_minutes_last_week: float
     focus_delta: float | None
     tasks_done: float
     tasks_done_last_week: float
     tasks_delta: float | None
-    series_updates: list[float]
 
 
 class GoalBoardColumnOut(BaseModel):
@@ -811,22 +807,6 @@ class ScreenDashboardOut(BaseModel):
     trend: list[ScreenTrendPointOut]
     insights: list[ScreenInsightOut]
     budgets: list[ScreenBudgetStatusOut]
-
-
-class UpdateCreate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    occurred_on: date | None = None
-    note: str | None = None
-
-
-class UpdatesStatusOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    as_of: date
-    checked_in: bool
-    current_streak: int
-    longest_streak: int
 
 
 class TaskCreate(BaseModel):

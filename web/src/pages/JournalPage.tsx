@@ -1,4 +1,3 @@
-import { Check, Flame } from 'lucide-react'
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
 
 import {
@@ -16,12 +15,9 @@ import {
   amendEntry,
   type Entry,
   getJournal,
-  getUpdates,
   type JournalDay,
   listEntries,
   logJournal,
-  logUpdate,
-  type UpdatesStatus,
 } from '@/lib/api'
 import { useAsOf } from '@/lib/asOf'
 import { longDateLabel } from '@/lib/dates'
@@ -34,7 +30,7 @@ function message(caught: unknown, fallback: string): string {
   return caught instanceof ApiError ? caught.message : fallback
 }
 
-type JournalData = { today: JournalDay; updates: UpdatesStatus; past: Entry[] }
+type JournalData = { today: JournalDay; past: Entry[] }
 
 export function JournalPage() {
   const asOf = useAsOf()
@@ -45,10 +41,10 @@ export function JournalPage() {
 
   const refresh = useCallback(async () => {
     // GET /journal creates the journal metric on first use, so it must land before the list.
-    const [today, updates] = await Promise.all([getJournal(asOf), getUpdates(asOf)])
+    const today = await getJournal(asOf)
     const { start } = historyRange(asOf, PAST_DAYS)
     const past = await listEntries({ metric: JOURNAL_METRIC, start_on: start, end_on: asOf })
-    setData({ today, updates, past: past.filter((entry) => entry.occurred_on !== asOf) })
+    setData({ today, past: past.filter((entry) => entry.occurred_on !== asOf) })
   }, [asOf])
 
   useEffect(() => {
@@ -83,41 +79,12 @@ export function JournalPage() {
   if (error !== null) return <PageUnavailable title="Journal" message={error} />
   if (data === null) return <PageLoading />
 
-  const { today, updates, past } = data
+  const { today, past } = data
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Journal"
-        description="A daily check-in and a few lines about the day."
-        homeLink
-      />
+      <PageHeader title="Journal" description="A few lines about the day." homeLink />
       {actionError !== null && <PageError message={actionError} />}
-      <Card>
-        <CardHeader className="mb-0">
-          <div>
-            <CardTitle>Check-in</CardTitle>
-            <CardDescription className="mt-1">
-              <Flame className="mr-1 inline size-4 text-update" aria-hidden />
-              {updates.current_streak} day streak · best {updates.longest_streak}
-            </CardDescription>
-          </div>
-          {updates.checked_in ? (
-            <p className="inline-flex items-center gap-1 text-sm font-medium text-good">
-              <Check className="size-4" aria-hidden />
-              Checked in
-            </p>
-          ) : (
-            <Button
-              type="button"
-              disabled={pending}
-              onClick={() => run(() => logUpdate({ occurred_on: asOf }), 'Could not check in')}
-            >
-              Check in
-            </Button>
-          )}
-        </CardHeader>
-      </Card>
       <Card>
         <CardHeader>
           <div>

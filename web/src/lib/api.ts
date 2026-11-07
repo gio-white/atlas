@@ -218,16 +218,12 @@ export type HomeWeek = {
   as_of: string
   week_start: string
   week_end: string
-  updates: number
-  updates_last_week: number
-  updates_delta: number | null
   focus_minutes: number
   focus_minutes_last_week: number
   focus_delta: number | null
   tasks_done: number
   tasks_done_last_week: number
   tasks_delta: number | null
-  series_updates: number[]
 }
 
 export type ScreenJudgment = 'useful' | 'waste' | 'neutral'
@@ -431,13 +427,6 @@ export type ScreenSessionRecord = {
   source: Source
   created_at: string
   entry_id: number | null
-}
-
-export type UpdatesStatus = {
-  as_of: string
-  checked_in: boolean
-  current_streak: number
-  longest_streak: number
 }
 
 export type SleepStage = 'awake' | 'rem' | 'light' | 'deep'
@@ -1063,17 +1052,6 @@ export function listSleepSessions(occurredOn?: string): Promise<SleepSessionReco
 
 export function deleteSleepSession(id: number): Promise<void> {
   return request(`/sleep/sessions/${id}`, { method: 'DELETE' })
-}
-
-export function getUpdates(asOf?: string): Promise<UpdatesStatus> {
-  return request(`/updates${queryString({ as_of: asOf })}`)
-}
-
-export function logUpdate(body?: {
-  occurred_on?: string | null
-  note?: string | null
-}): Promise<Entry> {
-  return request('/updates', { method: 'POST', body: JSON.stringify(body ?? {}) })
 }
 
 export function listTasks(filters?: {

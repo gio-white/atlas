@@ -49,7 +49,6 @@ IMPLEMENTED_PATHS = frozenset(
         "/screen/devices/{slug}",
         "/screen/sessions",
         "/screen/sessions/{session_id}",
-        "/updates",
         "/tasks",
         "/tasks/{task_id}",
         "/journal",

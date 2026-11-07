@@ -16,8 +16,8 @@
   --bad: #dc2626;
   --primary: #d97706;
   --on-primary: #ffffff;
-  --update: #7c3aed;
-  --slip: #ea580c;
+  --iris: #7c3aed;
+  --ember: #ea580c;
   --screen: #2563eb;
   --goal: #059669;
   --quick: #d97706;
@@ -47,8 +47,8 @@
   --bad: #f87171;
   --primary: #fbbf24;
   --on-primary: #080c14;
-  --update: #a78bfa;
-  --slip: #fb923c;
+  --iris: #a78bfa;
+  --ember: #fb923c;
   --screen: #60a5fa;
   --goal: #4ade80;
   --quick: #fbbf24;
@@ -82,8 +82,8 @@
   --color-bad: var(--bad);
   --color-primary: var(--primary);
   --color-on-primary: var(--on-primary);
-  --color-update: var(--update);
-  --color-slip: var(--slip);
+  --color-iris: var(--iris);
+  --color-ember: var(--ember);
   --color-screen: var(--screen);
   --color-goal: var(--goal);
   --color-quick: var(--quick);

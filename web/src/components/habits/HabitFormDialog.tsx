@@ -172,7 +172,7 @@ export function HabitFormDialog({
                     className={cn(
                       'flex cursor-pointer flex-col gap-1 rounded-xl border p-3 text-sm',
                       kind === item
-                        ? 'border-update bg-update/10 text-ink'
+                        ? 'border-iris bg-iris/10 text-ink'
                         : 'border-line text-muted hover:text-ink',
                     )}
                   >
@@ -213,7 +213,7 @@ export function HabitFormDialog({
                     key={label}
                     className={cn(
                       'cursor-pointer rounded-full border px-3 py-1 text-xs',
-                      checked ? 'border-update bg-update/15 text-ink' : 'border-line text-muted',
+                      checked ? 'border-iris bg-iris/15 text-ink' : 'border-line text-muted',
                     )}
                   >
                     <input

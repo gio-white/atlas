@@ -254,7 +254,7 @@ export function HabitsWeekCard({
       <CardHeader>
         <div>
           <CardTitle className="flex items-center gap-2 text-base">
-            <ListChecks className="size-4 text-update" aria-hidden />
+            <ListChecks className="size-4 text-iris" aria-hidden />
             Habits
           </CardTitle>
           <CardDescription>
@@ -265,7 +265,7 @@ export function HabitsWeekCard({
         </div>
         <Link
           to={{ pathname: '/habit', search }}
-          className="text-xs font-medium text-update hover:underline"
+          className="text-xs font-medium text-iris hover:underline"
         >
           View all
         </Link>
@@ -399,7 +399,7 @@ function HabitCell({
       className={cn(
         'inline-flex size-8 items-center justify-center rounded-full disabled:cursor-default',
         CELL_STYLE[state],
-        today && 'ring-2 ring-update/40',
+        today && 'ring-2 ring-iris/40',
         pending && 'opacity-50',
       )}
       disabled={!interactive || pending}

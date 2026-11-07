@@ -20,7 +20,6 @@ from atlas.api.routers import (
     screen_router,
     sleep_router,
     tasks_router,
-    updates_router,
     views_router,
 )
 from atlas.api.spa import VITE_ORIGINS, mount_spa, resolve_spa_dir
@@ -61,7 +60,6 @@ def create_app(
     app.include_router(views_router)
     app.include_router(screen_router)
     app.include_router(sleep_router)
-    app.include_router(updates_router)
     app.include_router(tasks_router)
     app.include_router(journal_router)
     app.include_router(port_router)

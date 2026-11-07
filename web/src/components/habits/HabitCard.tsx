@@ -143,7 +143,7 @@ export function HabitCard({
           <div
             className={cn(
               'h-full rounded-full motion-safe:transition-[width] motion-safe:duration-300',
-              status.satisfied ? 'bg-good' : 'bg-update',
+              status.satisfied ? 'bg-good' : 'bg-iris',
             )}
             style={{ width: `${Math.round((progress ?? 0) * 100)}%` }}
           />
@@ -432,7 +432,7 @@ export function ProgressRing({
         strokeDashoffset={circumference * (1 - value)}
         className={cn(
           'motion-safe:transition-[stroke-dashoffset] motion-safe:duration-300',
-          over ? 'stroke-bad' : done ? 'stroke-good' : 'stroke-update',
+          over ? 'stroke-bad' : done ? 'stroke-good' : 'stroke-iris',
         )}
       />
     </svg>

@@ -123,7 +123,6 @@ from atlas.services.sleep import (
     sleep_view,
 )
 from atlas.services.tasks import create_task, list_tasks, tasks_done_in_week, update_task
-from atlas.services.updates import UpdatesStatus, log_update, updates_status
 from atlas.services.views import (
     AreaView,
     HabitsCalendar,
@@ -176,7 +175,6 @@ __all__ = [
     "ScreenView",
     "ServiceError",
     "TodayView",
-    "UpdatesStatus",
     "UpstreamError",
     "ValidationError",
     "LinkLookup",
@@ -248,7 +246,6 @@ __all__ = [
     "log_entry",
     "log_journal",
     "log_screen_session",
-    "log_update",
     "screen_dashboard",
     "screen_view",
     "seed_demo",
@@ -271,7 +268,6 @@ __all__ = [
     "update_screen_device",
     "update_screen_session",
     "update_task",
-    "updates_status",
     "week_view",
     "set_habit_day",
     "delete_sleep_session",

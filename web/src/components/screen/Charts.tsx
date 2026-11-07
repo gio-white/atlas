@@ -272,8 +272,8 @@ export function deviceSlices(devices: ScreenDeviceShare[]) {
   const palette = [
     { stroke: 'stroke-screen', swatch: 'bg-screen' },
     { stroke: 'stroke-goal', swatch: 'bg-goal' },
-    { stroke: 'stroke-update', swatch: 'bg-update' },
-    { stroke: 'stroke-slip', swatch: 'bg-slip' },
+    { stroke: 'stroke-iris', swatch: 'bg-iris' },
+    { stroke: 'stroke-ember', swatch: 'bg-ember' },
     { stroke: 'stroke-warn', swatch: 'bg-warn' },
   ]
   return devices.map((device, index) => ({

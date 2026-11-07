@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 
 export const KIND_FALLBACK: Record<EntertainmentKind, string> = {
   film: 'bg-entertainment/80',
-  series: 'bg-update/80',
+  series: 'bg-iris/80',
   anime: 'bg-adventure/80',
   video: 'bg-screen/80',
   podcast: 'bg-goal/80',
