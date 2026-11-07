@@ -2,7 +2,7 @@ from datetime import UTC, date, datetime
 
 from sqlmodel import Session, col, select
 
-from atlas.db.models import Entry, Metric, ScreenApp, ScreenSession
+from atlas.db.models import Area, Entry, Metric, ScreenApp, ScreenSession
 from atlas.domain import Source, ValueType
 from atlas.services.clock import resolve_today
 from atlas.services.errors import ValidationError
@@ -88,11 +88,16 @@ def list_entries(
     *,
     metric_slug: str | None = None,
     area_slug: str | None = None,
+    exclude_area_slug: str | None = None,
     start_on: date | None = None,
     end_on: date | None = None,
     limit: int = 200,
 ) -> list[tuple[Entry, str]]:
-    """Entries newest first, each paired with its metric slug."""
+    """Entries newest first, each paired with its metric slug.
+
+    `exclude_area_slug` drops entries whose metric lives in that area. An unknown area excludes
+    nothing (rather than 404), so History can always hide `screen` even before it exists.
+    """
     if limit < 1:
         raise ValidationError("limit must be at least 1")
     if start_on is not None and end_on is not None and start_on > end_on:
@@ -104,6 +109,12 @@ def list_entries(
     if area_slug is not None:
         area = require_area(session, normalize_slug(area_slug))
         statement = statement.where(Metric.area_id == area.id)
+    if exclude_area_slug is not None:
+        excluded = session.exec(
+            select(Area).where(Area.slug == normalize_slug(exclude_area_slug))
+        ).first()
+        if excluded is not None:
+            statement = statement.where(Metric.area_id != excluded.id)
     if start_on is not None:
         statement = statement.where(Entry.occurred_on >= start_on)
     if end_on is not None:

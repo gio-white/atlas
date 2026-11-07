@@ -2,12 +2,14 @@ from datetime import date
 
 import pytest
 
-from atlas.domain import Source
+from atlas.domain import Aggregation, Direction, Source, ValueType
 from atlas.services import (
     NotFoundError,
     ValidationError,
     amend_entry,
     archive_metric,
+    create_area,
+    create_metric,
     delete_entry,
     list_entries,
     log_entry,
@@ -147,3 +149,24 @@ def test_list_entries_rejects_bad_filters(session):
         list_entries(session, start_on=date(2026, 8, 12), end_on=date(2026, 8, 10))
     with pytest.raises(ValidationError, match="limit"):
         list_entries(session, limit=0)
+
+
+def test_list_entries_excludes_an_area(session):
+    seed_health(session)
+    create_area(session, "career", name="Career")
+    create_metric(
+        session,
+        "deep-work",
+        area_slug="career",
+        value_type=ValueType.DURATION,
+        aggregation=Aggregation.SUM,
+        direction=Direction.HIGHER_IS_BETTER,
+    )
+    log_entry(session, "pushups", 10, occurred_on=date(2026, 8, 13))
+    log_entry(session, "deep-work", 90, occurred_on=date(2026, 8, 13))
+
+    kept = list_entries(session, exclude_area_slug="health")
+    unknown = list_entries(session, exclude_area_slug="nowhere")
+
+    assert [slug for _, slug in kept] == ["deep-work"]
+    assert {slug for _, slug in unknown} == {"pushups", "deep-work"}

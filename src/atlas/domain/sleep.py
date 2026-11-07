@@ -31,6 +31,7 @@ class SleepSessionView:
     occurred_on: date
     stages: tuple[SleepStageSpan, ...]
     note: str | None = None
+    created_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,6 +81,9 @@ class SleepWeekMath:
     average_bed_offset: float | None
     average_wake_offset: float | None
     average_stages: SleepStageMinutes | None
+    bed_spread: float | None
+    wake_spread: float | None
+    last_recorded_at: datetime | None
 
 
 def resolve_sleep_session(
@@ -164,8 +168,17 @@ def sleep_week_math(
     sessions: Sequence[SleepSessionView],
     as_of: date,
     timezone: tzinfo,
+    days: int = SLEEP_WINDOW_DAYS,
 ) -> SleepWeekMath:
-    range_start = as_of - timedelta(days=SLEEP_WINDOW_DAYS - 1)
+    """Nights in the `days` ending on `as_of`, one per local date (the longest session wins).
+
+    `bed_spread` / `wake_spread` are the population standard deviation of bed and wake offsets
+    in minutes, a consistency measure; they need at least two nights. `last_recorded_at` is the
+    newest `created_at` over every session, not just the window, so it reports data freshness.
+    """
+    if days < 1:
+        raise ValueError("days must be at least 1")
+    range_start = as_of - timedelta(days=days - 1)
     main_by_day: dict[date, SleepSessionView] = {}
     for view in sessions:
         if not range_start <= view.occurred_on <= as_of:
@@ -173,19 +186,22 @@ def sleep_week_math(
         current = main_by_day.get(view.occurred_on)
         if current is None or _span(view) > _span(current):
             main_by_day[view.occurred_on] = view
-    days: list[SleepDay] = []
-    for offset in range(SLEEP_WINDOW_DAYS):
+    window: list[SleepDay] = []
+    for offset in range(days):
         day = range_start + timedelta(days=offset)
         view = main_by_day.get(day)
-        days.append(SleepDay(date=day, night=None if view is None else sleep_night(view, timezone)))
-    nights = [day.night for day in days if day.night is not None]
+        window.append(
+            SleepDay(date=day, night=None if view is None else sleep_night(view, timezone))
+        )
+    nights = [day.night for day in window if day.night is not None]
+    recorded = [_as_utc(view.created_at) for view in sessions if view.created_at is not None]
     staged = [night for night in nights if night.segments]
     return SleepWeekMath(
         as_of=as_of,
         range_start=range_start,
         range_end=as_of,
-        night=days[-1].night,
-        days=tuple(days),
+        night=window[-1].night,
+        days=tuple(window),
         nights_logged=len(nights),
         average_asleep=_mean([night.asleep_minutes for night in nights]),
         average_bed_offset=_mean([night.bed_offset for night in nights]),
@@ -200,6 +216,9 @@ def sleep_week_math(
                 deep=_mean([night.stages.deep for night in staged]) or 0.0,
             )
         ),
+        bed_spread=_spread([night.bed_offset for night in nights]),
+        wake_spread=_spread([night.wake_offset for night in nights]),
+        last_recorded_at=max(recorded, default=None),
     )
 
 
@@ -211,6 +230,13 @@ def _mean(values: Sequence[float]) -> float | None:
     if not values:
         return None
     return sum(values) / len(values)
+
+
+def _spread(values: Sequence[float]) -> float | None:
+    if len(values) < 2:
+        return None
+    mean = sum(values) / len(values)
+    return (sum((value - mean) ** 2 for value in values) / len(values)) ** 0.5
 
 
 def _minutes(start: datetime, end: datetime) -> float:

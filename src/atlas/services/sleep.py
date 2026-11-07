@@ -5,6 +5,7 @@ from sqlmodel import Session, col, select
 
 from atlas.db.models import SleepSession, SleepSessionStage
 from atlas.domain import (
+    SLEEP_WINDOW_DAYS,
     SleepSessionView,
     SleepStage,
     SleepStageSpan,
@@ -17,6 +18,8 @@ from atlas.services.clock import resolve_today
 from atlas.services.errors import ValidationError
 from atlas.services.lookups import require_sleep_session
 from atlas.settings import load_settings
+
+SLEEP_VIEW_MAX_DAYS = 366
 
 
 def log_sleep_session(
@@ -93,9 +96,16 @@ def delete_sleep_session(session: Session, session_id: int) -> None:
     session.commit()
 
 
-def sleep_view(session: Session, *, as_of: date | None = None) -> SleepWeekMath:
+def sleep_view(
+    session: Session,
+    *,
+    as_of: date | None = None,
+    days: int = SLEEP_WINDOW_DAYS,
+) -> SleepWeekMath:
     as_of = resolve_today(as_of)
-    return sleep_week_math(_session_views(session), as_of, load_settings().timezone)
+    if not 1 <= days <= SLEEP_VIEW_MAX_DAYS:
+        raise ValidationError(f"days must be between 1 and {SLEEP_VIEW_MAX_DAYS}")
+    return sleep_week_math(_session_views(session), as_of, load_settings().timezone, days=days)
 
 
 def _session_views(session: Session) -> list[SleepSessionView]:
@@ -124,6 +134,7 @@ def _session_views(session: Session) -> list[SleepSessionView]:
             occurred_on=row.occurred_on,
             stages=tuple(stages_by_session.get(row.id, [])),
             note=row.note,
+            created_at=_coerce_utc(row.created_at),
         )
         for row in rows
     ]
