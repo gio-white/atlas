@@ -201,6 +201,7 @@ def _habits(start: date, as_of: date) -> list[dict[str, Any]]:
     return [
         _habit(
             "pushups-daily",
+            "Morning pushups",
             "pushups",
             "day",
             40.0,
@@ -212,6 +213,7 @@ def _habits(start: date, as_of: date) -> list[dict[str, Any]]:
         ),
         _habit(
             "meditated-daily",
+            "Meditate",
             "meditated",
             "day",
             1.0,
@@ -223,6 +225,7 @@ def _habits(start: date, as_of: date) -> list[dict[str, Any]]:
         ),
         _habit(
             "coffee-daily",
+            "At most one coffee",
             "coffee",
             "day",
             1.0,
@@ -231,9 +234,19 @@ def _habits(start: date, as_of: date) -> list[dict[str, Any]]:
             kind="count",
             time_of_day="afternoon",
         ),
-        _habit("runs-weekly", "runs", "week", 3.0, "at_least", start, kind="count"),
+        _habit(
+            "runs-weekly",
+            "Run three times a week",
+            "runs",
+            "week",
+            3.0,
+            "at_least",
+            start,
+            kind="count",
+        ),
         _habit(
             "deep-work-weekdays",
+            "Deep work on weekdays",
             "deep-work",
             "day",
             90.0,
@@ -245,6 +258,7 @@ def _habits(start: date, as_of: date) -> list[dict[str, Any]]:
         ),
         _habit(
             "family-monthly",
+            "Call family",
             "called-family",
             "month",
             2.0,
@@ -255,6 +269,7 @@ def _habits(start: date, as_of: date) -> list[dict[str, Any]]:
         ),
         _habit(
             "no-doomscrolling",
+            "No doomscrolling",
             "no-doomscrolling",
             "day",
             0.0,
@@ -812,6 +827,7 @@ def _metric(
 
 def _habit(
     slug: str,
+    name: str,
     metric: str,
     period: str,
     target_value: float,
@@ -826,7 +842,7 @@ def _habit(
     return {
         "slug": slug,
         "metric": metric,
-        "name": slug.replace("-", " ").title(),
+        "name": name,
         "period": period,
         "target_value": target_value,
         "comparator": comparator,

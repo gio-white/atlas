@@ -58,6 +58,8 @@ def test_seed_demo_loads_the_demo_dataset(session):
     assert habits["no-doomscrolling"]["kind"] == "quit"
     assert habits["meditated-daily"]["breaks"][0]["note"] == "Travel day"
     assert habits["pushups-daily"]["time_of_day"] == "morning"
+    assert habits["meditated-daily"]["name"] == "Meditate"
+    assert habits["deep-work-weekdays"]["name"] == "Deep work on weekdays"
     assert {goal["slug"] for goal in payload["goals"]} == {
         "bodyweight-75",
         "durable-health",

@@ -34,6 +34,7 @@ from atlas.services.lookups import (
     entries_for_metric,
     metric_by_id,
     normalize_weekdays,
+    require_active_area,
     require_active_metric,
     require_goal,
     require_habit,
@@ -132,8 +133,10 @@ def create_habit(
     goal_slug: str | None = None,
     active_from: date | None = None,
     active_to: date | None = None,
+    area_slug: str | None = None,
 ) -> Habit:
-    """Create a habit. Without `metric_slug` its metric is made for it in the Habits area."""
+    """Create a habit. Without `metric_slug` its metric is made for it, in `area_slug` when
+    given and otherwise in the internal Habits area."""
     if slug is None:
         if name is None or not name.strip():
             raise ValidationError("a habit needs a name or a slug")
@@ -144,6 +147,9 @@ def create_habit(
     metric = require_active_metric(session, normalize_slug(metric_slug)) if metric_slug else None
     if metric is not None and ValueType(metric.value_type) is ValueType.TEXT:
         raise ValidationError("habits cannot target a text metric")
+    if metric is not None and area_slug:
+        raise ValidationError("area applies only to a metric made for the habit")
+    area = require_active_area(session, normalize_slug(area_slug)) if area_slug else None
     kind = HabitKind(kind) if kind is not None else _kind_for_metric(metric)
     if kind is HabitKind.QUIT:
         period, comparator, target_value, weekdays = Period.DAY, Comparator.AT_MOST, 0.0, None
@@ -161,7 +167,7 @@ def create_habit(
         raise ValidationError("active_to must be on or after active_from")
     normalized_weekdays = normalize_weekdays(weekdays, period)
     if metric is None:
-        metric = _create_habit_metric(session, slug, name, kind, comparator, unit)
+        metric = _create_habit_metric(session, slug, name, kind, comparator, unit, area)
     habit = Habit(
         metric_id=metric.id,
         slug=slug,
@@ -235,7 +241,7 @@ def update_habit(
         habit.target_value = float(target_value)
     if comparator is not None:
         if kind is HabitKind.QUIT:
-            raise ValidationError("a quit habit is always at_most zero")
+            raise ValidationError("a quit habit always allows zero slips")
         habit.comparator = comparator
     if weekdays is not _UNSET:
         if weekdays is not None and not isinstance(weekdays, Sequence):
@@ -591,14 +597,15 @@ def _create_habit_metric(
     kind: HabitKind,
     comparator: Comparator,
     unit: str | None,
+    area: Area | None = None,
 ) -> Metric:
-    _ensure_habits_area(session)
+    area_slug = area.slug if area is not None else _ensure_habits_area(session).slug
     value_type, default_unit = _KIND_METRICS[kind]
     lower_is_better = kind is HabitKind.QUIT or comparator is Comparator.AT_MOST
     return create_metric(
         session,
         _free_metric_slug(session, slug),
-        area_slug=HABITS_AREA_SLUG,
+        area_slug=area_slug,
         value_type=value_type,
         aggregation=Aggregation.SUM,
         name=name.strip() if name is not None and name.strip() else display_name(slug),

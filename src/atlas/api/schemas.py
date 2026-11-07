@@ -133,6 +133,7 @@ class HabitCreate(BaseModel):
     goal: str | None = None
     active_from: date | None = None
     active_to: date | None = None
+    area: str | None = None
 
 
 class HabitUpdate(BaseModel):
