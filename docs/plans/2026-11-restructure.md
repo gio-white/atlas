@@ -1,6 +1,8 @@
 # Atlas restructure plan — November 2026
 
-Status: **proposal, waiting for approval**. Nothing in this plan is implemented yet.
+Status: **approved except T2 (navigation) and T5 (goals)**, which first go through a
+discussion: `docs/plans/discussions/navigation-and-organization.md` and
+`docs/plans/discussions/goals.md`. T1, T3, and T4 are in progress. See §7 for the decisions.
 
 This plan turns the review from 7 Nov 2026 into tracks that can run **in parallel, each on its
 own feature branch**, without stepping on each other. It covers:
@@ -401,7 +403,7 @@ ingestion endpoints still accept data.
 
 | # | Issue | Where | Owner |
 | - | ----- | ----- | ----- |
-| 1 | "This section ships with the matching domain cycle." | Health / Adventure pages | T2 (pages removed) |
+| 1 | "This section ships with the matching domain cycle." | Health / Adventure pages | **T4** (wording only) |
 | 2 | "Good + half of Neutral, over total. UI labels Good / Bad / Neutral." | Screen Time score | T3 |
 | 3 | "Zeros included across the clipped range." | Screen Time | T3 |
 | 4 | "· 22 stages" on every night | Sleep page | T3 |
@@ -417,7 +419,7 @@ ingestion endpoints still accept data.
 | 14 | Monospace used inconsistently | many pages | T6 |
 | 15 | Full-width "Today" dropdown on every task | Tasks | **T4** |
 | 16 | Category legend coloured by good/bad | Screen Time | T3 |
-| 17 | Bell only ever says "No notifications" | header | T2 |
+| 17 | Bell only ever says "No notifications" | header | **T4** (remove) |
 | 18 | "As of" date silently changes every page | Profile dialog | T2 |
 | 19 | History flooded with Instagram / YouTube rows | History | T3 |
 | 20 | Missing sleep night shows as a silent blank column | Sleep | T3 |
@@ -462,18 +464,33 @@ Run in its own session and branch, in two steps:
 
 ---
 
-## 7. Decisions needed before starting
+## 7. Decisions (8 Nov 2026)
 
-1. **Screen Time configuration** (which apps are good or bad, app categories, daily caps,
-   device names) is configuration, not data. Keep it editable in Settings › Screen Time?
-   *Recommended: yes.*
-2. **Health and Adventure** become ordinary life areas in a dynamic sidebar list?
-   *Recommended: yes.*
-3. **Names:** "Tracker" for metric, "Record" for entry, "Life area" for area? *Recommended:
-   yes; they only change in the UI, not in the code or API.*
-4. **Habit trackers:** the habit form gets an optional life-area picker? *Recommended: yes.*
-5. **Docs gate:** a hard block on code commits without docs (with the `Docs-Reviewed` escape
-   line)? Also add the git `pre-commit` version for your own commits? *Recommended: hard block
-   for Claude; your own hook optional.*
-6. **Execution:** after T1 merges, I start four sessions (T2, T3, T4, T5-proposal), each on
-   its branch with this plan as the brief? *Recommended: yes.*
+1. **Screen Time configuration** stays editable, in Settings › Screen Time. Until T2 builds the
+   Settings page, T3 keeps the configuration cards at the bottom of the Screen Time page in a
+   collapsed "Configure" section, clearly separate from the display.
+2. **Navigation, Health, and Adventure:** on hold for the navigation discussion. You would like
+   Health to be a section of its own. No track touches the sidebar structure or the
+   Health/Adventure pages, except T4 fixing the developer wording on them.
+3. **Names** must be consistent between the UI and the API. Which names to use is decided in the
+   navigation discussion. Until then nothing is renamed; the UI uses the same words as the API
+   (area, metric, entry).
+4. **Habit area picker:** yes. Because T2 is on hold, it moves to **T4** (the habit form and
+   `create_habit` accept an optional area; without one, behaviour stays as today).
+5. **Docs gate:** hard block for everyone. T1 adds the Claude hook **and** a git `pre-commit`
+   hook (`.githooks/pre-commit`); you enable it once per clone with
+   `git config core.hooksPath .githooks`.
+6. **Execution:** T1, T3 (phase 1), and T4 start now, each in its own session and branch,
+   started from the T0 branch so they include the cleanup. T3 and T4 do **not** edit
+   `docs/architecture.md`; they keep a list of doc changes in their PR description, and once T1
+   merges they rebase and write those changes into the new doc files (the coordinating session
+   tells them when). T2 and T5 start after their discussions.
+
+### Ownership changes from these decisions
+
+- T4 also owns: `web/src/components/habits/HabitFormDialog.tsx` (area picker),
+  `src/atlas/services/habits.py` (`create_habit` area), the header bell in
+  `web/src/components/Layout.tsx` (removal only), and the wording in
+  `web/src/pages/SectionPage.tsx`.
+- T2 keeps the rest of `Layout.tsx`, `App.tsx`, `sections.ts`, Area, Catalog, and Settings for
+  later.
