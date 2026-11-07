@@ -337,27 +337,6 @@ class GoalProgressOut(BaseModel):
     description: str | None
 
 
-class LoggedEntryOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    metric_slug: str
-    occurred_on: date
-    value_num: float | None
-    value_bool: bool | None
-    value_text: str | None
-    note: str | None
-
-
-class TodayViewOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    as_of: date
-    habits: list[HabitStatusOut]
-    entries: list[LoggedEntryOut]
-    goals: list[GoalProgressOut]
-
-
 class WeekDayCellOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -383,15 +362,6 @@ class WeekHabitOut(BaseModel):
     days: list[WeekDayCellOut]
 
 
-class WeekViewOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    as_of: date
-    week_start: date
-    week_end: date
-    habits: list[WeekHabitOut]
-
-
 class HabitsCalendarOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -400,20 +370,6 @@ class HabitsCalendarOut(BaseModel):
     range_start: date
     range_end: date
     habits: list[WeekHabitOut]
-
-
-class HomeWeekOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    as_of: date
-    week_start: date
-    week_end: date
-    focus_minutes: float
-    focus_minutes_last_week: float
-    focus_delta: float | None
-    tasks_done: float
-    tasks_done_last_week: float
-    tasks_delta: float | None
 
 
 class GoalBoardColumnOut(BaseModel):
@@ -996,15 +952,6 @@ class EntertainmentLibraryOut(BaseModel):
     in_progress: list[EntertainmentTitleOut]
     done: list[EntertainmentTitleOut]
     dropped: list[EntertainmentTitleOut]
-
-
-class EntertainmentViewOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    as_of: date
-    in_progress: int
-    finished_this_week: int
-    last_finished: EntertainmentTitleOut | None
 
 
 class EntertainmentDashboardOut(BaseModel):

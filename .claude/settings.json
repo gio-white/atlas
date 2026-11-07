@@ -38,6 +38,12 @@
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/enforce_toolchain.py\"",
             "timeout": 10,
             "statusMessage": "Checking uv / pnpm toolchain rule"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/docs_gate.py\"",
+            "timeout": 10,
+            "statusMessage": "Checking docs-with-code rule"
           }
         ]
       }

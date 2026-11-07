@@ -895,15 +895,6 @@ def _budget_status(
     )
 
 
-def screen_minutes_in_range(
-    session: Session,
-    start: date,
-    end: date,
-) -> float:
-    timezone = load_settings().timezone
-    return minutes_in_range(_session_views(session), start, end, timezone) or 0.0
-
-
 def _budget_insights(budgets: list[ScreenBudgetStatus]) -> list[ScreenInsight]:
     waste_caps = [
         budget

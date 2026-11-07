@@ -3,8 +3,7 @@ from datetime import UTC, date, datetime
 from sqlmodel import Session, col, select
 
 from atlas.db.models import Task
-from atlas.domain import Period, TaskBucket, TaskPriority, bucket_for
-from atlas.services.clock import resolve_today
+from atlas.domain import TaskBucket, TaskPriority
 from atlas.services.errors import ValidationError
 from atlas.services.lookups import require_goal, require_task
 from atlas.services.slugs import normalize_slug
@@ -101,20 +100,6 @@ def update_task(
     session.commit()
     session.refresh(task)
     return task
-
-
-def tasks_done_in_week(session: Session, *, as_of: date | None = None) -> int:
-    as_of = resolve_today(as_of)
-    week = bucket_for(as_of, Period.WEEK)
-    count = 0
-    for task in session.exec(select(Task).where(col(Task.done_at).is_not(None))).all():
-        done_at = task.done_at
-        if done_at.tzinfo is None:
-            done_at = done_at.replace(tzinfo=UTC)
-        done_on = done_at.astimezone(UTC).date()
-        if week.start <= done_on <= min(week.end, as_of):
-            count += 1
-    return count
 
 
 def _goal_id_for(session: Session, goal_slug: str | None) -> int | None:

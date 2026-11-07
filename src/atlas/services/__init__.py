@@ -1,12 +1,10 @@
 from atlas.services.areas import archive_area, create_area, get_area, list_areas, update_area
 from atlas.services.entertainment import (
-    EntertainmentView,
     clear_title_image,
     create_entertainment_title,
     create_entertainment_topic,
     delete_entertainment_title,
     entertainment_dashboard,
-    entertainment_view,
     get_entertainment_title,
     get_entertainment_topic,
     get_title_image,
@@ -75,7 +73,6 @@ from atlas.services.habits import (
     undo_check_in,
     update_habit,
 )
-from atlas.services.home import HomeWeek, home_week
 from atlas.services.journal import JournalDay, journal_day, log_journal
 from atlas.services.metrics import (
     archive_metric,
@@ -122,26 +119,20 @@ from atlas.services.sleep import (
     sleep_stages,
     sleep_view,
 )
-from atlas.services.tasks import create_task, list_tasks, tasks_done_in_week, update_task
+from atlas.services.tasks import create_task, list_tasks, update_task
 from atlas.services.views import (
     AreaView,
     HabitsCalendar,
-    LoggedEntry,
     MetricSnapshot,
-    TodayView,
     WeekDayCell,
     WeekHabit,
-    WeekView,
     area_view,
     habit_calendar,
-    today_view,
-    week_view,
 )
 
 __all__ = [
     "AlreadyExistsError",
     "AreaView",
-    "EntertainmentView",
     "GoalBoardColumn",
     "GoalBoardTask",
     "GoalBoardWeek",
@@ -163,9 +154,7 @@ __all__ = [
     "unarchive_habit",
     "undo_check_in",
     "HabitsCalendar",
-    "HomeWeek",
     "JournalDay",
-    "LoggedEntry",
     "MetricSnapshot",
     "MilestoneInput",
     "NotFoundError",
@@ -174,7 +163,6 @@ __all__ = [
     "ScreenDashboard",
     "ScreenView",
     "ServiceError",
-    "TodayView",
     "UpstreamError",
     "ValidationError",
     "LinkLookup",
@@ -184,7 +172,6 @@ __all__ = [
     "unique_title_slug",
     "WeekDayCell",
     "WeekHabit",
-    "WeekView",
     "amend_entry",
     "archive_area",
     "archive_metric",
@@ -206,7 +193,6 @@ __all__ = [
     "delete_screen_session",
     "demo_payload",
     "entertainment_dashboard",
-    "entertainment_view",
     "export_all",
     "get_area",
     "get_entertainment_title",
@@ -227,7 +213,6 @@ __all__ = [
     "habit_status",
     "habit_statuses",
     "habits_board",
-    "home_week",
     "import_all",
     "journal_day",
     "list_areas",
@@ -250,11 +235,9 @@ __all__ = [
     "screen_view",
     "seed_demo",
     "set_title_image",
-    "tasks_done_in_week",
     "title_image_href",
     "title_topics",
     "title_view_for",
-    "today_view",
     "toggle_milestone",
     "update_area",
     "update_entertainment_title",
@@ -268,7 +251,6 @@ __all__ = [
     "update_screen_device",
     "update_screen_session",
     "update_task",
-    "week_view",
     "set_habit_day",
     "delete_sleep_session",
     "get_sleep_session",

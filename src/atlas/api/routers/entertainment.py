@@ -16,7 +16,6 @@ from atlas.api.schemas import (
     EntertainmentTopicCreate,
     EntertainmentTopicOut,
     EntertainmentTopicUpdate,
-    EntertainmentViewOut,
 )
 from atlas.api.serialize import (
     entertainment_title_out_for,
@@ -30,7 +29,6 @@ from atlas.services import (
     create_title_from_link,
     delete_entertainment_title,
     entertainment_dashboard,
-    entertainment_view,
     get_entertainment_title,
     get_entertainment_topic,
     get_title_image,
@@ -43,11 +41,6 @@ from atlas.services import (
 )
 
 router = APIRouter(prefix="/entertainment", tags=["entertainment"])
-
-
-@router.get("/view", response_model=EntertainmentViewOut)
-def get_entertainment_view(session: SessionDep, as_of: date | None = None) -> EntertainmentViewOut:
-    return EntertainmentViewOut.model_validate(entertainment_view(session, as_of=as_of))
 
 
 @router.get("/dashboard", response_model=EntertainmentDashboardOut)

@@ -3,7 +3,7 @@ from datetime import date, timedelta
 
 from sqlmodel import Session, select
 
-from atlas.db.models import Entry, Goal, Habit, Metric
+from atlas.db.models import Goal, Habit, Metric
 from atlas.domain import (
     Aggregation,
     Comparator,
@@ -20,36 +20,15 @@ from atlas.services.habits import (
     HabitStatus,
     active_habits,
     habit_status,
-    habit_statuses,
     spec_for,
 )
 from atlas.services.lookups import (
     entries_for_metric,
-    metric_by_id,
     not_archived,
     require_area,
 )
 from atlas.services.mapping import entry_view
 from atlas.services.slugs import normalize_slug
-
-
-@dataclass(frozen=True, slots=True)
-class LoggedEntry:
-    id: int
-    metric_slug: str
-    occurred_on: date
-    value_num: float | None
-    value_bool: bool | None
-    value_text: str | None
-    note: str | None
-
-
-@dataclass(frozen=True, slots=True)
-class TodayView:
-    as_of: date
-    habits: list[HabitStatus]
-    entries: list[LoggedEntry]
-    goals: list[GoalProgressReport]
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,14 +52,6 @@ class WeekHabit:
     satisfied: bool
     current_streak: int
     days: list[WeekDayCell]
-
-
-@dataclass(frozen=True, slots=True)
-class WeekView:
-    as_of: date
-    week_start: date
-    week_end: date
-    habits: list[WeekHabit]
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,33 +82,6 @@ class AreaView:
     metrics: list[MetricSnapshot]
     habits: list[HabitStatus]
     goals: list[GoalProgressReport]
-
-
-def today_view(session: Session, *, as_of: date | None = None) -> TodayView:
-    as_of = resolve_today(as_of)
-    habits = [status for status in habit_statuses(session, as_of=as_of) if status.scheduled]
-    goals = [
-        goal_progress(session, goal.slug, as_of=as_of)
-        for goal in session.exec(
-            select(Goal).where(Goal.status == GoalStatus.ACTIVE).order_by(Goal.slug)
-        ).all()
-    ]
-    return TodayView(
-        as_of=as_of,
-        habits=habits,
-        entries=_logged_on(session, as_of),
-        goals=goals,
-    )
-
-
-def week_view(session: Session, *, as_of: date | None = None) -> WeekView:
-    calendar = habit_calendar(session, period=Period.WEEK, as_of=as_of)
-    return WeekView(
-        as_of=calendar.as_of,
-        week_start=calendar.range_start,
-        week_end=calendar.range_end,
-        habits=calendar.habits,
-    )
 
 
 def habit_calendar(
@@ -239,27 +183,6 @@ def area_view(session: Session, slug: str, *, as_of: date | None = None) -> Area
         habits=habits,
         goals=goals,
     )
-
-
-def _logged_on(session: Session, as_of: date) -> list[LoggedEntry]:
-    entries = list(
-        session.exec(select(Entry).where(Entry.occurred_on == as_of).order_by(Entry.id)).all()
-    )
-    logged: list[LoggedEntry] = []
-    for entry in entries:
-        metric = metric_by_id(session, entry.metric_id)
-        logged.append(
-            LoggedEntry(
-                id=entry.id,
-                metric_slug=metric.slug,
-                occurred_on=entry.occurred_on,
-                value_num=entry.value_num,
-                value_bool=entry.value_bool,
-                value_text=entry.value_text,
-                note=entry.note,
-            )
-        )
-    return logged
 
 
 def _snapshot(session: Session, metric: Metric, as_of: date) -> MetricSnapshot:

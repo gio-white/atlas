@@ -2,7 +2,7 @@
 
 Personal life-tracking backend. Records what you did, layers habits and goals on top of that record, and computes all progress on read.
 
-This README is how to install and run it. The data model, layering, derived computations, API, CLI, web surface, and configuration live in [docs/architecture.md](docs/architecture.md).
+This README is how to install and run it. The data model, layering, derived computations, API, CLI, web surface, and configuration live in the docs knowledge base: start at [docs/README.md](docs/README.md).
 
 ## Requirements
 
@@ -18,7 +18,7 @@ uv sync
 
 That creates the virtualenv, installs runtime and dev dependencies from `uv.lock`, and exposes the `atlas` CLI.
 
-Optional environment variables, documented under [configuration](docs/architecture.md#configuration):
+Optional environment variables, documented under [configuration](docs/architecture/configuration.md):
 
 - `ATLAS_DB` — SQLite file (default `~/.local/share/atlas/atlas.db`)
 - `ATLAS_TZ` — IANA timezone used to resolve "today" (default: the system zone)
@@ -54,16 +54,16 @@ The HTTP API is the only consumer path for the web UI. It binds to localhost onl
 uv run atlas serve
 ```
 
-Equivalent: `uv run uvicorn atlas.api.app:app --reload --host 127.0.0.1` or `uv run python -m atlas.api`. OpenAPI UI is at <http://127.0.0.1:8000/docs>. During UI development the Vite app on port 5173 is allowed by CORS; see [frontend](docs/architecture.md#frontend).
+Equivalent: `uv run uvicorn atlas.api.app:app --reload --host 127.0.0.1` or `uv run python -m atlas.api`. OpenAPI UI is at <http://127.0.0.1:8000/docs>. During UI development the Vite app on port 5173 is allowed by CORS; see [frontend](docs/architecture/frontend.md).
 
 ```bash
-curl -s http://127.0.0.1:8000/views/today
+curl -s http://127.0.0.1:8000/views/habits
 curl -s -X POST http://127.0.0.1:8000/entries \
   -H 'content-type: application/json' \
   -d '{"metric":"pushups","value":40}'
 ```
 
-Endpoints are listed in the [HTTP API](docs/architecture.md#http-api) section of the architecture doc.
+Endpoints are listed in each feature's doc under [docs/domain/](docs/domain/); shared rules are in [API conventions](docs/architecture/api-conventions.md).
 
 UI development (Vite on port 5173, proxies API paths to `:8000`):
 
@@ -83,4 +83,10 @@ uv run pytest
 cd web && pnpm lint && pnpm test && pnpm build
 ```
 
-Python gates (`ruff check`, `ruff format --check`, `pytest`) must pass before a commit. When `web/` changes, `pnpm lint`, `pnpm test`, and `pnpm build` must pass too. A check finding is work in the same cycle: apply auto-fixes, then inspect what the fixer cannot touch. See [docs/architecture.md](docs/architecture.md) for layering rules and how streaks, adherence, and goal progress are defined.
+Python gates (`ruff check`, `ruff format --check`, `pytest`) must pass before a commit. When `web/` changes, `pnpm lint`, `pnpm test`, and `pnpm build` must pass too. A check finding is work in the same cycle: apply auto-fixes, then inspect what the fixer cannot touch. See [docs/architecture/overview.md](docs/architecture/overview.md) for layering rules and [docs/domain/](docs/domain/) for how streaks, adherence, and goal progress are defined.
+
+Docs change in the same commit as code. A commit that stages `src/` or `web/src/` without `docs/` is blocked unless its message has the line `Docs-Reviewed: no change needed` ([docs-sync](docs/development/docs-sync.md)). Enable the git hook once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```

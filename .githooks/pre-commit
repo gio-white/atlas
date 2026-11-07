@@ -1,0 +1,6 @@
+#!/bin/sh
+# Docs gate (advisory): git does not pass the commit message to pre-commit, so this only lists
+# the docs to review. The hard block runs in .githooks/commit-msg, which can read the
+# "Docs-Reviewed: no change needed" trailer. See docs/development/docs-sync.md.
+root=$(git rev-parse --show-toplevel) || exit 1
+exec python3 "$root/.claude/hooks/docs_gate.py" pre-commit

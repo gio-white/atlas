@@ -1,7 +1,7 @@
 from datetime import date
 
 from atlas.domain import GoalKind, TaskBucket, TaskPriority
-from atlas.services import create_goal, create_task, list_tasks, tasks_done_in_week, update_task
+from atlas.services import create_goal, create_task, list_tasks, update_task
 from tests.services.helpers import seed_health
 
 
@@ -24,7 +24,6 @@ def test_create_list_and_complete_task(session):
 def test_tasks_done_in_week_counts_completions(session):
     task = create_task(session, "Ship it", bucket=TaskBucket.TODAY)
     update_task(session, task.id, done=True)
-    assert tasks_done_in_week(session) == 1
 
 
 def test_task_can_link_to_a_goal(session):

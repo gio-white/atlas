@@ -7,8 +7,6 @@ from atlas.domain import (
     EntertainmentTopicRef,
     Period,
     entertainment_dashboard_math,
-    finished_in_week,
-    last_finished,
 )
 
 AS_OF = date(2026, 8, 14)
@@ -88,17 +86,6 @@ def test_dashboard_counts_finished_and_started_in_the_clipped_week():
     ]
     assert [row.slug for row in dash.library.done] == ["lex-fridman", "interstellar", "old-film"]
     assert dash.library.in_progress[0].slug == "the-office"
-
-
-def test_finished_in_week_and_last_finished_ignore_the_future():
-    titles = [
-        _title("today", status=EntertainmentStatus.DONE, finished_on=AS_OF),
-        _title("tomorrow", status=EntertainmentStatus.DONE, finished_on=date(2026, 8, 15)),
-        _title("last-week", status=EntertainmentStatus.DONE, finished_on=date(2026, 8, 9)),
-    ]
-
-    assert finished_in_week(titles, as_of=AS_OF) == 1
-    assert last_finished(titles, as_of=AS_OF).slug == "today"
 
 
 def test_empty_library_has_zero_mix_counts():

@@ -8,7 +8,6 @@ import {
   getHabitsBoard,
   getHabitsCalendar,
   getScreenDashboard,
-  getToday,
   logEntry,
   queryString,
 } from './api'
@@ -22,20 +21,6 @@ describe('queryString', () => {
 })
 
 describe('request helpers', () => {
-  it('getToday appends as_of', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ as_of: '2026-08-13', habits: [], entries: [], goals: [] }),
-    })
-    vi.stubGlobal('fetch', fetchMock)
-
-    await getToday('2026-08-13')
-
-    expect(fetchMock).toHaveBeenCalledWith('/views/today?as_of=2026-08-13', expect.any(Object))
-    vi.unstubAllGlobals()
-  })
-
   it('getGoalsBoard appends as_of', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -204,7 +189,7 @@ describe('request helpers', () => {
       }),
     )
 
-    await expect(getToday('2026-08-15')).rejects.toMatchObject({
+    await expect(getGoalsBoard('2026-08-15')).rejects.toMatchObject({
       name: 'ApiError',
       status: 502,
       message: API_UNREACHABLE,
@@ -215,7 +200,7 @@ describe('request helpers', () => {
   it('maps a network failure to a reachable API message', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
 
-    await expect(getToday('2026-08-15')).rejects.toMatchObject({
+    await expect(getGoalsBoard('2026-08-15')).rejects.toMatchObject({
       name: 'ApiError',
       status: 0,
       message: API_UNREACHABLE,

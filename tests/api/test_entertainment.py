@@ -65,11 +65,6 @@ def test_dashboard_and_view(client):
     assert payload["in_progress"] == 1
     assert payload["library"]["done"][0]["slug"] == "lex"
 
-    view = client.get("/entertainment/view", params={"as_of": "2026-08-14"})
-    assert view.status_code == 200
-    assert view.json()["finished_this_week"] == 1
-    assert view.json()["last_finished"]["slug"] == "lex"
-
 
 def test_image_upload_round_trip(client):
     client.post("/entertainment/titles", json={"slug": "clip", "kind": "video"})
