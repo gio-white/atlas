@@ -12,7 +12,7 @@ Routers parse the request, call a service, and serialize. Create/list bodies use
 
 ## Query filters
 
-Optional filters the services already support are query parameters: `area` on metrics and goals, `metric` on habits, `status` and `horizon` and `parent` on goals, `goal` on tasks, `include_archived` on areas, metrics, screen categories/apps/devices, and entertainment topics/titles, `kind` / `status` / `topic` on entertainment titles, `as_of` on status/progress/views including `/screen/view`, `/screen/dashboard`, `/entertainment/dashboard`, `/views/goals`, `/views/habits`, and `/views/habits/calendar`, `period` on `/screen/dashboard`, `/entertainment/dashboard`, and `/views/habits/calendar`, and `replace` on import.
+Optional filters the services already support are query parameters: `area` and `exclude_area` on entries, `area` on metrics and goals, `metric` on habits, `status` and `horizon` and `parent` on goals, `goal` on tasks, `include_archived` on areas, metrics, screen categories/apps/devices, and entertainment topics/titles, `kind` / `status` / `topic` on entertainment titles, `as_of` on status/progress/views including `/screen/view`, `/screen/dashboard`, `/sleep/view`, `/entertainment/dashboard`, `/views/goals`, `/views/habits`, and `/views/habits/calendar`, `period` on `/screen/dashboard`, `/entertainment/dashboard`, and `/views/habits/calendar`, `days` (1–366) on `/sleep/view`, and `replace` on import.
 
 ## Slugs
 

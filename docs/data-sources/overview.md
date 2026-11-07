@@ -11,11 +11,14 @@ pipeline built later. Until then the demo seed (`uv run atlas seed`) fills both 
 data. The reasoning is recorded in [decision 0004](../decisions/0004-device-data-is-display-only.md).
 
 What is *configuration* rather than data — which category an app belongs to, whether a
-category counts as good or bad, daily caps, device names — stays editable (in Settings once it
-exists; until then in a separate "Configure" section of the Screen Time page).
+category counts as good or bad, daily caps, device names — stays editable. Today it lives in a
+collapsed **Configure** section at the bottom of the Screen Time page
+(`web/src/components/settings/ScreenTimeSettings.tsx` and `DataSourcesSettings.tsx`), and it
+moves into a Settings page once one exists.
 
-Removing the remaining manual capture controls from the UI is Track T3's work; until it merges,
-some pages still show them.
+The web app has no client function that writes a night or a session. Each page shows
+**Last updated** from the newest record's `created_at`, and an empty state ("… will appear here
+once a data source is connected") when nothing has arrived yet.
 
 ## Ingestion contract
 
