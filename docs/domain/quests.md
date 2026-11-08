@@ -111,8 +111,98 @@ only from the Inbox and only without time blocks. The RESTRICT foreign keys back
 
 ## Rules and calculations
 
-The rules are pure functions in `src/atlas/domain/quests.py`; see the next commits of this
-branch for their definitions.
+All rules are pure functions in `src/atlas/domain/quests.py` (no session, no clock; `now` is
+passed in). The services build a `QuestNode` tree from rows and ask the domain. This is the only
+place progress, eligibility, chapter state, and next action are defined.
+
+### Structure (`check_parent`)
+
+| Item | Allowed parent | Parent required |
+| ---- | -------------- | --------------- |
+| Ambition, Side quest | none | — |
+| Goal | ambition | no |
+| Milestone | goal | yes |
+| Chapter | milestone or side quest | yes |
+| Task | ambition, goal, milestone, chapter, or side quest | no (Inbox or standalone) |
+
+- A milestone moves only between goals; a chapter only between milestones and side quests; a
+  task between any allowed parents (`POST /tasks/{id}/organize`).
+- An archived parent accepts no new or moved children (checked on the direct parent).
+- Nothing is created automatically; no level is required.
+
+### Task status (`transition_task`)
+
+- `todo`, `in_progress`, and `completed` may each go to any other (reopen included).
+- `started_at` is stamped the first time a task leaves `todo` and never cleared.
+- `completed_at` is set when the task becomes `completed` (kept if it already was) and cleared
+  when it leaves `completed`.
+- Only an explicit action completes a task: a time block never does, reaching 100 % never does.
+
+### Chapter state (`chapter_state`)
+
+Over the chapter's non-archived tasks, in this order:
+
+1. `empty` — no tasks.
+2. `completed` — every task is completed.
+3. `in_progress` — some task is `in_progress` or `completed`.
+4. `not_started` — otherwise.
+
+An empty chapter is never completed (brief P2.4).
+
+### Completion eligibility (`completion_check`, `check_can_complete`)
+
+Children are the non-archived direct children: Ambition → goals and direct tasks; Goal →
+milestones and direct tasks; Milestone and Side quest → chapters and direct tasks; Chapter →
+tasks. A child is **done** when it is a completed task, a completed container (stored status,
+manual or not), or a chapter whose state is `completed`.
+
+- **Eligible** = at least one child and every child done. `open_children` lists the rest in
+  tree order. The item's own status is ignored, so a completed item still reports its open
+  children.
+- Completing is always explicit (`POST …/complete`). An item that is not eligible needs
+  `override: true`; without it the request is refused (409) with the open children named. An
+  empty container also needs `override`.
+- After an override the children keep their statuses and the item reads
+  `completed_with_open_items: true` (completed and has open children); the UI shows it.
+- Chapters are never completed by hand; archived items cannot be completed.
+- Reopening clears `completed_at` and returns the status to `active`.
+
+### Progress (`progress`)
+
+```text
+progress(task)      = 1 if completed else 0          (in_progress counts 0, plan D10)
+progress(container) = 1     if its stored status is completed (manual or not)
+                    = None  if it has no non-archived children      → "Not broken down yet"
+                    = Σ wᵢ·pᵢ / Σ wᵢ over non-archived children,
+                        wᵢ = child.weight or 1,  pᵢ = progress(child), None counted as 0
+```
+
+- A chapter has no stored status, so it is always computed from its tasks.
+- Weights are relative among siblings (`> 0` when set) and shown normalized as percentages
+  (`normalized_weights`, returned as `weight_share`). Side quests have no weight; their children
+  do.
+- `done_tasks` / `total_tasks` count the non-archived tasks under an item, skipping archived
+  containers (`task_counts`).
+
+### Tree order
+
+Inside a container, child containers come first, then direct tasks; each group is ordered by
+`position`, then id (`tree_order`). New items get `position` = last sibling + 1; reordering is a
+`PATCH` of `position` (plan D16).
+
+### Next action (`next_action`)
+
+Over the open (not completed), non-archived tasks under the item:
+
+1. The task with the earliest `scheduled` time block that has not ended yet (a session running
+   now counts).
+2. Otherwise the first `in_progress` task in tree order.
+3. Otherwise the `todo` task with the nearest due date (undated last), then higher priority,
+   then tree order.
+4. Otherwise none; the UI shows an "Add a task" prompt.
+
+Planned effort and unconfirmed sessions are defined in
+[time blocks](time-blocks.md#rules-and-calculations).
 
 ## API
 
@@ -130,9 +220,10 @@ shared components in `web/src/components/quests/`. Route inventory:
 
 ## Tests
 
+- `tests/domain/test_quests.py` — every rule above, pure (acceptance criteria 14–21)
 - `tests/db/test_quest_schema.py` — constraints, RESTRICT foreign keys, v10 → v11 migration
 - `tests/services/test_port.py` — quest export/import, v10 exports
 
 ## Status
 
-Q1 in progress: schema 11 and export/import done.
+Q1 in progress: schema 11, export/import, and the domain rules done.

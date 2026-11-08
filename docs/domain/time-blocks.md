@@ -37,8 +37,25 @@ records that a session happened; it never completes the task.
 
 ## Rules and calculations
 
-The rules are pure functions in `src/atlas/domain/quests.py`; see the next commits of this
-branch for their definitions.
+Pure functions in `src/atlas/domain/quests.py`. Naive datetimes (as SQLite returns them) are
+read as UTC (`as_utc`).
+
+- **Window** (`check_block_window`): `end_at` must be after `start_at`.
+- **Scheduling** (`check_can_schedule`): a completed task takes no new blocks until it is
+  reopened; an archived task takes none.
+- **Planned effort** (`planned_minutes`): Σ (`end_at` − `start_at`) in minutes over the
+  non-cancelled blocks of the non-archived tasks under an item, summed up the tree. Shown beside
+  the estimate and never called actual effort (brief P6.4).
+- **Session done** (`complete_block`): the block becomes `completed`; a `todo` task moves to
+  `in_progress` (stamping `started_at`). An `in_progress` or `completed` task is unchanged.
+  Nothing else changes (plan D11).
+- **Cancel**: the block becomes `cancelled`; the row is kept and the task is unchanged.
+- **Unconfirmed** (`is_unconfirmed`): `status = scheduled` and `end_at ≤ now`. Computed, never
+  stored (plan D12).
+- **Overlap** (`overlapping_ids`): non-cancelled blocks whose intervals intersect another
+  non-cancelled block. Allowed; the calendar marks them.
+- **Next action** uses blocks: the open task with the earliest `scheduled` block that has not
+  ended comes first ([quests](quests.md#next-action-next_action)).
 
 ## API
 
@@ -55,8 +72,9 @@ drawer's blocks section, and Home's "Today's quests" card, under
 
 ## Tests
 
+- `tests/domain/test_quests.py` — planned effort, unconfirmed, session done (criterion 14), overlap
 - `tests/db/test_quest_schema.py` — `end_at > start_at`, unique external event per provider
 
 ## Status
 
-Q1 in progress: table done.
+Q1 in progress: table and rules done.
