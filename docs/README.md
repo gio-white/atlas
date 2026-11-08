@@ -91,6 +91,7 @@ blocked commit should review, so keep it a plain two-column table.
 | `web/src/pages/quests/*` | `docs/domain/quests.md`, `docs/product/navigation.md` |
 | `web/src/components/quests/time/*` | `docs/domain/time-blocks.md` |
 | `web/src/components/quests/*` | `docs/domain/quests.md` |
+| `web/src/lib/quests.ts` | `docs/domain/quests.md` |
 | `web/src/pages/JournalPage.tsx` | `docs/domain/journal.md` |
 | `web/src/pages/SleepPage.tsx` | `docs/domain/sleep.md` |
 | `web/src/pages/ScreenPage.tsx` | `docs/domain/screen-time.md` |
