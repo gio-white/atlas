@@ -449,8 +449,8 @@ ingestion endpoints still accept data.
 
 ## 6. Track T5 — Goals review (separate topic)
 
-> **Replaced (8 Nov 2026)** by the quest model: [quests-proposal.md](quests-proposal.md)
-> (PRs Q1–Q5). The questions below are kept for reference.
+> **Replaced (8 Nov 2026)** by the quest model: [quests-plan.md](quests-plan.md)
+> (PRs Q1–Q3). The questions below are kept for reference.
 
 Run in its own session and branch, in two steps:
 

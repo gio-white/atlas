@@ -1,6 +1,6 @@
 # Discussion: what goals should be in Atlas
 
-> **Superseded (8 Nov 2026)** by the quest model in [../quests-proposal.md](../quests-proposal.md).
+> **Superseded (8 Nov 2026)** by the quest model in [../quests-plan.md](../quests-plan.md).
 > Kept for the record of how goals worked before.
 
 > **How to use this file.** Paste it into a chat (or say "let's go through
