@@ -1,3 +1,4 @@
+import { lazy } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 import { Layout } from '@/components/Layout'
@@ -12,18 +13,32 @@ import { HabitPage } from '@/pages/HabitPage'
 import { HabitsPage } from '@/pages/HabitsPage'
 import { HomePage } from '@/pages/HomePage'
 import { JournalPage } from '@/pages/JournalPage'
-import { AmbitionPage } from '@/pages/quests/AmbitionPage'
 import { CalendarPage } from '@/pages/quests/CalendarPage'
-import { GoalPage } from '@/pages/quests/GoalPage'
-import { InboxPage } from '@/pages/quests/InboxPage'
-import { MainQuestsPage } from '@/pages/quests/MainQuestsPage'
-import { SideQuestPage } from '@/pages/quests/SideQuestPage'
-import { SideQuestsPage } from '@/pages/quests/SideQuestsPage'
 import { TodayPage } from '@/pages/quests/TodayPage'
 import { ScreenPage } from '@/pages/ScreenPage'
 import { SectionPage } from '@/pages/SectionPage'
 import { SleepPage } from '@/pages/SleepPage'
 import { WeekPage } from '@/pages/WeekPage'
+
+// The quest screens load on first visit, in their own chunk (Layout wraps pages in Suspense).
+const AmbitionPage = lazy(() =>
+  import('@/pages/quests/AmbitionPage').then((m) => ({ default: m.AmbitionPage })),
+)
+const GoalPage = lazy(() =>
+  import('@/pages/quests/GoalPage').then((m) => ({ default: m.GoalPage })),
+)
+const InboxPage = lazy(() =>
+  import('@/pages/quests/InboxPage').then((m) => ({ default: m.InboxPage })),
+)
+const MainQuestsPage = lazy(() =>
+  import('@/pages/quests/MainQuestsPage').then((m) => ({ default: m.MainQuestsPage })),
+)
+const SideQuestPage = lazy(() =>
+  import('@/pages/quests/SideQuestPage').then((m) => ({ default: m.SideQuestPage })),
+)
+const SideQuestsPage = lazy(() =>
+  import('@/pages/quests/SideQuestsPage').then((m) => ({ default: m.SideQuestsPage })),
+)
 
 export default function App() {
   return (

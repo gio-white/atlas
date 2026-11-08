@@ -25,17 +25,17 @@ Page behaviour is described in each feature's doc under [domain/](../domain/) (s
 | `/habit/:slug`  | Habit detail: check-in, streaks, adherence, this week, recent check-ins (slips for quit habits), pauses & skips; edit, archive, delete | implemented |
 | `/catalog`      | Create and edit areas, metrics, and habits; slugs link to review pages | implemented |
 | `/today`        | Quests: today's time blocks, unconfirmed sessions, due today, up next ([time blocks](../domain/time-blocks.md#screens)) | placeholder (Q3) |
-| `/inbox`        | Quests: captured tasks not yet organized ([quests](../domain/quests.md#screens)) | placeholder (Q2) |
-| `/quests`       | Quests: Main quests — ambitions with their goal cards and direct tasks, then independent goals | placeholder (Q2) |
-| `/quests/ambitions/:id` | Quests: one ambition's goals and direct tasks | placeholder (Q2) |
-| `/quests/goals/:id` | Quests: one goal's quest map (milestones, chapters, tasks) | placeholder (Q2) |
-| `/side-quests`  | Quests: side quests and standalone tasks | placeholder (Q2) |
-| `/side-quests/:id` | Quests: one side quest's chapters and tasks | placeholder (Q2) |
+| `/inbox`        | Quests: always-focused capture (Enter adds a title); each item can be edited, organized into any ambition, goal, milestone, chapter, or side quest (search picker), made standalone, turned into a new item, or archived ([quests](../domain/quests.md#screens)) | implemented |
+| `/quests`       | Quests: Main quests — each ambition with its goal cards (ring, status, date, counts, next action) and direct tasks, ambitions without goals included, then independent goals; new ambition and new goal | implemented |
+| `/quests/ambitions/:id` | Quests: one ambition — edit, complete or reopen, its goal cards (reorder, add) and direct tasks | implemented |
+| `/quests/goals/:id` | Quests: one goal's quest map — breadcrumb, success description, completion (with override), a path of expandable milestones with chapters and tasks, direct tasks, add and reorder at every level | implemented |
+| `/side-quests`  | Quests: side quest cards with progress and standalone tasks; new side quest | implemented |
+| `/side-quests/:id` | Quests: one side quest — edit, completion, its chapters and direct tasks (the same tree as a milestone) | implemented |
 | `/calendar`     | Quests: week view of time blocks | placeholder (Q3) |
 
 ## Sidebar and review pages
 
-The sidebar lists Home, the life sections, Screen Time, Habits, Journal, and History, then a **Quests** group: Today, Inbox, Main quests, Side quests, and Calendar (labels in sentence case per [ux-writing](ux-writing.md)). Inbox shows the number of items still to sort from `GET /views/inbox`, refreshed on every navigation and hidden at zero. The quest pages are placeholders ("Coming soon" with a one-line hint of what will show) until Q2 and Q3 of the [quest plan](../plans/quests-plan.md) build them. Health and Adventure are placeholder pages in the sidebar ("Coming soon / There is nothing to show on this page yet."); what they become is decided in the navigation discussion (`docs/plans/discussions/navigation-and-organization.md`). The header shows a menu button (narrow screens), the date, and a Settings button; there is no notifications bell. Review pages (Catalog, Area, Habit, Habits, Screen, Entertainment, life sections) link back to Home.
+The sidebar lists Home, the life sections, Screen Time, Habits, Journal, and History, then a **Quests** group: Today, Inbox, Main quests, Side quests, and Calendar (labels in sentence case per [ux-writing](ux-writing.md)). Inbox shows the number of items still to sort from `GET /views/inbox`, refreshed on every navigation and whenever a quest screen changes something (the `atlas:inbox-changed` window event), and hidden at zero. Today and Calendar are placeholders ("Coming soon" with a one-line hint of what will show) until Q3 of the [quest plan](../plans/quests-plan.md) builds them; the other quest pages are described in [quests](../domain/quests.md#screens). Any task row on them opens the task drawer. Health and Adventure are placeholder pages in the sidebar ("Coming soon / There is nothing to show on this page yet."); what they become is decided in the navigation discussion (`docs/plans/discussions/navigation-and-organization.md`). The header shows a menu button (narrow screens), the date, and a Settings button; there is no notifications bell. Review pages (Catalog, Area, Habit, Habits, Screen, Entertainment, life sections) link back to Home.
 
 ## Catalog
 
