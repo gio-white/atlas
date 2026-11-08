@@ -99,12 +99,86 @@ Service functions (`src/atlas/services/time_blocks.py`):
 
 ## Screens
 
-`/today` and `/calendar` are placeholders in Q1. Q3 of the
-[plan](../plans/quests-plan.md#6-screens) builds Today (timeline of today's blocks with
-**Session done** and, separately, **Outcome achieved**; unconfirmed blocks; due today; up next),
-Calendar (week view, click to create, edit, complete, or cancel), the time-block dialog, the task
-drawer's blocks section, and Home's "Today's quests" card, under
-`web/src/components/quests/time/`.
+Shown to people as **sessions**. Every screen shows what the API returns: unconfirmed, overlaps,
+and planned time are never worked out in the browser. Local ↔ UTC conversion happens in one
+place, `localToUtc` / `utcToLocal` in `web/src/lib/timeBlocks.ts`; times read as "09:05"
+(24-hour, browser-local). The quest accent is the theme's `iris` colour (the same accent as the
+other quest screens), used for borders, icons, the now line, and today's date pill; the rest
+stays neutral, and Unconfirmed keeps the warning colour. A task is drawn as
+a round checkbox (empty for To do, dashed for In progress, checked for Done); a side quest path
+starts with a scroll icon, a goal path with a flag, an ambition path with a compass.
+
+**Today** (`/today`, `web/src/pages/quests/TodayPage.tsx`) reads `GET /views/today?as_of=` for
+the shell date (`?on=`).
+
+- **Unconfirmed** (only when there are any): every block from `unconfirmed`, with its day and
+  time, task, and parent path. Each has **Session done** and **Didn't happen** (cancel). There is
+  no Outcome achieved here.
+- **Today's sessions**: the `blocks` timeline. Each row shows start and end time, task title,
+  the parent path ("Ambition › Goal › Milestone › Chapter", ancestors only), and the planned
+  length. Two control groups, set apart by a divider:
+  - **Session done** (`POST /time-blocks/{id}/complete`), with **Cancel** and **Edit** beside it.
+    The status line says the task stays open. It never calls the task endpoint.
+  - **Outcome achieved** (`PATCH /tasks/{id}` with `status: completed`). The first time, a
+    dialog ("Complete the task?") explains the difference; confirming stores
+    `atlas.quests.outcomeConfirmed` in `localStorage`, and later presses act at once. It never
+    calls the block endpoint.
+
+  Once the session is done, its row shows "Session done" as text. Once the task is done, it
+  shows "Outcome achieved". On the current day a **Now** line sits before the first block that
+  has not started.
+- **Due today** (`due_today`, overdue marked "Overdue · 5 Nov") and **Up next** (`up_next`):
+  each task has a **Schedule** button that opens the time-block dialog for it.
+- **Plan a session** (header) opens the dialog with the task picker; **Week** goes to Calendar.
+
+**Calendar** (`/calendar`, `CalendarPage.tsx` + `components/quests/time/WeekCalendar.tsx`) reads
+`GET /views/calendar` for the local Monday 00:00 to the next Monday 00:00, converted to UTC.
+
+- The week is the one containing the shell date, so it lives in the URL as `?on=`. **Previous**
+  and **Next** move `on` by seven days; **This week** removes it.
+- Monday–Sunday columns × 24 hour rows (48 px per hour) in a scrolling panel. It opens scrolled
+  to the hour before now, and on narrow screens sideways so today's column is in view. Today's
+  column is tinted and shows a now line.
+- Blocks are drawn at their local start, clipped to the day; a block across midnight shows in
+  both days.
+  - Scheduled: accent left border.
+  - Unconfirmed: warning colour.
+  - Completed: subdued.
+  - Cancelled: dashed and struck through, hidden unless **Show cancelled (n)** is ticked.
+  - Overlapping (`overlaps` from the API): a warning ring and a layers icon, set side by side in
+    lanes so both stay readable. The lanes are layout only.
+- Each empty hour is a button: clicking it opens the dialog at that hour (:30 for a click in its
+  lower half) with the task picker. Clicking a block opens the dialog to edit it. No dragging in
+  V1 (plan D15).
+
+**Time-block dialog** (`components/quests/time/TimeBlockDialog.tsx`), shared by Today,
+Calendar, Home, and the task's sessions:
+
+- Inputs: **Date**, **From**, and **To**, as local inputs.
+- A session sits within one local day. A new one defaults to the next half hour for 60 minutes,
+  capped at 23:59.
+- Shows "Duration: 1h 30m". Shows "The end time must be after the start time." (and does not
+  save) when To ≤ From.
+- **New session:** search over organized, open tasks from `GET /tasks`, leaving out Inbox,
+  completed, and archived tasks, or use the fixed task it was opened for. Saves with
+  `POST /time-blocks`.
+- **Edit:** **Save time** (`PATCH`). For a scheduled block, also **Session done** and **Cancel
+  session**. **Delete** asks again ("Delete for good"), since cancelling keeps a record.
+- API errors show inside the dialog.
+
+**Task sessions** (`components/quests/time/TaskTimeBlocks.tsx`, props
+`{ taskId, onChanged? }`): reads `GET /tasks/{id}`.
+
+- Shows "2h 30m planned · estimate 3h" from `planned_minutes` and `estimate_minutes`.
+- Lists the task's blocks (day, time range, status or Unconfirmed, length) with Done, Cancel,
+  and Edit.
+- **Schedule** opens the dialog for the task. It is disabled for a completed task ("Reopen the
+  task to plan more sessions.").
+- Shown in the task drawer for every organized task: it is the drawer's default sessions
+  section (`sessionsSection` in `web/src/components/quests/TaskDrawer.tsx`); Inbox tasks show no
+  sessions section.
+
+**Home** shows "Today's quests" from the same `/views/today` read ([home](home.md#screens)).
 
 ## Tests
 
@@ -112,7 +186,15 @@ drawer's blocks section, and Home's "Today's quests" card, under
 - `tests/services/test_time_blocks.py` — CRUD, UTC conversion, session done and cancel, overlaps, Today (local day, unconfirmed, due, up next), Calendar
 - `tests/api/test_quests.py` — time block endpoints, Today, Calendar
 - `tests/db/test_quest_schema.py` — `end_at > start_at`, unique external event per provider
+- `web/src/lib/timeBlocks.test.ts` — local ↔ UTC (pinned to Europe/Copenhagen, both offsets), window validation, Monday weeks and their UTC range, day placement and midnight clipping, lanes, defaults, path label, the Outcome achieved memory
+- `web/src/components/quests/time/execution.test.tsx` (jsdom):
+  - Today: time range and path; Session done calls only the block endpoint; Outcome achieved confirms the first time, then calls only the task update; unconfirmed sessions resolve as done or cancelled.
+  - Calendar: a block in the right day column at the right hour; cancelled hidden by the toggle; overlaps marked; an empty slot opens with its date and hour.
+  - Dialog: validation; create and edit in UTC; the picker leaves out Inbox and completed tasks.
+  - Task sessions: planned versus estimate, Session done, no scheduling for a completed task.
 
 ## Status
 
-Q1 done (backend, typed client, seed); Today and Calendar are placeholders until Q3.
+Implemented: backend, typed client, and seed (Q1); Today, Calendar, the time-block dialog, the
+task sessions section, and Home's card (Q3). `TaskTimeBlocks` is the task drawer's sessions
+section.

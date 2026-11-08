@@ -19,16 +19,18 @@ import {
   Sun,
   X,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useSearchParams } from 'react-router-dom'
 
 import { LogDialog } from '@/components/LogDialog'
+import { PageLoading } from '@/components/PageState'
 import { ProfileDialog } from '@/components/ProfileDialog'
 import { Button } from '@/components/ui/button'
 import { getInbox } from '@/lib/api'
 import type { ShellContext } from '@/lib/asOf'
 import { longDateLabel } from '@/lib/dates'
 import { initials, readDisplayName } from '@/lib/profile'
+import { INBOX_CHANGED_EVENT } from '@/lib/quests'
 import { LIFE_SECTIONS } from '@/lib/sections'
 import { cn, todayIso } from '@/lib/utils'
 
@@ -60,13 +62,23 @@ const QUEST_NAV = [
   { to: '/calendar', label: 'Calendar', icon: CalendarDays },
 ] as const
 
-/** Number of Inbox items for the sidebar badge; refreshed on every navigation. */
+/**
+ * Number of Inbox items for the sidebar badge; refreshed on every navigation and whenever a
+ * quest screen announces an Inbox change (`notifyInboxChanged`).
+ */
 function useInboxCount(): number {
   const { pathname } = useLocation()
   const [count, setCount] = useState(0)
+  const [changes, setChanges] = useState(0)
+  useEffect(() => {
+    const onChange = () => setChanges((value) => value + 1)
+    window.addEventListener(INBOX_CHANGED_EVENT, onChange)
+    return () => window.removeEventListener(INBOX_CHANGED_EVENT, onChange)
+  }, [])
   useEffect(() => {
     let cancelled = false
     void pathname
+    void changes
     getInbox()
       .then((inbox) => {
         if (!cancelled) setCount(inbox.count)
@@ -77,7 +89,7 @@ function useInboxCount(): number {
     return () => {
       cancelled = true
     }
-  }, [pathname])
+  }, [pathname, changes])
   return count
 }
 
@@ -235,15 +247,17 @@ export function Layout() {
           </div>
         </header>
         <main className="px-4 py-5 lg:px-6">
-          <Outlet
-            context={
-              {
-                asOf,
-                displayName,
-                openLog: () => setLogOpen(true),
-              } satisfies ShellContext
-            }
-          />
+          <Suspense fallback={<PageLoading />}>
+            <Outlet
+              context={
+                {
+                  asOf,
+                  displayName,
+                  openLog: () => setLogOpen(true),
+                } satisfies ShellContext
+              }
+            />
+          </Suspense>
         </main>
       </div>
       <LogDialog open={logOpen} onOpenChange={setLogOpen} occurredOn={asOf} />
