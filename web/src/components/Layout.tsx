@@ -19,12 +19,13 @@ import {
   Sun,
   X,
 } from 'lucide-react'
-import { useState } from 'react'
-import { NavLink, Outlet, useSearchParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { NavLink, Outlet, useLocation, useSearchParams } from 'react-router-dom'
 
 import { LogDialog } from '@/components/LogDialog'
 import { ProfileDialog } from '@/components/ProfileDialog'
 import { Button } from '@/components/ui/button'
+import { getInbox } from '@/lib/api'
 import type { ShellContext } from '@/lib/asOf'
 import { longDateLabel } from '@/lib/dates'
 import { initials, readDisplayName } from '@/lib/profile'
@@ -59,6 +60,27 @@ const QUEST_NAV = [
   { to: '/calendar', label: 'Calendar', icon: CalendarDays },
 ] as const
 
+/** Number of Inbox items for the sidebar badge; refreshed on every navigation. */
+function useInboxCount(): number {
+  const { pathname } = useLocation()
+  const [count, setCount] = useState(0)
+  useEffect(() => {
+    let cancelled = false
+    void pathname
+    getInbox()
+      .then((inbox) => {
+        if (!cancelled) setCount(inbox.count)
+      })
+      .catch(() => {
+        if (!cancelled) setCount(0)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [pathname])
+  return count
+}
+
 function navClass({ isActive }: { isActive: boolean }) {
   return cn(
     'inline-flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium motion-safe:transition-colors motion-safe:duration-200',
@@ -74,6 +96,7 @@ export function Layout() {
   const [logOpen, setLogOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const inboxCount = useInboxCount()
 
   function onDateChange(value: string) {
     const next = new URLSearchParams(searchParams)
@@ -119,6 +142,13 @@ export function Layout() {
           >
             <item.icon className="size-4 shrink-0" aria-hidden />
             {item.label}
+            {item.to === '/inbox' && inboxCount > 0 && (
+              <span className="ml-auto rounded-full bg-raised px-2 text-xs tabular-nums text-muted">
+                <span className="sr-only">, </span>
+                {inboxCount}
+                <span className="sr-only"> to sort</span>
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>

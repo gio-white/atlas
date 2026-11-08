@@ -924,3 +924,421 @@ export function addHabitBreak(
 export function deleteHabitBreak(slug: string, breakId: number): Promise<void> {
   return request(habitPath(slug, `/breaks/${breakId}`), { method: 'DELETE' })
 }
+
+// --- Quests (docs/domain/quests.md, docs/domain/time-blocks.md) ------------------------------
+// Every quest entity uses its integer id. Q2 and Q3 build on these; add nothing here for them.
+
+export type QuestKind = 'ambition' | 'goal' | 'milestone' | 'side_quest' | 'chapter' | 'task'
+export type ParentKind = 'ambition' | 'goal' | 'milestone' | 'chapter' | 'side_quest'
+export type PromoteKind = Exclude<QuestKind, 'task'>
+export type QuestStatus = 'active' | 'completed' | 'archived'
+export type TaskStatus = 'todo' | 'in_progress' | 'completed'
+export type TaskPriority = 'low' | 'normal' | 'high'
+export type ChapterState = 'empty' | 'not_started' | 'in_progress' | 'completed'
+export type TimeBlockStatus = 'scheduled' | 'completed' | 'cancelled'
+
+export type ItemRef = { kind: QuestKind; id: number; title: string }
+
+export type TimeBlock = {
+  id: number
+  task_id: number
+  start_at: string
+  end_at: string
+  status: TimeBlockStatus
+  provider: 'internal'
+  external_event_id: string | null
+  created_at: string
+  updated_at: string
+  minutes: number
+  unconfirmed: boolean
+  overlaps: boolean
+}
+
+export type QuestTask = {
+  id: number
+  title: string
+  description: string | null
+  status: TaskStatus
+  priority: TaskPriority
+  estimate_minutes: number | null
+  due_on: string | null
+  weight: number | null
+  weight_share: number | null
+  position: number
+  parent: ItemRef | null
+  path: ItemRef[]
+  inbox: boolean
+  standalone: boolean
+  organized_at: string | null
+  started_at: string | null
+  completed_at: string | null
+  archived_at: string | null
+  created_at: string
+  updated_at: string
+  planned_minutes: number
+  block_count: number
+}
+
+export type QuestTaskDetail = QuestTask & { blocks: TimeBlock[] }
+
+type QuestState = {
+  id: number
+  title: string
+  description: string | null
+  position: number
+  archived_at: string | null
+  created_at: string
+  updated_at: string
+  path: ItemRef[]
+  /** 0–1, or null when nothing is under it yet ("Not broken down yet"). */
+  progress: number | null
+  done_tasks: number
+  total_tasks: number
+  planned_minutes: number
+  eligible: boolean
+  open_children: ItemRef[]
+  next_action: QuestTask | null
+}
+
+type Completable = QuestState & {
+  status: QuestStatus
+  completed_at: string | null
+  completed_with_open_items: boolean
+}
+
+export type Ambition = Completable & {
+  target_on: string | null
+  weight: number | null
+  goal_count: number
+  task_count: number
+}
+
+export type QuestGoal = Completable & {
+  ambition_id: number | null
+  success_description: string | null
+  due_on: string | null
+  weight: number | null
+  weight_share: number | null
+  milestone_count: number
+  task_count: number
+}
+
+export type QuestMilestone = Completable & {
+  goal_id: number
+  due_on: string | null
+  weight: number | null
+  weight_share: number | null
+  chapter_count: number
+  task_count: number
+}
+
+export type SideQuest = Completable & {
+  due_on: string | null
+  chapter_count: number
+  task_count: number
+}
+
+export type Chapter = QuestState & {
+  milestone_id: number | null
+  side_quest_id: number | null
+  weight: number | null
+  weight_share: number | null
+  state: ChapterState
+  task_count: number
+}
+
+export type ChapterTree = { chapter: Chapter; tasks: QuestTask[] }
+export type MilestoneTree = {
+  milestone: QuestMilestone
+  chapters: ChapterTree[]
+  tasks: QuestTask[]
+}
+export type AmbitionSection = { ambition: Ambition; goals: QuestGoal[]; tasks: QuestTask[] }
+export type MainQuests = { ambitions: AmbitionSection[]; independent_goals: QuestGoal[] }
+export type GoalTree = { goal: QuestGoal; milestones: MilestoneTree[]; tasks: QuestTask[] }
+export type SideQuestTree = { side_quest: SideQuest; chapters: ChapterTree[]; tasks: QuestTask[] }
+export type SideQuests = { side_quests: SideQuest[]; standalone_tasks: QuestTask[] }
+export type Inbox = { count: number; tasks: QuestTask[] }
+export type ScheduledBlock = { block: TimeBlock; task: QuestTask }
+export type TodayQuests = {
+  date: string
+  blocks: ScheduledBlock[]
+  unconfirmed: ScheduledBlock[]
+  due_today: QuestTask[]
+  up_next: QuestTask[]
+}
+export type QuestCalendar = { start: string; end: string; blocks: ScheduledBlock[] }
+export type PromoteResult = { kind: PromoteKind; id: number; title: string }
+
+type ContainerFields = {
+  title?: string
+  description?: string | null
+  position?: number
+}
+type Archivable = { archived?: boolean }
+
+export type AmbitionCreate = ContainerFields & {
+  title: string
+  target_on?: string | null
+  weight?: number | null
+}
+export type AmbitionUpdate = Omit<AmbitionCreate, 'title'> & { title?: string } & Archivable
+export type GoalCreate = ContainerFields & {
+  title: string
+  success_description?: string | null
+  due_on?: string | null
+  ambition_id?: number | null
+  weight?: number | null
+}
+export type GoalUpdate = Omit<GoalCreate, 'title'> & { title?: string } & Archivable
+export type MilestoneCreate = ContainerFields & {
+  title: string
+  goal_id: number
+  due_on?: string | null
+  weight?: number | null
+}
+export type MilestoneUpdate = Partial<MilestoneCreate> & Archivable
+export type SideQuestCreate = ContainerFields & { title: string; due_on?: string | null }
+export type SideQuestUpdate = Partial<SideQuestCreate> & Archivable
+export type ChapterCreate = ContainerFields & {
+  title: string
+  milestone_id?: number | null
+  side_quest_id?: number | null
+  weight?: number | null
+}
+export type ChapterUpdate = Partial<ChapterCreate> & Archivable
+
+export type TaskCreate = {
+  title: string
+  description?: string | null
+  parent_kind?: ParentKind | null
+  parent_id?: number | null
+  standalone?: boolean
+  priority?: TaskPriority
+  estimate_minutes?: number | null
+  due_on?: string | null
+  weight?: number | null
+  position?: number
+}
+export type TaskUpdate = {
+  title?: string
+  description?: string | null
+  status?: TaskStatus
+  priority?: TaskPriority
+  estimate_minutes?: number | null
+  due_on?: string | null
+  weight?: number | null
+  position?: number
+  archived?: boolean
+}
+export type TaskOrganize =
+  | { parent_kind: ParentKind; parent_id: number; standalone?: false }
+  | { standalone: true }
+export type TaskPromote = {
+  kind: PromoteKind
+  parent_kind?: ParentKind | null
+  parent_id?: number | null
+}
+export type TaskFilters = {
+  parent_kind?: ParentKind
+  parent_id?: number
+  status?: TaskStatus
+  inbox?: boolean
+  standalone?: boolean
+  due_on?: string
+  include_archived?: boolean
+}
+
+function send<T>(path: string, method: string, body?: unknown): Promise<T> {
+  return request(path, {
+    method,
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  })
+}
+
+function archivedQuery(includeArchived?: boolean): string {
+  return queryString({ include_archived: includeArchived || undefined })
+}
+
+export function listAmbitions(includeArchived?: boolean): Promise<Ambition[]> {
+  return request(`/ambitions${archivedQuery(includeArchived)}`)
+}
+export function createAmbition(body: AmbitionCreate): Promise<Ambition> {
+  return send('/ambitions', 'POST', body)
+}
+export function getAmbition(id: number): Promise<Ambition> {
+  return request(`/ambitions/${id}`)
+}
+export function updateAmbition(id: number, body: AmbitionUpdate): Promise<Ambition> {
+  return send(`/ambitions/${id}`, 'PATCH', body)
+}
+export function deleteAmbition(id: number): Promise<void> {
+  return send(`/ambitions/${id}`, 'DELETE')
+}
+export function completeAmbition(id: number, override = false): Promise<Ambition> {
+  return send(`/ambitions/${id}/complete`, 'POST', { override })
+}
+export function reopenAmbition(id: number): Promise<Ambition> {
+  return send(`/ambitions/${id}/reopen`, 'POST')
+}
+
+export function listQuestGoals(filters?: {
+  ambition_id?: number
+  include_archived?: boolean
+}): Promise<QuestGoal[]> {
+  return request(
+    `/goals${queryString({
+      ambition_id: filters?.ambition_id,
+      include_archived: filters?.include_archived || undefined,
+    })}`,
+  )
+}
+export function createQuestGoal(body: GoalCreate): Promise<QuestGoal> {
+  return send('/goals', 'POST', body)
+}
+export function getQuestGoal(id: number): Promise<QuestGoal> {
+  return request(`/goals/${id}`)
+}
+export function updateQuestGoal(id: number, body: GoalUpdate): Promise<QuestGoal> {
+  return send(`/goals/${id}`, 'PATCH', body)
+}
+export function deleteQuestGoal(id: number): Promise<void> {
+  return send(`/goals/${id}`, 'DELETE')
+}
+export function completeQuestGoal(id: number, override = false): Promise<QuestGoal> {
+  return send(`/goals/${id}/complete`, 'POST', { override })
+}
+export function reopenQuestGoal(id: number): Promise<QuestGoal> {
+  return send(`/goals/${id}/reopen`, 'POST')
+}
+
+export function createMilestone(body: MilestoneCreate): Promise<QuestMilestone> {
+  return send('/milestones', 'POST', body)
+}
+export function getMilestone(id: number): Promise<QuestMilestone> {
+  return request(`/milestones/${id}`)
+}
+export function updateMilestone(id: number, body: MilestoneUpdate): Promise<QuestMilestone> {
+  return send(`/milestones/${id}`, 'PATCH', body)
+}
+export function deleteMilestone(id: number): Promise<void> {
+  return send(`/milestones/${id}`, 'DELETE')
+}
+export function completeMilestone(id: number, override = false): Promise<QuestMilestone> {
+  return send(`/milestones/${id}/complete`, 'POST', { override })
+}
+export function reopenMilestone(id: number): Promise<QuestMilestone> {
+  return send(`/milestones/${id}/reopen`, 'POST')
+}
+
+export function listSideQuests(includeArchived?: boolean): Promise<SideQuest[]> {
+  return request(`/side-quests${archivedQuery(includeArchived)}`)
+}
+export function createSideQuest(body: SideQuestCreate): Promise<SideQuest> {
+  return send('/side-quests', 'POST', body)
+}
+export function getSideQuest(id: number): Promise<SideQuest> {
+  return request(`/side-quests/${id}`)
+}
+export function updateSideQuest(id: number, body: SideQuestUpdate): Promise<SideQuest> {
+  return send(`/side-quests/${id}`, 'PATCH', body)
+}
+export function deleteSideQuest(id: number): Promise<void> {
+  return send(`/side-quests/${id}`, 'DELETE')
+}
+export function completeSideQuest(id: number, override = false): Promise<SideQuest> {
+  return send(`/side-quests/${id}/complete`, 'POST', { override })
+}
+export function reopenSideQuest(id: number): Promise<SideQuest> {
+  return send(`/side-quests/${id}/reopen`, 'POST')
+}
+
+export function createChapter(body: ChapterCreate): Promise<Chapter> {
+  return send('/chapters', 'POST', body)
+}
+export function getChapter(id: number): Promise<Chapter> {
+  return request(`/chapters/${id}`)
+}
+export function updateChapter(id: number, body: ChapterUpdate): Promise<Chapter> {
+  return send(`/chapters/${id}`, 'PATCH', body)
+}
+export function deleteChapter(id: number): Promise<void> {
+  return send(`/chapters/${id}`, 'DELETE')
+}
+
+export function listQuestTasks(filters?: TaskFilters): Promise<QuestTask[]> {
+  return request(`/tasks${queryString({ ...filters })}`)
+}
+export function createQuestTask(body: TaskCreate): Promise<QuestTaskDetail> {
+  return send('/tasks', 'POST', body)
+}
+export function getQuestTask(id: number): Promise<QuestTaskDetail> {
+  return request(`/tasks/${id}`)
+}
+export function updateQuestTask(id: number, body: TaskUpdate): Promise<QuestTaskDetail> {
+  return send(`/tasks/${id}`, 'PATCH', body)
+}
+export function deleteQuestTask(id: number): Promise<void> {
+  return send(`/tasks/${id}`, 'DELETE')
+}
+export function organizeTask(id: number, body: TaskOrganize): Promise<QuestTaskDetail> {
+  return send(`/tasks/${id}/organize`, 'POST', body)
+}
+export function promoteTask(id: number, body: TaskPromote): Promise<PromoteResult> {
+  return send(`/tasks/${id}/promote`, 'POST', body)
+}
+
+export function listTimeBlocks(filters?: {
+  start?: string
+  end?: string
+  task_id?: number
+}): Promise<TimeBlock[]> {
+  return request(`/time-blocks${queryString({ ...filters })}`)
+}
+export function createTimeBlock(body: {
+  task_id: number
+  start_at: string
+  end_at: string
+}): Promise<TimeBlock> {
+  return send('/time-blocks', 'POST', body)
+}
+export function updateTimeBlock(
+  id: number,
+  body: { start_at?: string; end_at?: string },
+): Promise<TimeBlock> {
+  return send(`/time-blocks/${id}`, 'PATCH', body)
+}
+export function deleteTimeBlock(id: number): Promise<void> {
+  return send(`/time-blocks/${id}`, 'DELETE')
+}
+export function completeTimeBlock(id: number): Promise<TimeBlock> {
+  return send(`/time-blocks/${id}/complete`, 'POST')
+}
+export function cancelTimeBlock(id: number): Promise<TimeBlock> {
+  return send(`/time-blocks/${id}/cancel`, 'POST')
+}
+
+export function getMainQuests(includeArchived?: boolean): Promise<MainQuests> {
+  return request(`/views/main-quests${archivedQuery(includeArchived)}`)
+}
+export function getAmbitionView(id: number, includeArchived?: boolean): Promise<AmbitionSection> {
+  return request(`/views/ambitions/${id}${archivedQuery(includeArchived)}`)
+}
+export function getGoalTree(id: number, includeArchived?: boolean): Promise<GoalTree> {
+  return request(`/views/goals/${id}${archivedQuery(includeArchived)}`)
+}
+export function getSideQuestsView(includeArchived?: boolean): Promise<SideQuests> {
+  return request(`/views/side-quests${archivedQuery(includeArchived)}`)
+}
+export function getSideQuestTree(id: number, includeArchived?: boolean): Promise<SideQuestTree> {
+  return request(`/views/side-quests/${id}${archivedQuery(includeArchived)}`)
+}
+export function getInbox(): Promise<Inbox> {
+  return request('/views/inbox')
+}
+export function getTodayQuests(asOf?: string): Promise<TodayQuests> {
+  return request(`/views/today${queryString({ as_of: asOf })}`)
+}
+export function getQuestCalendar(start: string, end: string): Promise<QuestCalendar> {
+  return request(`/views/calendar${queryString({ start, end })}`)
+}
