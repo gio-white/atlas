@@ -1,6 +1,6 @@
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta, tzinfo
 from typing import Any
 
 from sqlmodel import Session
@@ -10,6 +10,8 @@ from atlas.services.areas import list_areas
 from atlas.services.clock import resolve_today
 from atlas.services.errors import ValidationError
 from atlas.services.port import import_all
+from atlas.services.seed_quests import demo_quests
+from atlas.settings import load_settings
 
 HISTORY_DAYS = 28
 WEEKDAYS = [1, 2, 3, 4, 5]
@@ -29,6 +31,13 @@ class SeedSummary:
     entertainment_topics: int
     entertainment_titles: int
     sleep_sessions: int
+    ambitions: int = 0
+    goals: int = 0
+    milestones: int = 0
+    side_quests: int = 0
+    chapters: int = 0
+    tasks: int = 0
+    time_blocks: int = 0
 
 
 def seed_demo(
@@ -55,10 +64,17 @@ def seed_demo(
         entertainment_topics=len(payload["entertainment_topics"]),
         entertainment_titles=len(payload["entertainment_titles"]),
         sleep_sessions=len(payload["sleep_sessions"]),
+        ambitions=len(payload["ambitions"]),
+        goals=len(payload["goals"]),
+        milestones=len(payload["milestones"]),
+        side_quests=len(payload["side_quests"]),
+        chapters=len(payload["chapters"]),
+        tasks=len(payload["tasks"]),
+        time_blocks=len(payload["time_blocks"]),
     )
 
 
-def demo_payload(as_of: date) -> dict[str, Any]:
+def demo_payload(as_of: date, zone: tzinfo | None = None) -> dict[str, Any]:
     start = as_of - timedelta(days=HISTORY_DAYS - 1)
     return {
         "schema_version": CURRENT_SCHEMA_VERSION,
@@ -73,6 +89,7 @@ def demo_payload(as_of: date) -> dict[str, Any]:
         "entertainment_topics": _entertainment_topics(),
         "entertainment_titles": _entertainment_titles(as_of),
         "sleep_sessions": _sleep_sessions(start, as_of),
+        **demo_quests(as_of, zone if zone is not None else load_settings().timezone),
         "entries": _entries(start, as_of),
     }
 

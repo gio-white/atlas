@@ -1,9 +1,9 @@
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
 from atlas.db import CURRENT_SCHEMA_VERSION
-from atlas.domain import Period
+from atlas.domain import ChapterState, Period, QuestStatus
 from atlas.services import (
     ValidationError,
     export_all,
@@ -12,6 +12,13 @@ from atlas.services import (
     screen_dashboard,
     seed_demo,
     sleep_view,
+)
+from atlas.services.quest_views import (
+    goal_view,
+    inbox_view,
+    main_quests_view,
+    side_quests_view,
+    today_view,
 )
 
 
@@ -161,3 +168,48 @@ def test_seed_demo_replace_overwrites_without_duplicating_entries(session):
     assert second.entries == first.entries
     exported = export_all(session)
     assert len(exported["entries"]) == first.entries + len(exported["screen_sessions"])
+
+
+def test_seed_demo_covers_every_quest_structure(session, monkeypatch):
+    monkeypatch.setenv("ATLAS_TZ", "UTC")
+    as_of = date(2026, 8, 13)
+    summary = seed_demo(session, as_of=as_of)
+    assert (summary.ambitions, summary.goals, summary.side_quests) == (2, 4, 2)
+    assert summary.time_blocks == 8
+
+    now = datetime(2026, 8, 13, 12, 0, tzinfo=UTC)
+    main = main_quests_view(session, now=now)
+    engineer, calm = main.ambitions
+    assert len(engineer.goals) == 2 and engineer.tasks
+    assert calm.goals == [] and calm.tasks == [] and calm.ambition.progress is None
+    independent = {goal.title: goal for goal in main.independent_goals}
+    assert set(independent) == {"Run a half marathon", "Furnish the new flat"}
+    flat = independent["Furnish the new flat"]
+    assert flat.status is QuestStatus.COMPLETED and flat.completed_with_open_items
+
+    tree = goal_view(session, engineer.goals[0].id, now=now)
+    rust = tree.milestones[0]
+    assert rust.chapters and rust.tasks
+    states = {item.chapter.title: item.chapter.state for item in rust.chapters}
+    assert states == {
+        "Rust fundamentals": ChapterState.IN_PROGRESS,
+        "Async Rust": ChapterState.EMPTY,
+    }
+    assert tree.tasks
+
+    sides = side_quests_view(session, now=now)
+    taxes = next(item for item in sides.side_quests if item.title == "Tax declaration")
+    assert taxes.chapter_count == 1 and taxes.task_count == 1
+    assert {task.title for task in sides.standalone_tasks} == {
+        "Renew passport",
+        "Fix the bike light",
+    }
+    assert inbox_view(session, now=now).count == 3
+
+    today = today_view(session, as_of=as_of, now=now)
+    assert len(today.blocks) == 3
+    assert [item.task.title for item in today.unconfirmed] == [
+        "Read Designing Data-Intensive Applications"
+    ]
+    assert [task.title for task in today.due_today] == ["Renew passport"]
+    assert today.up_next

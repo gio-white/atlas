@@ -115,4 +115,4 @@ drawer's blocks section, and Home's "Today's quests" card, under
 
 ## Status
 
-Q1 in progress: table, rules, services, and API done.
+Q1 done (backend, typed client, seed); Today and Calendar are placeholders until Q3.

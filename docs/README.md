@@ -60,6 +60,7 @@ blocked commit should review, so keep it a plain two-column table.
 | `src/atlas/services/port.py` | `docs/architecture/migrations.md` |
 | `src/atlas/services/quest_port.py` | `docs/architecture/migrations.md` |
 | `src/atlas/services/seed.py` | `docs/architecture/cli.md` |
+| `src/atlas/services/seed_quests.py` | `docs/architecture/cli.md`, `docs/domain/quests.md` |
 | `src/atlas/services/*` | `docs/architecture/overview.md` |
 | `src/atlas/api/routers/entries.py` | `docs/domain/trackers-and-entries.md` |
 | `src/atlas/api/routers/metrics.py` | `docs/domain/trackers-and-entries.md` |

@@ -302,7 +302,8 @@ shared components in `web/src/components/quests/`. Route inventory:
 - `tests/services/test_quests.py` — acceptance criteria 1–21 through the services (in-memory SQLite), structure and delete rules, promote, organize, filters
 - `tests/api/test_quests.py` — every endpoint group through `TestClient`, error mapping
 - `tests/services/test_port.py` — quest export/import, v10 exports
+- `tests/services/test_seed.py` — the demo seed covers every quest shape
 
 ## Status
 
-Q1 in progress: schema 11, export/import, domain rules, services, and the whole API done.
+Q1 done (backend, typed client, seed); the quest screens are placeholders until Q2 and Q3.
