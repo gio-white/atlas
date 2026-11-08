@@ -28,7 +28,9 @@ changes, change it here, in the UI, and in the API together.
 | A quest with nothing under it yet | Not broken down yet | `progress: null` | [quests](../domain/quests.md) |
 | Marked done while parts are still open | Completed with open items | `completed_with_open_items` | [quests](../domain/quests.md) |
 | A planned session on the calendar | Session (time block) | `TimeBlock`, `/time-blocks` | [time blocks](../domain/time-blocks.md) |
-| A session whose time passed without an answer | Not confirmed yet | derived: `scheduled` after `end_at` | [time blocks](../domain/time-blocks.md) |
+| Recording that a session happened (the task stays open) | Session done | `POST /time-blocks/{id}/complete` | [time blocks](../domain/time-blocks.md) |
+| Completing the task itself from a session | Outcome achieved | task `status: completed` via `PATCH /tasks/{id}` | [time blocks](../domain/time-blocks.md) |
+| A session whose time passed without an answer | Unconfirmed | derived: `scheduled` after `end_at` | [time blocks](../domain/time-blocks.md) |
 | Total time planned in sessions | Planned time | `planned_minutes` (never "actual effort") | [time blocks](../domain/time-blocks.md) |
 | A free-text daily note | Journal | `journal` metric in the `life` area, `/journal` | [journal](../domain/journal.md) |
 | One night of sleep | Night | `SleepSession`, `/sleep/sessions` | [sleep](../domain/sleep.md) |

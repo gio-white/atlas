@@ -4,16 +4,19 @@ import { useSearchParams } from 'react-router-dom'
 import { HabitsWeekCard } from '@/components/home/HomeCards'
 import { ScreenTimeCard } from '@/components/home/ScreenTimeCard'
 import { SleepCard } from '@/components/home/SleepCard'
+import { TodaysQuestsCard } from '@/components/home/TodaysQuestsCard'
 import { PageLoading } from '@/components/PageState'
 import {
   getHabitsCalendar,
   getScreenDashboard,
   getSleepView,
+  getTodayQuests,
   type HabitsCalendar,
   listMetrics,
   type Metric,
   type ScreenDashboard,
   type SleepView,
+  type TodayQuests,
 } from '@/lib/api'
 import { useShell } from '@/lib/asOf'
 import { longDateLabel } from '@/lib/dates'
@@ -24,18 +27,20 @@ type HomeData = {
   screenDay: ScreenDashboard | null
   screenWeek: ScreenDashboard | null
   habits: HabitsCalendar | null
+  quests: TodayQuests | null
   metrics: Metric[]
 }
 
 async function loadHome(asOf: string): Promise<HomeData> {
-  const [sleep, screenDay, screenWeek, habits, metrics] = await Promise.all([
+  const [sleep, screenDay, screenWeek, habits, metrics, quests] = await Promise.all([
     getSleepView(asOf).catch(() => null),
     getScreenDashboard('day', asOf).catch(() => null),
     getScreenDashboard('week', asOf).catch(() => null),
     getHabitsCalendar('week', asOf).catch(() => null),
     listMetrics().catch(() => []),
+    getTodayQuests(asOf).catch(() => null),
   ])
-  return { sleep, screenDay, screenWeek, habits, metrics }
+  return { sleep, screenDay, screenWeek, habits, metrics, quests }
 }
 
 export function HomePage() {
@@ -77,7 +82,11 @@ export function HomePage() {
         <SleepCard view={data.sleep} search={search} />
         <ScreenTimeCard day={data.screenDay} week={data.screenWeek} search={search} />
       </section>
-      <section aria-label="Today" className="grid grid-cols-[minmax(0,1fr)] gap-4">
+      <section
+        aria-label="Today"
+        className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]"
+      >
+        <TodaysQuestsCard today={data.quests} search={search} onChanged={refresh} />
         <HabitsWeekCard
           calendar={data.habits}
           metrics={data.metrics}

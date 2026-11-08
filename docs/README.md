@@ -112,6 +112,7 @@ blocked commit should review, so keep it a plain two-column table.
 | `web/src/components/ui/*` | `docs/product/design-system.md` |
 | `web/src/index.css` | `docs/product/design-system.md` |
 | `web/src/lib/theme.ts` | `docs/product/design-system.md` |
+| `web/src/lib/timeBlocks.ts` | `docs/domain/time-blocks.md` |
 | `web/src/lib/api.ts` | `docs/architecture/frontend.md` |
 | `web/src/*` | `docs/architecture/frontend.md`, `docs/product/ux-writing.md` (any user-facing text) |
 | `src/*` | `docs/architecture/overview.md` |
