@@ -1,13 +1,9 @@
-import type { Comparator, PaceStatus } from './api'
+import type { Comparator } from './api'
 
 export function formatComparator(comparator: Comparator): string {
   if (comparator === 'at_least') return '≥'
   if (comparator === 'at_most') return '≤'
   return '='
-}
-
-export function formatPace(pace: PaceStatus): string {
-  return pace.replaceAll('_', ' ')
 }
 
 export function formatEntryValue(

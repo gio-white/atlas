@@ -20,5 +20,10 @@ class ValidationError(ServiceError):
     pass
 
 
+class ConflictError(ServiceError):
+    """The request is valid but clashes with current state (e.g. deleting a quest item that
+    still has children, or completing one that is not eligible without override)."""
+
+
 class UpstreamError(ServiceError):
     """A remote service Atlas depends on (such as a link preview) could not be read."""

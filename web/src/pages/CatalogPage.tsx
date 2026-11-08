@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 
 import { PageError, PageHeader } from '@/components/PageState'
 import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
@@ -15,28 +15,20 @@ import {
   archiveMetric,
   type Comparator,
   createArea,
-  createGoal,
   createHabit,
   createMetric,
   type Direction,
-  type Goal,
-  type GoalHorizon,
-  type GoalKind,
-  type GoalStatus,
   type Habit,
   listAreas,
-  listGoals,
   listHabits,
   listMetrics,
   type Metric,
   type Period,
   updateArea,
-  updateGoal,
   updateHabit,
   updateMetric,
   type ValueType,
 } from '@/lib/api'
-import { HORIZONS, PARENT_HORIZON } from '@/lib/horizons'
 import { isValidSlug } from '@/lib/slug'
 import { cn, todayIso } from '@/lib/utils'
 
@@ -59,20 +51,17 @@ export function CatalogPage() {
   const [areas, setAreas] = useState<Area[]>([])
   const [metrics, setMetrics] = useState<Metric[]>([])
   const [habits, setHabits] = useState<Habit[]>([])
-  const [goals, setGoals] = useState<Goal[]>([])
   const [error, setError] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
-    const [areaRows, metricRows, habitRows, goalRows] = await Promise.all([
+    const [areaRows, metricRows, habitRows] = await Promise.all([
       listAreas(),
       listMetrics(),
       listHabits(),
-      listGoals(),
     ])
     setAreas(areaRows)
     setMetrics(metricRows)
     setHabits(habitRows)
-    setGoals(goalRows)
   }, [])
 
   useEffect(() => {
@@ -92,7 +81,6 @@ export function CatalogPage() {
       <AreaSection areas={areas} onChange={refresh} />
       <MetricSection areas={areas} metrics={metrics} onChange={refresh} />
       <HabitSection metrics={metrics} habits={habits} onChange={refresh} />
-      <GoalSection areas={areas} metrics={metrics} goals={goals} onChange={refresh} />
     </div>
   )
 }
@@ -497,309 +485,6 @@ function EditableHabit({ habit, onChange }: { habit: Habit; onChange: () => Prom
           options={COMPARATORS}
         />
         <Field label="Active to" value={activeTo} onChange={setActiveTo} type="date" />
-        <Button type="submit" size="sm">
-          Save
-        </Button>
-      </form>
-      {error !== null && (
-        <p className="mt-2 text-sm text-bad" role="alert">
-          {error}
-        </p>
-      )}
-    </Card>
-  )
-}
-
-function GoalSection({
-  areas,
-  metrics,
-  goals,
-  onChange,
-}: {
-  areas: Area[]
-  metrics: Metric[]
-  goals: Goal[]
-  onChange: () => Promise<void>
-}) {
-  const numeric = metrics.filter((metric) => metric.value_type !== 'text')
-  const [slug, setSlug] = useState('')
-  const [name, setName] = useState('')
-  const [area, setArea] = useState('')
-  const [kind, setKind] = useState<GoalKind>('metric_target')
-  const [metric, setMetric] = useState(numeric[0]?.slug ?? '')
-  const [target, setTarget] = useState('')
-  const [comparator, setComparator] = useState<Comparator>('at_least')
-  const [measure, setMeasure] = useState<'latest_value' | 'cumulative_since_start'>('latest_value')
-  const [startOn, setStartOn] = useState(todayIso())
-  const [dueOn, setDueOn] = useState(todayIso())
-  const [milestones, setMilestones] = useState('')
-  const [horizon, setHorizon] = useState<GoalHorizon>('medium')
-  const [parent, setParent] = useState('')
-  const [description, setDescription] = useState('')
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (metric === '' && numeric[0] !== undefined) setMetric(numeric[0].slug)
-  }, [metric, numeric])
-
-  async function onCreate(event: FormEvent) {
-    event.preventDefault()
-    const resolved =
-      slug ||
-      name
-        .toLowerCase()
-        .replaceAll(/[^a-z0-9]+/g, '-')
-        .replaceAll(/^-|-$/g, '')
-    if (!isValidSlug(resolved)) {
-      setError('slug must be lowercase letters, digits, and hyphens')
-      return
-    }
-    setError(null)
-    try {
-      await createGoal({
-        slug: resolved,
-        area: area || null,
-        kind,
-        start_on: startOn,
-        due_on: dueOn,
-        name: name || undefined,
-        metric: kind === 'metric_target' ? metric : null,
-        target_value: kind === 'metric_target' ? Number(target) : null,
-        comparator: kind === 'metric_target' ? comparator : null,
-        measure: kind === 'metric_target' ? measure : null,
-        horizon,
-        parent: parent || null,
-        description: description || null,
-        milestones:
-          kind === 'milestone'
-            ? milestones
-                .split('\n')
-                .map((line) => line.trim())
-                .filter(Boolean)
-                .map((item) => ({ name: item }))
-            : null,
-      })
-      setSlug('')
-      setName('')
-      setTarget('')
-      setMilestones('')
-      setDescription('')
-      await onChange()
-    } catch (caught) {
-      setError(messageOf(caught))
-    }
-  }
-
-  return (
-    <section className="flex flex-col gap-3">
-      <h2 className="font-serif text-lg font-medium tracking-tight">Goals</h2>
-      <Card>
-        <form className="grid gap-3 sm:grid-cols-3" onSubmit={onCreate}>
-          <Field label="Name" value={name} onChange={setName} required />
-          <Field label="Slug (optional)" value={slug} onChange={setSlug} />
-          <SelectField
-            label="Area"
-            value={area}
-            onChange={setArea}
-            options={['', ...areas.map((item) => item.slug)]}
-            labels={{ '': 'None' }}
-            required={false}
-          />
-          <SelectField
-            label="Kind"
-            value={kind}
-            onChange={(value) => setKind(value as GoalKind)}
-            options={['metric_target', 'milestone']}
-          />
-          <Field label="Start" value={startOn} onChange={setStartOn} type="date" />
-          <Field label="Due" value={dueOn} onChange={setDueOn} type="date" />
-          <SelectField
-            label="Horizon"
-            value={horizon}
-            onChange={(value) => {
-              setHorizon(value as GoalHorizon)
-              setParent('')
-            }}
-            options={[...HORIZONS]}
-          />
-          {PARENT_HORIZON[horizon] !== null && (
-            <SelectField
-              label="Parent"
-              value={parent}
-              onChange={setParent}
-              options={[
-                '',
-                ...goals
-                  .filter((goal) => goal.horizon === PARENT_HORIZON[horizon])
-                  .map((goal) => goal.slug),
-              ]}
-              labels={{ '': 'None' }}
-              required={false}
-            />
-          )}
-          <div className="sm:col-span-3">
-            <Label htmlFor="goal-description">Description</Label>
-            <textarea
-              id="goal-description"
-              className="mt-1 min-h-16 w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-            />
-          </div>
-          {kind === 'metric_target' ? (
-            <>
-              <SelectField
-                label="Metric"
-                value={metric}
-                onChange={setMetric}
-                options={numeric.map((item) => item.slug)}
-              />
-              <Field label="Target" value={target} onChange={setTarget} required />
-              <SelectField
-                label="Comparator"
-                value={comparator}
-                onChange={(value) => setComparator(value as Comparator)}
-                options={COMPARATORS}
-              />
-              <SelectField
-                label="Measure"
-                value={measure}
-                onChange={(value) => setMeasure(value as 'latest_value' | 'cumulative_since_start')}
-                options={['latest_value', 'cumulative_since_start']}
-              />
-            </>
-          ) : (
-            <div className="sm:col-span-3">
-              <Label htmlFor="milestones">Milestones (one per line)</Label>
-              <textarea
-                id="milestones"
-                className="mt-1 min-h-20 w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                value={milestones}
-                onChange={(event) => setMilestones(event.target.value)}
-              />
-            </div>
-          )}
-          <div className="sm:col-span-3">
-            <Button type="submit">Add goal</Button>
-          </div>
-        </form>
-        {error !== null && (
-          <p className="mt-2 text-sm text-bad" role="alert">
-            {error}
-          </p>
-        )}
-      </Card>
-      {goals.map((goal) => (
-        <EditableGoal key={goal.slug} goal={goal} goals={goals} areas={areas} onChange={onChange} />
-      ))}
-    </section>
-  )
-}
-
-function EditableGoal({
-  goal,
-  goals,
-  areas,
-  onChange,
-}: {
-  goal: Goal
-  goals: Goal[]
-  areas: Area[]
-  onChange: () => Promise<void>
-}) {
-  const [name, setName] = useState(goal.name)
-  const [dueOn, setDueOn] = useState(goal.due_on)
-  const [target, setTarget] = useState(goal.target_value === null ? '' : String(goal.target_value))
-  const [status, setStatus] = useState(goal.status)
-  const [horizon, setHorizon] = useState(goal.horizon)
-  const [parent, setParent] = useState(goal.parent ?? '')
-  const [description, setDescription] = useState(goal.description ?? '')
-  const [area, setArea] = useState(goal.area ?? '')
-  const [error, setError] = useState<string | null>(null)
-  const parentHorizon = PARENT_HORIZON[horizon]
-  const parentOptions =
-    parentHorizon === null
-      ? []
-      : goals
-          .filter((item) => item.slug !== goal.slug && item.horizon === parentHorizon)
-          .map((item) => item.slug)
-
-  async function onSave(event: FormEvent) {
-    event.preventDefault()
-    setError(null)
-    try {
-      await updateGoal(goal.slug, {
-        name,
-        due_on: dueOn,
-        target_value: goal.kind === 'metric_target' && target !== '' ? Number(target) : undefined,
-        status: status === 'achieved' ? undefined : (status as Exclude<GoalStatus, 'achieved'>),
-        horizon,
-        parent: parent || null,
-        description: description || null,
-        area: area || null,
-      })
-      await onChange()
-    } catch (caught) {
-      setError(messageOf(caught))
-    }
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="font-mono text-base">
-          <CatalogSlugLink to={`/goal/${goal.slug}`}>{goal.slug}</CatalogSlugLink>
-        </CardTitle>
-      </CardHeader>
-      <form className="flex flex-wrap items-end gap-3" onSubmit={onSave}>
-        <Field label="Name" value={name} onChange={setName} />
-        <Field label="Due" value={dueOn} onChange={setDueOn} type="date" />
-        {goal.kind === 'metric_target' && (
-          <Field label="Target" value={target} onChange={setTarget} />
-        )}
-        <SelectField
-          label="Status"
-          value={status}
-          onChange={(value) => setStatus(value as GoalStatus)}
-          options={['active', 'paused', 'abandoned', 'achieved']}
-        />
-        <SelectField
-          label="Horizon"
-          value={horizon}
-          onChange={(value) => {
-            const next = value as GoalHorizon
-            setHorizon(next)
-            setParent('')
-          }}
-          options={[...HORIZONS]}
-        />
-        <SelectField
-          label="Area"
-          value={area}
-          onChange={setArea}
-          options={['', ...areas.map((item) => item.slug)]}
-          labels={{ '': 'None' }}
-          required={false}
-        />
-        {parentHorizon !== null && (
-          <SelectField
-            label="Parent"
-            value={parent}
-            onChange={setParent}
-            options={['', ...parentOptions]}
-            labels={{ '': 'None' }}
-            required={false}
-          />
-        )}
-        <div className="min-w-32 flex-1">
-          <Label htmlFor={`${goal.slug}-description`}>Description</Label>
-          <textarea
-            id={`${goal.slug}-description`}
-            className="mt-1 min-h-16 w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-          />
-        </div>
         <Button type="submit" size="sm">
           Save
         </Button>

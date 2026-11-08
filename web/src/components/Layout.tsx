@@ -1,6 +1,6 @@
 import {
   BookOpen,
-  CheckSquare,
+  CalendarDays,
   Clapperboard,
   Compass,
   Flag,
@@ -8,20 +8,24 @@ import {
   HeartPulse,
   History,
   Home,
+  Inbox,
   Menu,
   Monitor,
   Moon,
   Mountain,
   Plus,
+  Scroll,
   Settings,
+  Sun,
   X,
 } from 'lucide-react'
-import { useState } from 'react'
-import { NavLink, Outlet, useSearchParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { NavLink, Outlet, useLocation, useSearchParams } from 'react-router-dom'
 
 import { LogDialog } from '@/components/LogDialog'
 import { ProfileDialog } from '@/components/ProfileDialog'
 import { Button } from '@/components/ui/button'
+import { getInbox } from '@/lib/api'
 import type { ShellContext } from '@/lib/asOf'
 import { longDateLabel } from '@/lib/dates'
 import { initials, readDisplayName } from '@/lib/profile'
@@ -43,12 +47,39 @@ const NAV = [
     icon: SECTION_ICONS[section.slug],
   })),
   { to: '/screen', label: 'Screen Time', icon: Monitor },
-  { to: '/goal', label: 'Goals', icon: Flag },
   { to: '/habit', label: 'Habits', icon: Flame },
-  { to: '/tasks', label: 'Tasks', icon: CheckSquare },
   { to: '/journal', label: 'Journal', icon: BookOpen },
   { to: '/history', label: 'History', icon: History },
 ] as const
+
+const QUEST_NAV = [
+  { to: '/today', label: 'Today', icon: Sun },
+  { to: '/inbox', label: 'Inbox', icon: Inbox },
+  { to: '/quests', label: 'Main quests', icon: Flag },
+  { to: '/side-quests', label: 'Side quests', icon: Scroll },
+  { to: '/calendar', label: 'Calendar', icon: CalendarDays },
+] as const
+
+/** Number of Inbox items for the sidebar badge; refreshed on every navigation. */
+function useInboxCount(): number {
+  const { pathname } = useLocation()
+  const [count, setCount] = useState(0)
+  useEffect(() => {
+    let cancelled = false
+    void pathname
+    getInbox()
+      .then((inbox) => {
+        if (!cancelled) setCount(inbox.count)
+      })
+      .catch(() => {
+        if (!cancelled) setCount(0)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [pathname])
+  return count
+}
 
 function navClass({ isActive }: { isActive: boolean }) {
   return cn(
@@ -65,6 +96,7 @@ export function Layout() {
   const [logOpen, setLogOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const inboxCount = useInboxCount()
 
   function onDateChange(value: string) {
     const next = new URLSearchParams(searchParams)
@@ -94,6 +126,29 @@ export function Layout() {
           >
             <item.icon className="size-4 shrink-0" aria-hidden />
             {item.label}
+          </NavLink>
+        ))}
+      </nav>
+      <nav className="flex flex-col gap-1" aria-labelledby="quests-nav-heading">
+        <h2 id="quests-nav-heading" className="px-3 pb-1 text-xs font-medium text-muted">
+          Quests
+        </h2>
+        {QUEST_NAV.map((item) => (
+          <NavLink
+            key={item.to}
+            to={{ pathname: item.to, search }}
+            className={navClass}
+            onClick={() => setSidebarOpen(false)}
+          >
+            <item.icon className="size-4 shrink-0" aria-hidden />
+            {item.label}
+            {item.to === '/inbox' && inboxCount > 0 && (
+              <span className="ml-auto rounded-full bg-raised px-2 text-xs tabular-nums text-muted">
+                <span className="sr-only">, </span>
+                {inboxCount}
+                <span className="sr-only"> to sort</span>
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>

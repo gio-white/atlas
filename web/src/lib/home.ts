@@ -1,4 +1,4 @@
-import type { ScreenDashboard, TaskItem, WeekDayCell, WeekHabit } from './api'
+import type { ScreenDashboard, WeekDayCell, WeekHabit } from './api'
 
 export type ScreenSplit = 'category' | 'device' | 'app'
 export type ScreenRange = 'day' | 'week'
@@ -28,19 +28,6 @@ export function elapsedDays(dash: Pick<ScreenDashboard, 'range_start' | 'range_e
   const start = Date.parse(`${dash.range_start}T00:00:00Z`)
   const end = Date.parse(`${dash.range_end}T00:00:00Z`)
   return Math.max(1, Math.round((end - start) / 86_400_000) + 1)
-}
-
-export function visibleTasks(tasks: TaskItem[], asOf: string): TaskItem[] {
-  return tasks
-    .filter((task) => task.done_at === null || localDate(task.done_at) === asOf)
-    .sort((a, b) => Number(a.done_at !== null) - Number(b.done_at !== null))
-}
-
-function localDate(iso: string): string {
-  const date = new Date(iso)
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${date.getFullYear()}-${month}-${day}`
 }
 
 export type HabitCellState = 'off' | 'skipped' | 'future' | 'done' | 'missed' | 'open'

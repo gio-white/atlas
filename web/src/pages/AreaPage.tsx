@@ -1,19 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 
-import { PaceBadge } from '@/components/PaceBadge'
-import {
-  EmptyState,
-  PageHeader,
-  PageLoading,
-  PageUnavailable,
-  ProgressBar,
-} from '@/components/PageState'
+import { EmptyState, PageHeader, PageLoading, PageUnavailable } from '@/components/PageState'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ApiError, type AreaView, getAreaView } from '@/lib/api'
 import { useAsOf } from '@/lib/asOf'
-import { formatComparator, formatPercent } from '@/lib/format'
+import { formatComparator } from '@/lib/format'
 
 export function AreaPage() {
   const { slug } = useParams()
@@ -104,31 +97,6 @@ export function AreaPage() {
                   {formatComparator(habit.comparator)} {habit.target_value} · streak{' '}
                   {habit.current_streak}
                 </p>
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
-      <section>
-        <h2 className="mb-3 font-serif text-lg font-medium tracking-tight">Goals</h2>
-        {view.goals.length === 0 ? (
-          <EmptyState title="No goals" />
-        ) : (
-          <div className="flex flex-col gap-3">
-            {view.goals.map((goal) => (
-              <Link
-                key={goal.slug}
-                to={{ pathname: `/goal/${goal.slug}`, search }}
-                className="flex items-center justify-between rounded-2xl border border-line bg-surface p-4 shadow-[var(--shadow-card)] motion-safe:transition-colors motion-safe:duration-200 hover:bg-raised"
-              >
-                <div>
-                  <p className="font-medium">{goal.name}</p>
-                  <p className="font-mono text-xs text-muted">{formatPercent(goal.fraction)}</p>
-                  <div className="mt-2 w-40">
-                    <ProgressBar value={goal.fraction} />
-                  </div>
-                </div>
-                <PaceBadge pace={goal.pace} />
               </Link>
             ))}
           </div>

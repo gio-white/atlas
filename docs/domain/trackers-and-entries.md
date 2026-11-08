@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Metrics define what is measured; entries are the recorded facts every habit, goal, and review screen is computed from. (The UI may call a metric a tracker and an entry a record once the navigation discussion settles names; until then the UI uses the API words.)
+Metrics define what is measured; entries are the recorded facts every habit and review screen is computed from. (The UI may call a metric a tracker and an entry a record once the navigation discussion settles names; until then the UI uses the API words.)
 
 ## Concepts
 

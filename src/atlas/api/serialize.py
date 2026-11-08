@@ -7,15 +7,12 @@ from atlas.api.schemas import (
     EntertainmentTopicOut,
     EntertainmentTopicRefOut,
     EntryOut,
-    GoalDetailOut,
-    GoalOut,
     HabitBreakOut,
     HabitCheckInOut,
     HabitDetailOut,
     HabitOut,
     HabitStatusOut,
     MetricOut,
-    MilestoneOut,
     ScreenAppOut,
     ScreenBudgetOut,
     ScreenCategoryOut,
@@ -23,29 +20,21 @@ from atlas.api.schemas import (
     ScreenSessionRecordOut,
     SleepSessionOut,
     SleepStageOut,
-    TaskOut,
 )
 from atlas.domain import (
     Aggregation,
     Comparator,
     Direction,
-    GoalHorizon,
-    GoalKind,
-    GoalStatus,
     HabitKind,
-    Measure,
     Period,
     ScreenBudgetTargetKind,
     ScreenJudgment,
     Source,
-    TaskBucket,
-    TaskPriority,
     TimeOfDay,
     ValueType,
 )
 from atlas.services import (
     list_areas,
-    list_goals,
     list_metrics,
     list_screen_apps,
     list_screen_categories,
@@ -109,7 +98,7 @@ def entry_out_for(session: Session, entry: Any) -> EntryOut:
     return entry_out(entry, metric_slug_by_id(session)[entry.metric_id])
 
 
-def habit_out(habit: Any, metric: Any, goal_slug: str | None) -> HabitOut:
+def habit_out(habit: Any, metric: Any) -> HabitOut:
     return HabitOut(
         id=habit.id,
         slug=habit.slug,
@@ -122,7 +111,6 @@ def habit_out(habit: Any, metric: Any, goal_slug: str | None) -> HabitOut:
         unit=metric.unit,
         weekdays=list(habit.weekdays) if habit.weekdays is not None else None,
         time_of_day=TimeOfDay(habit.time_of_day),
-        goal=goal_slug,
         active_from=habit.active_from,
         active_to=habit.active_to,
         archived_at=habit.archived_at,
@@ -131,10 +119,7 @@ def habit_out(habit: Any, metric: Any, goal_slug: str | None) -> HabitOut:
 
 def habits_out(session: Session, habits: list[Any]) -> list[HabitOut]:
     metrics = {metric.id: metric for metric in list_metrics(session, include_archived=True)}
-    goals = {goal.id: goal.slug for goal in list_goals(session)}
-    return [
-        habit_out(habit, metrics[habit.metric_id], goals.get(habit.goal_id)) for habit in habits
-    ]
+    return [habit_out(habit, metrics[habit.metric_id]) for habit in habits]
 
 
 def habit_detail_out(session: Session, detail: Any) -> HabitDetailOut:
@@ -143,73 +128,6 @@ def habit_detail_out(session: Session, detail: Any) -> HabitDetailOut:
         status=HabitStatusOut.model_validate(detail.status),
         breaks=[HabitBreakOut.model_validate(row) for row in detail.breaks],
         recent=[HabitCheckInOut.model_validate(row) for row in detail.recent],
-    )
-
-
-def goal_out(
-    goal: Any,
-    area_slug: str | None,
-    metric_slug: str | None,
-    parent_slug: str | None,
-) -> GoalOut:
-    return GoalOut(
-        id=goal.id,
-        slug=goal.slug,
-        area=area_slug,
-        name=goal.name,
-        kind=GoalKind(goal.kind),
-        metric=metric_slug,
-        target_value=goal.target_value,
-        comparator=Comparator(goal.comparator) if goal.comparator is not None else None,
-        baseline_value=goal.baseline_value,
-        measure=Measure(goal.measure) if goal.measure is not None else None,
-        start_on=goal.start_on,
-        due_on=goal.due_on,
-        horizon=GoalHorizon(goal.horizon),
-        parent=parent_slug,
-        description=goal.description,
-        status=GoalStatus(goal.status),
-        achieved_at=goal.achieved_at,
-    )
-
-
-def goal_slug_by_id(session: Session) -> dict[int, str]:
-    return {goal.id: goal.slug for goal in list_goals(session) if goal.id is not None}
-
-
-def goals_out(session: Session, goals: list[Any]) -> list[GoalOut]:
-    areas = area_slug_by_id(session)
-    metrics = metric_slug_by_id(session)
-    parents = goal_slug_by_id(session)
-    return [
-        goal_out(
-            goal,
-            areas.get(goal.area_id) if goal.area_id is not None else None,
-            metrics.get(goal.metric_id) if goal.metric_id is not None else None,
-            parents.get(goal.parent_id) if goal.parent_id is not None else None,
-        )
-        for goal in goals
-    ]
-
-
-def milestone_out(milestone: Any) -> MilestoneOut:
-    return MilestoneOut(name=milestone.name, due_on=milestone.due_on, done_at=milestone.done_at)
-
-
-def goal_detail_out(session: Session, detail: Any) -> GoalDetailOut:
-    areas = area_slug_by_id(session)
-    metrics = metric_slug_by_id(session)
-    base = goal_out(
-        detail.goal,
-        areas.get(detail.goal.area_id) if detail.goal.area_id is not None else None,
-        metrics.get(detail.goal.metric_id) if detail.goal.metric_id is not None else None,
-        goal_slug_by_id(session).get(detail.goal.parent_id)
-        if detail.goal.parent_id is not None
-        else None,
-    )
-    return GoalDetailOut(
-        **base.model_dump(),
-        milestones=[milestone_out(item) for item in detail.milestones],
     )
 
 
@@ -243,28 +161,6 @@ def screen_apps_out(session: Session, apps: list[Any]) -> list[ScreenAppOut]:
     metrics = metric_slug_by_id(session)
     return [
         screen_app_out(app, categories[app.category_id], metrics[app.metric_id]) for app in apps
-    ]
-
-
-def task_out(task: Any, goal_slug: str | None) -> TaskOut:
-    return TaskOut(
-        id=task.id,
-        title=task.title,
-        bucket=TaskBucket(task.bucket),
-        due_on=task.due_on,
-        due_at=task.due_at,
-        priority=TaskPriority(task.priority),
-        goal=goal_slug,
-        done_at=task.done_at,
-        created_at=task.created_at,
-    )
-
-
-def tasks_out(session: Session, tasks: list[Any]) -> list[TaskOut]:
-    goals = goal_slug_by_id(session)
-    return [
-        task_out(task, goals.get(task.goal_id) if task.goal_id is not None else None)
-        for task in tasks
     ]
 
 

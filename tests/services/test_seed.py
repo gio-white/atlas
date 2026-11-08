@@ -1,18 +1,24 @@
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
 from atlas.db import CURRENT_SCHEMA_VERSION
-from atlas.domain import Period
+from atlas.domain import ChapterState, Period, QuestStatus
 from atlas.services import (
     ValidationError,
     export_all,
     habit_statuses,
     list_entries,
-    list_goals,
     screen_dashboard,
     seed_demo,
     sleep_view,
+)
+from atlas.services.quest_views import (
+    goal_view,
+    inbox_view,
+    main_quests_view,
+    side_quests_view,
+    today_view,
 )
 
 
@@ -24,10 +30,7 @@ def test_seed_demo_loads_the_demo_dataset(session):
     assert summary.areas == 6
     assert summary.metrics == 18
     assert summary.habits == 7
-    assert summary.goals == 7
-    assert summary.milestones == 7
     assert summary.entries > 0
-    assert summary.tasks == 3
     assert summary.screen_categories == 4
     assert summary.screen_apps == 6
     assert summary.screen_devices == 2
@@ -60,26 +63,6 @@ def test_seed_demo_loads_the_demo_dataset(session):
     assert habits["pushups-daily"]["time_of_day"] == "morning"
     assert habits["meditated-daily"]["name"] == "Meditate"
     assert habits["deep-work-weekdays"]["name"] == "Deep work on weekdays"
-    assert {goal["slug"] for goal in payload["goals"]} == {
-        "bodyweight-75",
-        "durable-health",
-        "emergency-fund",
-        "financial-freedom",
-        "read-12-books",
-        "ship-side-project",
-        "workout-this-week",
-    }
-    by_slug = {goal["slug"]: goal for goal in payload["goals"]}
-    assert by_slug["bodyweight-75"]["parent"] == "durable-health"
-    assert by_slug["bodyweight-75"]["horizon"] == "medium"
-    assert by_slug["durable-health"]["area"] is None
-    assert by_slug["financial-freedom"]["area"] is None
-    assert by_slug["bodyweight-75"]["area"] == "health"
-    assert {task["title"] for task in payload["tasks"]} == {
-        "Evening walk",
-        "Meditate for 10 minutes",
-        "Pushups - 3 sets",
-    }
     occurred = {entry["occurred_on"] for entry in payload["entries"]}
     assert as_of.isoformat() in occurred
     assert (as_of - timedelta(days=27)).isoformat() in occurred
@@ -148,7 +131,6 @@ def test_seed_demo_makes_today_reviewable(session):
     assert "meditated-daily" in slugs
     assert "coffee-daily" in slugs
     assert list_entries(session, start_on=as_of, end_on=as_of)
-    assert list_goals(session)
 
 
 def test_seed_demo_fills_screen_dashboard(session, monkeypatch):
@@ -186,3 +168,48 @@ def test_seed_demo_replace_overwrites_without_duplicating_entries(session):
     assert second.entries == first.entries
     exported = export_all(session)
     assert len(exported["entries"]) == first.entries + len(exported["screen_sessions"])
+
+
+def test_seed_demo_covers_every_quest_structure(session, monkeypatch):
+    monkeypatch.setenv("ATLAS_TZ", "UTC")
+    as_of = date(2026, 8, 13)
+    summary = seed_demo(session, as_of=as_of)
+    assert (summary.ambitions, summary.goals, summary.side_quests) == (2, 4, 2)
+    assert summary.time_blocks == 8
+
+    now = datetime(2026, 8, 13, 12, 0, tzinfo=UTC)
+    main = main_quests_view(session, now=now)
+    engineer, calm = main.ambitions
+    assert len(engineer.goals) == 2 and engineer.tasks
+    assert calm.goals == [] and calm.tasks == [] and calm.ambition.progress is None
+    independent = {goal.title: goal for goal in main.independent_goals}
+    assert set(independent) == {"Run a half marathon", "Furnish the new flat"}
+    flat = independent["Furnish the new flat"]
+    assert flat.status is QuestStatus.COMPLETED and flat.completed_with_open_items
+
+    tree = goal_view(session, engineer.goals[0].id, now=now)
+    rust = tree.milestones[0]
+    assert rust.chapters and rust.tasks
+    states = {item.chapter.title: item.chapter.state for item in rust.chapters}
+    assert states == {
+        "Rust fundamentals": ChapterState.IN_PROGRESS,
+        "Async Rust": ChapterState.EMPTY,
+    }
+    assert tree.tasks
+
+    sides = side_quests_view(session, now=now)
+    taxes = next(item for item in sides.side_quests if item.title == "Tax declaration")
+    assert taxes.chapter_count == 1 and taxes.task_count == 1
+    assert {task.title for task in sides.standalone_tasks} == {
+        "Renew passport",
+        "Fix the bike light",
+    }
+    assert inbox_view(session, now=now).count == 3
+
+    today = today_view(session, as_of=as_of, now=now)
+    assert len(today.blocks) == 3
+    assert [item.task.title for item in today.unconfirmed] == [
+        "Read Designing Data-Intensive Applications"
+    ]
+    assert [task.title for task in today.due_today] == ["Renew passport"]
+    assert today.up_next

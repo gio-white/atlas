@@ -1,4 +1,5 @@
 import base64
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Any
 
@@ -11,11 +12,9 @@ from atlas.db.models import (
     EntertainmentTitleTopic,
     EntertainmentTopic,
     Entry,
-    Goal,
     Habit,
     HabitBreak,
     Metric,
-    Milestone,
     ScreenApp,
     ScreenBudget,
     ScreenCategory,
@@ -23,7 +22,6 @@ from atlas.db.models import (
     ScreenSession,
     SleepSession,
     SleepSessionStage,
-    Task,
 )
 from atlas.domain import (
     Aggregation,
@@ -31,45 +29,59 @@ from atlas.domain import (
     Direction,
     EntertainmentKind,
     EntertainmentStatus,
-    GoalHorizon,
-    GoalKind,
-    GoalStatus,
     HabitKind,
-    Measure,
     Period,
     ScreenBudgetTargetKind,
     ScreenJudgment,
     SleepStage,
     Source,
-    TaskBucket,
-    TaskPriority,
     TimeOfDay,
     ValueType,
-    infer_horizon,
-    parent_horizon_is_valid,
 )
 from atlas.services.errors import ValidationError
 from atlas.services.lookups import (
     require_area,
     require_entertainment_topic,
-    require_goal,
     require_metric,
     require_screen_app,
     require_screen_category,
     require_screen_device,
 )
+from atlas.services.quest_port import (
+    LEGACY_SECTIONS,
+    QUEST_SECTIONS,
+    clear_quests,
+    export_quests,
+    import_quests,
+)
 from atlas.services.slugs import normalize_slug
+
+QUESTS_SCHEMA_VERSION = 11
+
+
+@dataclass(frozen=True, slots=True)
+class ImportSummary:
+    schema_version: int
+    ignored_sections: tuple[str, ...] = ()
+
+    @property
+    def notes(self) -> list[str]:
+        if not self.ignored_sections:
+            return []
+        names = ", ".join(self.ignored_sections)
+        return [
+            f"Skipped {names} from this version {self.schema_version} export: "
+            "quests replaced the old goals and tasks."
+        ]
 
 
 def export_all(session: Session) -> dict[str, Any]:
     areas = list(session.exec(select(Area).order_by(Area.slug)).all())
     metrics = list(session.exec(select(Metric).order_by(Metric.slug)).all())
     habits = list(session.exec(select(Habit).order_by(Habit.slug)).all())
-    goals = list(session.exec(select(Goal).order_by(Goal.slug)).all())
     breaks_by_habit: dict[int | None, list[HabitBreak]] = {}
     for row in session.exec(select(HabitBreak).order_by(HabitBreak.start_on)).all():
         breaks_by_habit.setdefault(row.habit_id, []).append(row)
-    milestones = list(session.exec(select(Milestone).order_by(Milestone.id)).all())
     screen_categories = list(
         session.exec(select(ScreenCategory).order_by(ScreenCategory.slug)).all()
     )
@@ -88,12 +100,10 @@ def export_all(session: Session) -> dict[str, Any]:
     sleep_stage_rows = list(
         session.exec(select(SleepSessionStage).order_by(SleepSessionStage.started_at)).all()
     )
-    tasks = list(session.exec(select(Task).order_by(Task.id)).all())
     entries = list(session.exec(select(Entry).order_by(Entry.occurred_on, Entry.id)).all())
 
     area_by_id = {area.id: area.slug for area in areas}
     metric_by_id = {metric.id: metric.slug for metric in metrics}
-    goal_by_id = {goal.id: goal.slug for goal in goals}
     category_by_id = {category.id: category.slug for category in screen_categories}
     device_by_id = {device.id: device.slug for device in screen_devices}
     app_by_id = {app.id: app.slug for app in screen_apps}
@@ -115,11 +125,9 @@ def export_all(session: Session) -> dict[str, Any]:
         "areas": [_export_area(area) for area in areas],
         "metrics": [_export_metric(metric, area_by_id) for metric in metrics],
         "habits": [
-            _export_habit(habit, metric_by_id, goal_by_id, breaks_by_habit.get(habit.id, []))
+            _export_habit(habit, metric_by_id, breaks_by_habit.get(habit.id, []))
             for habit in habits
         ],
-        "goals": [_export_goal(goal, area_by_id, metric_by_id, goal_by_id) for goal in goals],
-        "milestones": [_export_milestone(row, goal_by_id) for row in milestones],
         "screen_categories": [_export_screen_category(row) for row in screen_categories],
         "screen_apps": [
             _export_screen_app(row, category_by_id, metric_by_id) for row in screen_apps
@@ -137,18 +145,22 @@ def export_all(session: Session) -> dict[str, Any]:
         "sleep_sessions": [
             _export_sleep_session(row, stages_by_sleep.get(row.id, [])) for row in sleep_sessions
         ],
-        "tasks": [_export_task(task, goal_by_id) for task in tasks],
+        **export_quests(session),
         "entries": [_export_entry(entry, metric_by_id) for entry in entries],
     }
 
 
-def import_all(session: Session, payload: dict[str, Any], *, replace: bool = False) -> None:
+def import_all(
+    session: Session, payload: dict[str, Any], *, replace: bool = False
+) -> ImportSummary:
     version = payload.get("schema_version")
     if version not in set(range(1, CURRENT_SCHEMA_VERSION + 1)):
         raise ValidationError(
             f"unsupported export schema_version {version!r}; "
             f"expected 1 through {CURRENT_SCHEMA_VERSION}"
         )
+    has_quests = version >= QUESTS_SCHEMA_VERSION
+    ignored = () if has_quests else tuple(key for key in LEGACY_SECTIONS if payload.get(key))
     try:
         if replace:
             _clear_user_data(session)
@@ -158,17 +170,8 @@ def import_all(session: Session, payload: dict[str, Any], *, replace: bool = Fal
         for raw in payload.get("metrics", []):
             _import_metric(session, raw)
         session.flush()
-        for raw in payload.get("goals", []):
-            _import_goal(session, raw)
-        session.flush()
-        for raw in payload.get("goals", []):
-            _import_goal_parent(session, raw)
-        session.flush()
         for raw in payload.get("habits", []):
             _import_habit(session, raw)
-        session.flush()
-        for raw in payload.get("milestones", []):
-            _import_milestone(session, raw)
         session.flush()
         for raw in payload.get("screen_categories", []):
             _import_screen_category(session, raw)
@@ -184,8 +187,6 @@ def import_all(session: Session, payload: dict[str, Any], *, replace: bool = Fal
         session.flush()
         screen_metric_ids = {app.metric_id for app in session.exec(select(ScreenApp)).all()}
         has_sessions = "screen_sessions" in payload
-        for raw in payload.get("tasks", []):
-            _import_task(session, raw)
         for raw in payload.get("entries", []):
             metric = require_metric(session, normalize_slug(_require(raw, "metric")))
             if has_sessions and metric.id in screen_metric_ids:
@@ -204,17 +205,17 @@ def import_all(session: Session, payload: dict[str, Any], *, replace: bool = Fal
             _import_entertainment_title(session, raw)
         for raw in payload.get("sleep_sessions", []):
             _import_sleep_session(session, raw)
+        if has_quests:
+            import_quests(session, {key: payload.get(key, []) for key in QUEST_SECTIONS})
         session.commit()
     except Exception:
         session.rollback()
         raise
+    return ImportSummary(schema_version=version, ignored_sections=ignored)
 
 
 def _clear_user_data(session: Session) -> None:
-    for goal in session.exec(select(Goal)).all():
-        goal.parent_id = None
-        session.add(goal)
-    session.flush()
+    clear_quests(session)
     for model in (
         HabitBreak,
         SleepSessionStage,
@@ -224,10 +225,7 @@ def _clear_user_data(session: Session) -> None:
         EntertainmentTopic,
         ScreenSession,
         Entry,
-        Milestone,
         Habit,
-        Task,
-        Goal,
         ScreenBudget,
         ScreenApp,
         ScreenDevice,
@@ -265,7 +263,6 @@ def _export_metric(metric: Metric, area_by_id: dict[int | None, str]) -> dict[st
 def _export_habit(
     habit: Habit,
     metric_by_id: dict[int | None, str],
-    goal_by_id: dict[int | None, str],
     breaks: list[HabitBreak],
 ) -> dict[str, Any]:
     return {
@@ -280,7 +277,6 @@ def _export_habit(
         "active_to": habit.active_to.isoformat() if habit.active_to is not None else None,
         "kind": str(habit.kind),
         "time_of_day": str(habit.time_of_day),
-        "goal": goal_by_id.get(habit.goal_id) if habit.goal_id is not None else None,
         "archived_at": _iso_dt(habit.archived_at),
         "breaks": [
             {
@@ -290,41 +286,6 @@ def _export_habit(
             }
             for row in breaks
         ],
-    }
-
-
-def _export_goal(
-    goal: Goal,
-    area_by_id: dict[int | None, str],
-    metric_by_id: dict[int | None, str],
-    goal_by_id: dict[int | None, str],
-) -> dict[str, Any]:
-    return {
-        "slug": goal.slug,
-        "area": area_by_id.get(goal.area_id) if goal.area_id is not None else None,
-        "name": goal.name,
-        "kind": str(goal.kind),
-        "metric": metric_by_id.get(goal.metric_id),
-        "target_value": goal.target_value,
-        "comparator": str(goal.comparator) if goal.comparator is not None else None,
-        "baseline_value": goal.baseline_value,
-        "measure": str(goal.measure) if goal.measure is not None else None,
-        "start_on": goal.start_on.isoformat(),
-        "due_on": goal.due_on.isoformat(),
-        "horizon": str(goal.horizon),
-        "parent": goal_by_id.get(goal.parent_id),
-        "description": goal.description,
-        "status": str(goal.status),
-        "achieved_at": _iso_dt(goal.achieved_at),
-    }
-
-
-def _export_milestone(milestone: Milestone, goal_by_id: dict[int | None, str]) -> dict[str, Any]:
-    return {
-        "goal": goal_by_id[milestone.goal_id],
-        "name": milestone.name,
-        "due_on": milestone.due_on.isoformat() if milestone.due_on is not None else None,
-        "done_at": _iso_dt(milestone.done_at),
     }
 
 
@@ -614,8 +575,6 @@ def _import_habit(session: Session, raw: dict[str, Any]) -> None:
     kind = raw.get("kind")
     existing.kind = HabitKind(kind) if kind else _legacy_habit_kind(metric)
     existing.time_of_day = TimeOfDay(raw.get("time_of_day") or TimeOfDay.ANYTIME)
-    goal_slug = raw.get("goal")
-    existing.goal_id = require_goal(session, normalize_slug(goal_slug)).id if goal_slug else None
     existing.archived_at = _parse_datetime(raw.get("archived_at"))
     session.flush()
     for row in session.exec(select(HabitBreak).where(HabitBreak.habit_id == existing.id)).all():
@@ -638,81 +597,6 @@ def _legacy_habit_kind(metric: Metric) -> HabitKind:
     if value_type is ValueType.DURATION:
         return HabitKind.DURATION
     return HabitKind.COUNT
-
-
-def _import_goal(session: Session, raw: dict[str, Any]) -> None:
-    slug = normalize_slug(_require(raw, "slug"))
-    area_raw = raw.get("area")
-    area_id = require_area(session, normalize_slug(area_raw)).id if area_raw else None
-    metric_slug = raw.get("metric")
-    metric_id = require_metric(session, normalize_slug(metric_slug)).id if metric_slug else None
-    existing = session.exec(select(Goal).where(Goal.slug == slug)).first()
-    if existing is None:
-        existing = Goal(
-            slug=slug,
-            area_id=area_id,
-            name=_require(raw, "name"),
-            kind=GoalKind(_require(raw, "kind")),
-            start_on=_parse_date(_require(raw, "start_on")),
-            due_on=_parse_date(_require(raw, "due_on")),
-        )
-        session.add(existing)
-    existing.area_id = area_id
-    existing.name = raw.get("name", existing.name)
-    existing.kind = GoalKind(raw.get("kind", existing.kind))
-    existing.metric_id = metric_id
-    existing.target_value = raw.get("target_value")
-    comparator = raw.get("comparator")
-    existing.comparator = Comparator(comparator) if comparator else None
-    existing.baseline_value = raw.get("baseline_value")
-    measure = raw.get("measure")
-    existing.measure = Measure(measure) if measure else None
-    existing.start_on = _parse_date(raw.get("start_on", existing.start_on.isoformat()))
-    existing.due_on = _parse_date(raw.get("due_on", existing.due_on.isoformat()))
-    horizon = raw.get("horizon")
-    if horizon:
-        existing.horizon = GoalHorizon(horizon)
-    else:
-        existing.horizon = infer_horizon(existing.start_on, existing.due_on)
-    existing.description = raw.get("description")
-    existing.status = GoalStatus(raw.get("status", existing.status))
-    existing.achieved_at = _parse_datetime(raw.get("achieved_at"))
-
-
-def _import_goal_parent(session: Session, raw: dict[str, Any]) -> None:
-    slug = normalize_slug(_require(raw, "slug"))
-    goal = require_goal(session, slug)
-    parent_slug = raw.get("parent")
-    if not parent_slug:
-        goal.parent_id = None
-        return
-    parent = require_goal(session, normalize_slug(parent_slug))
-    child_horizon = GoalHorizon(goal.horizon)
-    parent_horizon = GoalHorizon(parent.horizon)
-    if not parent_horizon_is_valid(child_horizon, parent_horizon):
-        raise ValidationError(f"goal {slug!r} cannot parent under {parent.slug!r}")
-    if parent.id == goal.id:
-        raise ValidationError("a goal cannot be its own parent")
-    goal.parent_id = parent.id
-
-
-def _import_milestone(session: Session, raw: dict[str, Any]) -> None:
-    goal = require_goal(session, normalize_slug(_require(raw, "goal")))
-    name = _require(raw, "name")
-    existing = next(
-        (
-            row
-            for row in session.exec(select(Milestone).where(Milestone.goal_id == goal.id)).all()
-            if row.name == name
-        ),
-        None,
-    )
-    due_on = raw.get("due_on")
-    if existing is None:
-        existing = Milestone(goal_id=goal.id, name=name)
-        session.add(existing)
-    existing.due_on = _parse_date(due_on) if due_on else None
-    existing.done_at = _parse_datetime(raw.get("done_at"))
 
 
 def _import_screen_category(session: Session, raw: dict[str, Any]) -> None:
@@ -851,38 +735,6 @@ def _backfill_imported_sessions(session: Session) -> None:
                 entry_id=entry.id,
             )
         )
-
-
-def _export_task(task: Task, goal_by_id: dict[int | None, str]) -> dict[str, Any]:
-    return {
-        "title": task.title,
-        "bucket": str(task.bucket),
-        "due_on": task.due_on.isoformat() if task.due_on is not None else None,
-        "due_at": _iso_dt(task.due_at),
-        "priority": str(task.priority),
-        "goal": goal_by_id.get(task.goal_id),
-        "done_at": _iso_dt(task.done_at),
-        "created_at": _iso_dt(task.created_at),
-    }
-
-
-def _import_task(session: Session, raw: dict[str, Any]) -> None:
-    created_at = _parse_datetime(raw.get("created_at")) or datetime.now(UTC)
-    due_on = raw.get("due_on")
-    goal_slug = raw.get("goal")
-    goal_id = require_goal(session, normalize_slug(goal_slug)).id if goal_slug else None
-    session.add(
-        Task(
-            title=_require(raw, "title"),
-            bucket=TaskBucket(_require(raw, "bucket")),
-            due_on=_parse_date(due_on) if due_on else None,
-            due_at=_parse_datetime(raw.get("due_at")),
-            priority=TaskPriority(raw.get("priority", TaskPriority.NORMAL)),
-            goal_id=goal_id,
-            done_at=_parse_datetime(raw.get("done_at")),
-            created_at=created_at,
-        )
-    )
 
 
 def _import_entry(session: Session, raw: dict[str, Any], metric: Metric | None = None) -> Entry:

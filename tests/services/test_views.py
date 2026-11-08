@@ -1,10 +1,9 @@
 from datetime import date
 
-from atlas.domain import Comparator, GoalKind, HabitKind, Measure, Period
+from atlas.domain import Comparator, HabitKind, Period
 from atlas.services import (
     archive_metric,
     area_view,
-    create_goal,
     create_habit,
     habit_calendar,
     log_entry,
@@ -72,20 +71,8 @@ def test_habit_calendar_day_leaves_weekly_satisfied_open(session):
     assert calendar.habits[0].days[0].satisfied is None
 
 
-def test_area_view_groups_metrics_habits_and_goals(session):
+def test_area_view_groups_metrics_and_habits(session):
     seed_daily_pushups(session)
-    create_goal(
-        session,
-        "bodyweight-75",
-        area_slug="health",
-        kind=GoalKind.METRIC_TARGET,
-        metric_slug="weight",
-        target_value=75.0,
-        comparator=Comparator.AT_MOST,
-        measure=Measure.LATEST_VALUE,
-        start_on=date(2026, 1, 1),
-        due_on=date(2026, 12, 31),
-    )
     log_pushups(session, date(2026, 8, 13), 30)
     log_entry(session, "weight", 78.4, occurred_on=date(2026, 8, 13))
 
@@ -97,7 +84,7 @@ def test_area_view_groups_metrics_habits_and_goals(session):
     assert weight.latest_value == 78.4
     assert weight.latest_on == date(2026, 8, 13)
     assert [habit.slug for habit in view.habits] == ["pushups-daily"]
-    assert [goal.slug for goal in view.goals] == ["bodyweight-75"]
+    assert not hasattr(view, "goals")
 
 
 def test_habit_calendar_carries_kind_and_weekdays_for_labels(session):

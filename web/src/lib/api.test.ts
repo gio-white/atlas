@@ -3,12 +3,16 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   API_UNREACHABLE,
   type ApiError,
+  completeQuestGoal,
+  createQuestTask,
   getEntertainmentDashboard,
-  getGoalsBoard,
   getHabitsBoard,
   getHabitsCalendar,
+  getQuestCalendar,
   getScreenDashboard,
+  listQuestTasks,
   logEntry,
+  organizeTask,
   queryString,
 } from './api'
 
@@ -21,26 +25,6 @@ describe('queryString', () => {
 })
 
 describe('request helpers', () => {
-  it('getGoalsBoard appends as_of', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        as_of: '2026-08-13',
-        long: { horizon: 'long', on_track: 0, total: 0, fraction: null, goals: [] },
-        medium: { horizon: 'medium', on_track: 0, total: 0, fraction: null, goals: [] },
-        short: { horizon: 'short', on_track: 0, total: 0, fraction: null, goals: [] },
-        week: { total: 0, done: 0, fraction: null, tasks: [] },
-      }),
-    })
-    vi.stubGlobal('fetch', fetchMock)
-
-    await getGoalsBoard('2026-08-13')
-
-    expect(fetchMock).toHaveBeenCalledWith('/views/goals?as_of=2026-08-13', expect.any(Object))
-    vi.unstubAllGlobals()
-  })
-
   it('getHabitsBoard appends as_of', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -189,7 +173,7 @@ describe('request helpers', () => {
       }),
     )
 
-    await expect(getGoalsBoard('2026-08-15')).rejects.toMatchObject({
+    await expect(getHabitsBoard('2026-08-15')).rejects.toMatchObject({
       name: 'ApiError',
       status: 502,
       message: API_UNREACHABLE,
@@ -200,11 +184,69 @@ describe('request helpers', () => {
   it('maps a network failure to a reachable API message', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
 
-    await expect(getGoalsBoard('2026-08-15')).rejects.toMatchObject({
+    await expect(getHabitsBoard('2026-08-15')).rejects.toMatchObject({
       name: 'ApiError',
       status: 0,
       message: API_UNREACHABLE,
     } satisfies Partial<ApiError>)
+    vi.unstubAllGlobals()
+  })
+})
+
+describe('quest client', () => {
+  function stubFetch() {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({}) })
+    vi.stubGlobal('fetch', fetchMock)
+    return fetchMock
+  }
+
+  function call(fetchMock: ReturnType<typeof vi.fn>) {
+    const [path, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    return { path, method: init.method ?? 'GET', body: init.body as string | undefined }
+  }
+
+  it('creates an Inbox task with only a title', async () => {
+    const fetchMock = stubFetch()
+    await createQuestTask({ title: 'Look into climbing gyms' })
+    expect(call(fetchMock)).toEqual({
+      path: '/tasks',
+      method: 'POST',
+      body: JSON.stringify({ title: 'Look into climbing gyms' }),
+    })
+    vi.unstubAllGlobals()
+  })
+
+  it('lists tasks with parent and inbox filters', async () => {
+    const fetchMock = stubFetch()
+    await listQuestTasks({ parent_kind: 'chapter', parent_id: 4, inbox: false })
+    expect(call(fetchMock).path).toBe('/tasks?parent_kind=chapter&parent_id=4&inbox=false')
+    vi.unstubAllGlobals()
+  })
+
+  it('organizes by integer id and completes with override', async () => {
+    const fetchMock = stubFetch()
+    await organizeTask(7, { standalone: true })
+    expect(call(fetchMock)).toEqual({
+      path: '/tasks/7/organize',
+      method: 'POST',
+      body: JSON.stringify({ standalone: true }),
+    })
+    fetchMock.mockClear()
+    await completeQuestGoal(3, true)
+    expect(call(fetchMock)).toEqual({
+      path: '/goals/3/complete',
+      method: 'POST',
+      body: JSON.stringify({ override: true }),
+    })
+    vi.unstubAllGlobals()
+  })
+
+  it('asks the calendar for a UTC range', async () => {
+    const fetchMock = stubFetch()
+    await getQuestCalendar('2026-11-09T00:00:00Z', '2026-11-16T00:00:00Z')
+    expect(call(fetchMock).path).toBe(
+      '/views/calendar?start=2026-11-09T00%3A00%3A00Z&end=2026-11-16T00%3A00%3A00Z',
+    )
     vi.unstubAllGlobals()
   })
 })

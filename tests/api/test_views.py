@@ -43,22 +43,8 @@ def test_habits_calendar_month_spans_august(client, seed_health):
     assert len(body["habits"][0]["days"]) == 31
 
 
-def test_area_view_groups_metrics_habits_and_goals(client, seed_health):
+def test_area_view_groups_metrics_and_habits(client, seed_health):
     _seed_daily_pushups(client)
-    client.post(
-        "/goals",
-        json={
-            "slug": "bodyweight-75",
-            "area": "health",
-            "kind": "metric_target",
-            "metric": "weight",
-            "target_value": 75,
-            "comparator": "at_most",
-            "measure": "latest_value",
-            "start_on": "2026-01-01",
-            "due_on": "2026-12-31",
-        },
-    )
     client.post("/entries", json={"metric": "pushups", "value": 30, "occurred_on": "2026-08-13"})
 
     response = client.get("/views/areas/health", params={"as_of": "2026-08-13"})
@@ -67,42 +53,7 @@ def test_area_view_groups_metrics_habits_and_goals(client, seed_health):
     assert body["slug"] == "health"
     assert {metric["slug"] for metric in body["metrics"]} == {"meditated", "pushups", "weight"}
     assert [habit["slug"] for habit in body["habits"]] == ["pushups-daily"]
-    assert [goal["slug"] for goal in body["goals"]] == ["bodyweight-75"]
-
-
-def test_goals_board_view(client, seed_health):
-    client.post(
-        "/goals",
-        json={
-            "slug": "durable-health",
-            "area": "health",
-            "kind": "milestone",
-            "start_on": "2026-01-01",
-            "due_on": "2028-01-01",
-        },
-    )
-    client.post(
-        "/goals",
-        json={
-            "slug": "workout-week",
-            "area": "health",
-            "kind": "milestone",
-            "start_on": "2026-08-10",
-            "due_on": "2026-08-16",
-            "horizon": "short",
-        },
-    )
-    client.post(
-        "/tasks",
-        json={"title": "Pushups", "goal": "workout-week", "due_on": "2026-08-14"},
-    )
-    response = client.get("/views/goals", params={"as_of": "2026-08-14"})
-    assert response.status_code == 200, response.text
-    body = response.json()
-    assert [goal["slug"] for goal in body["long"]["goals"]] == ["durable-health"]
-    assert [goal["slug"] for goal in body["short"]["goals"]] == ["workout-week"]
-    assert body["week"]["total"] == 1
-    assert body["week"]["tasks"][0]["goal"] == "workout-week"
+    assert "goals" not in body
 
 
 def test_habits_board_view(client, seed_health):

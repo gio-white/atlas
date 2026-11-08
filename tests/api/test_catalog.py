@@ -58,42 +58,7 @@ def test_get_and_patch_habit(client, seed_health):
     assert patched.json()["weekdays"] == [1, 3, 5]
 
 
-def test_goal_detail_includes_milestones_and_toggle(client, seed_health):
-    created = client.post(
-        "/goals",
-        json={
-            "slug": "launch",
-            "area": "health",
-            "kind": "milestone",
-            "start_on": "2026-01-01",
-            "due_on": "2026-12-31",
-            "milestones": [{"name": "Hit 78kg"}],
-        },
-    )
-    assert created.status_code == 201
-
-    detail = client.get("/goals/launch")
-    assert detail.status_code == 200
-    body = detail.json()
-    assert body["slug"] == "launch"
-    assert body["milestones"][0]["name"] == "Hit 78kg"
-    assert body["milestones"][0]["done_at"] is None
-
-    toggled = client.post("/goals/launch/milestones/Hit 78kg/toggle")
-    assert toggled.status_code == 200
-    assert toggled.json()["done_at"] is not None
-
-    patched = client.patch("/goals/launch", json={"status": "paused", "name": "Launch later"})
-    assert patched.status_code == 200
-    assert patched.json()["status"] == "paused"
-    assert patched.json()["name"] == "Launch later"
-
-    rejected = client.patch("/goals/launch", json={"status": "achieved"})
-    assert rejected.status_code == 400
-
-
 def test_unknown_catalog_slug_is_not_found(client):
     assert client.get("/areas/missing").status_code == 404
     assert client.get("/metrics/missing").status_code == 404
     assert client.get("/habits/missing").status_code == 404
-    assert client.get("/goals/missing").status_code == 404

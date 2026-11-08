@@ -36,42 +36,10 @@ class Comparator(StrEnum):
     EXACTLY = "exactly"
 
 
-class GoalKind(StrEnum):
-    METRIC_TARGET = "metric_target"
-    MILESTONE = "milestone"
-
-
-class GoalHorizon(StrEnum):
-    LONG = "long"
-    MEDIUM = "medium"
-    SHORT = "short"
-
-
-class GoalStatus(StrEnum):
-    ACTIVE = "active"
-    ACHIEVED = "achieved"
-    PAUSED = "paused"
-    ABANDONED = "abandoned"
-
-
-class Measure(StrEnum):
-    LATEST_VALUE = "latest_value"
-    CUMULATIVE_SINCE_START = "cumulative_since_start"
-
-
 class Source(StrEnum):
     CLI = "cli"
     API = "api"
     IMPORT = "import"
-
-
-class PaceStatus(StrEnum):
-    ACHIEVED = "achieved"
-    OVERDUE = "overdue"
-    NO_DATA = "no_data"
-    AHEAD = "ahead"
-    ON_TRACK = "on_track"
-    BEHIND = "behind"
 
 
 class ScreenJudgment(StrEnum):
@@ -98,18 +66,6 @@ class ScreenInsightKind(StrEnum):
     IMPROVING = "improving"
     SEQUENCE = "sequence"
     BUDGET = "budget"
-
-
-class TaskBucket(StrEnum):
-    TODAY = "today"
-    UPCOMING = "upcoming"
-    SOMEDAY = "someday"
-
-
-class TaskPriority(StrEnum):
-    HIGH = "high"
-    NORMAL = "normal"
-    LOW = "low"
 
 
 class HabitKind(StrEnum):
@@ -149,3 +105,48 @@ class SleepStage(StrEnum):
     REM = "rem"
     LIGHT = "light"
     DEEP = "deep"
+
+
+class QuestStatus(StrEnum):
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    ARCHIVED = "archived"
+
+
+class TaskStatus(StrEnum):
+    TODO = "todo"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+
+
+class TaskPriority(StrEnum):
+    LOW = "low"
+    NORMAL = "normal"
+    HIGH = "high"
+
+
+class ChapterState(StrEnum):
+    EMPTY = "empty"
+    NOT_STARTED = "not_started"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+
+
+class TimeBlockStatus(StrEnum):
+    SCHEDULED = "scheduled"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+
+class TimeBlockProvider(StrEnum):
+    INTERNAL = "internal"
+
+
+class ParentKind(StrEnum):
+    """The kind of quest item a task (or another item) hangs under."""
+
+    AMBITION = "ambition"
+    GOAL = "goal"
+    MILESTONE = "milestone"
+    CHAPTER = "chapter"
+    SIDE_QUEST = "side_quest"

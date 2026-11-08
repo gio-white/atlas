@@ -65,5 +65,5 @@ def import_cmd(
     if not isinstance(payload, dict):
         fail("import file must be a JSON object")
     with cli_session() as session:
-        import_all(session, payload, replace=replace)
-        print_imported(str(path), replace=replace)
+        summary = import_all(session, payload, replace=replace)
+        print_imported(str(path), replace=replace, notes=summary.notes)

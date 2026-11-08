@@ -1,15 +1,11 @@
 from collections.abc import Sequence
 
-from atlas.db.models import Entry, Goal, Habit, HabitBreak, Metric, Milestone
+from atlas.db.models import Entry, Habit, HabitBreak, Metric
 from atlas.domain import (
     Aggregation,
     Comparator,
     EntryView,
-    GoalKind,
-    GoalSpec,
     HabitSpec,
-    Measure,
-    MilestoneView,
     Period,
 )
 
@@ -41,26 +37,4 @@ def habit_spec(
         active_to=habit.active_to,
         weekdays=weekdays,
         breaks=tuple((row.start_on, row.end_on) for row in breaks),
-    )
-
-
-def goal_spec(goal: Goal) -> GoalSpec:
-    measure = Measure(goal.measure) if goal.measure is not None else None
-    comparator = Comparator(goal.comparator) if goal.comparator is not None else None
-    return GoalSpec(
-        kind=GoalKind(goal.kind),
-        start_on=goal.start_on,
-        due_on=goal.due_on,
-        target_value=goal.target_value,
-        comparator=comparator,
-        baseline_value=goal.baseline_value,
-        measure=measure,
-    )
-
-
-def milestone_view(milestone: Milestone) -> MilestoneView:
-    return MilestoneView(
-        name=milestone.name,
-        due_on=milestone.due_on,
-        done_at=milestone.done_at,
     )

@@ -27,7 +27,6 @@ function habit(
     kind: 'check',
     time_of_day: 'anytime',
     unit: null,
-    goal_slug: null,
     archived: false,
     bucket_start: null,
     bucket_end: null,

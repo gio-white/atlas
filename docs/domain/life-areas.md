@@ -2,19 +2,19 @@
 
 ## Purpose
 
-Areas group metrics by part of life (Health, Career, Finance, Relationships) and tag goals.
+Areas group metrics by part of life (Health, Career, Finance, Relationships).
 
 ## Concepts
 
-- **Area** — a life aspect that groups metrics. Goals carry an optional area tag; they are not owned by an area.
-- **Area view** — one area's metrics, habits, and tagged goals.
+- **Area** — a life aspect that groups metrics. Quests are not tagged with areas ([quest plan D2](../plans/quests-plan.md#9-decisions-taken)).
+- **Area view** — one area's metrics and habits.
 - Well-known system areas created on first use: `screen` ([screen time](screen-time.md)), `life` ([journal](journal.md)), `habits` ([habits](habits.md)).
 
 ## Data model
 
 ### Area
 
-A life aspect that groups metrics: Health, Career, Finance, Relationships. Goals may carry an optional area tag; they are not owned by an area.
+A life aspect that groups metrics: Health, Career, Finance, Relationships.
 
 | Field         | Type            | Notes                                                       |
 | ------------- | --------------- | ----------------------------------------------------------- |
@@ -39,7 +39,7 @@ Conventions shared by every endpoint (slugs, `as_of`, errors): [api-conventions]
 | `GET`    | `/areas/{slug}`          | Get one area                                  | implemented |
 | `PATCH`  | `/areas/{slug}`          | Update name and description                   | implemented |
 | `POST`   | `/areas/{slug}/archive`  | Archive an area                               | implemented |
-| `GET`    | `/views/areas/{slug}`    | One area's metrics, habits, and goals         | implemented |
+| `GET`    | `/views/areas/{slug}`    | One area's metrics and habits                 | implemented |
 
 Service functions (in `src/atlas/services/`, each taking an explicit `Session` first; see [overview](../architecture/overview.md#services)):
 

@@ -8,11 +8,11 @@ tables and that every documented route exists.
 
 Status is `implemented` only when the endpoint is merged with tests. Everything else is `planned`.
 
-Routers parse the request, call a service, and serialize. Create/list bodies use slugs (`area`, `metric`) rather than integer foreign keys; entries are addressed by integer `id`. `POST /entries` sets `source` to `api`. Service failures map to HTTP status: `NotFoundError` → 404, `AlreadyExistsError` → 409, `ValidationError` → 400. Pydantic request-shape errors remain 422.
+Routers parse the request, call a service, and serialize. Create/list bodies use slugs (`area`, `metric`) rather than integer foreign keys; entries are addressed by integer `id`. Quest entities (ambitions, goals, milestones, side quests, chapters, tasks, time blocks) have no slug: their paths and bodies use integer ids (`/goals/{id}`, `ambition_id`), and a task's parent is given as `parent_kind` (`ambition`, `goal`, `milestone`, `chapter`, `side_quest`) plus `parent_id`. `POST /entries` sets `source` to `api`. Service failures map to HTTP status: `NotFoundError` → 404, `AlreadyExistsError` → 409, `ValidationError` → 400. Pydantic request-shape errors remain 422. For quests the mapping is: an invalid or archived parent → 400, an unknown id → 404, deleting a container that still has children → 409 (`ConflictError`), and completing an item that is not eligible without `override: true` → 409 with the open children listed in the message.
 
 ## Query filters
 
-Optional filters the services already support are query parameters: `area` and `exclude_area` on entries, `area` on metrics and goals, `metric` on habits, `status` and `horizon` and `parent` on goals, `goal` on tasks, `include_archived` on areas, metrics, screen categories/apps/devices, and entertainment topics/titles, `kind` / `status` / `topic` on entertainment titles, `as_of` on status/progress/views including `/screen/view`, `/screen/dashboard`, `/sleep/view`, `/entertainment/dashboard`, `/views/goals`, `/views/habits`, and `/views/habits/calendar`, `period` on `/screen/dashboard`, `/entertainment/dashboard`, and `/views/habits/calendar`, `days` (1–366) on `/sleep/view`, and `replace` on import.
+Optional filters the services already support are query parameters: `area` and `exclude_area` on entries, `area` on metrics, `metric` on habits, `ambition_id` and `include_archived` on goals, `parent_kind` + `parent_id`, `status`, `inbox`, `standalone`, `due_on`, and `include_archived` on tasks, `start` / `end` (UTC datetimes) and `task_id` on time blocks and `/views/calendar`, `include_archived` on areas, metrics, screen categories/apps/devices, and entertainment topics/titles, `kind` / `status` / `topic` on entertainment titles, `as_of` on status/progress/views including `/screen/view`, `/screen/dashboard`, `/sleep/view`, `/entertainment/dashboard`, `/views/today`, `/views/habits`, and `/views/habits/calendar`, `period` on `/screen/dashboard`, `/entertainment/dashboard`, and `/views/habits/calendar`, `days` (1–366) on `/sleep/view`, and `replace` on import.
 
 ## Slugs
 
@@ -29,10 +29,10 @@ There is no authentication. The app binds to localhost only (`127.0.0.1`). CORS 
 | `/entries`, `/metrics` | [trackers and entries](../domain/trackers-and-entries.md#api) |
 | `/areas`, `/views/areas` | [life areas](../domain/life-areas.md#api) |
 | `/habits`, `/views/habits` | [habits](../domain/habits.md#api) |
-| `/goals`, `/views/goals` | [goals](../domain/goals.md#api) |
+| `/ambitions`, `/goals`, `/milestones`, `/side-quests`, `/chapters`, `/tasks`, `/views/main-quests`, `/views/ambitions`, `/views/goals`, `/views/side-quests`, `/views/inbox` | [quests](../domain/quests.md#api) |
+| `/time-blocks`, `/views/today`, `/views/calendar` | [time blocks](../domain/time-blocks.md#api) |
 | `/screen` | [screen time](../domain/screen-time.md#api) |
 | `/sleep` | [sleep](../domain/sleep.md#api) |
-| `/tasks` | [tasks](../domain/tasks.md#api) |
 | `/journal` | [journal](../domain/journal.md#api) |
 | `/entertainment` | [entertainment](../domain/entertainment.md#api) |
 | `/export`, `/import` | [cli and port](cli.md#api) |

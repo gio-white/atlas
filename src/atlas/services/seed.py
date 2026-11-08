@@ -1,6 +1,6 @@
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta, tzinfo
 from typing import Any
 
 from sqlmodel import Session
@@ -10,6 +10,8 @@ from atlas.services.areas import list_areas
 from atlas.services.clock import resolve_today
 from atlas.services.errors import ValidationError
 from atlas.services.port import import_all
+from atlas.services.seed_quests import demo_quests
+from atlas.settings import load_settings
 
 HISTORY_DAYS = 28
 WEEKDAYS = [1, 2, 3, 4, 5]
@@ -21,10 +23,7 @@ class SeedSummary:
     areas: int
     metrics: int
     habits: int
-    goals: int
-    milestones: int
     entries: int
-    tasks: int
     screen_categories: int
     screen_apps: int
     screen_devices: int
@@ -32,6 +31,13 @@ class SeedSummary:
     entertainment_topics: int
     entertainment_titles: int
     sleep_sessions: int
+    ambitions: int = 0
+    goals: int = 0
+    milestones: int = 0
+    side_quests: int = 0
+    chapters: int = 0
+    tasks: int = 0
+    time_blocks: int = 0
 
 
 def seed_demo(
@@ -50,10 +56,7 @@ def seed_demo(
         areas=len(payload["areas"]),
         metrics=len(payload["metrics"]),
         habits=len(payload["habits"]),
-        goals=len(payload["goals"]),
-        milestones=len(payload["milestones"]),
         entries=len(payload["entries"]),
-        tasks=len(payload["tasks"]),
         screen_categories=len(payload["screen_categories"]),
         screen_apps=len(payload["screen_apps"]),
         screen_devices=len(payload["screen_devices"]),
@@ -61,19 +64,23 @@ def seed_demo(
         entertainment_topics=len(payload["entertainment_topics"]),
         entertainment_titles=len(payload["entertainment_titles"]),
         sleep_sessions=len(payload["sleep_sessions"]),
+        ambitions=len(payload["ambitions"]),
+        goals=len(payload["goals"]),
+        milestones=len(payload["milestones"]),
+        side_quests=len(payload["side_quests"]),
+        chapters=len(payload["chapters"]),
+        tasks=len(payload["tasks"]),
+        time_blocks=len(payload["time_blocks"]),
     )
 
 
-def demo_payload(as_of: date) -> dict[str, Any]:
+def demo_payload(as_of: date, zone: tzinfo | None = None) -> dict[str, Any]:
     start = as_of - timedelta(days=HISTORY_DAYS - 1)
     return {
         "schema_version": CURRENT_SCHEMA_VERSION,
         "areas": _areas(),
         "metrics": _metrics(),
         "habits": _habits(start, as_of),
-        "goals": _goals(as_of),
-        "milestones": _milestones(as_of),
-        "tasks": _tasks(as_of),
         "screen_categories": _screen_categories(),
         "screen_apps": _screen_apps(),
         "screen_devices": _screen_devices(),
@@ -82,6 +89,7 @@ def demo_payload(as_of: date) -> dict[str, Any]:
         "entertainment_topics": _entertainment_topics(),
         "entertainment_titles": _entertainment_titles(as_of),
         "sleep_sessions": _sleep_sessions(start, as_of),
+        **demo_quests(as_of, zone if zone is not None else load_settings().timezone),
         "entries": _entries(start, as_of),
     }
 
@@ -281,113 +289,6 @@ def _habits(start: date, as_of: date) -> list[dict[str, Any]]:
     ]
 
 
-def _goals(as_of: date) -> list[dict[str, Any]]:
-    long_start = as_of - timedelta(days=200)
-    long_due = as_of + timedelta(days=530)
-    return [
-        _goal(
-            "durable-health",
-            None,
-            "Durable health",
-            "milestone",
-            long_start,
-            long_due,
-            horizon="long",
-            description="Stay strong, light, and consistent for years.",
-        ),
-        _goal(
-            "financial-freedom",
-            None,
-            "Financial freedom",
-            "milestone",
-            long_start,
-            long_due,
-            horizon="long",
-            description="Runway and buffers so work is a choice.",
-        ),
-        _goal(
-            "bodyweight-75",
-            "health",
-            "Bodyweight 75kg",
-            "metric_target",
-            as_of - timedelta(days=90),
-            as_of + timedelta(days=90),
-            metric="weight",
-            target_value=75.0,
-            comparator="at_most",
-            baseline_value=82.0,
-            measure="latest_value",
-            horizon="medium",
-            parent="durable-health",
-            description="Land at a sustainable racing weight.",
-        ),
-        _goal(
-            "read-12-books",
-            "career",
-            "Read 12 books",
-            "metric_target",
-            as_of - timedelta(days=200),
-            as_of + timedelta(days=165),
-            metric="books",
-            target_value=12.0,
-            comparator="at_least",
-            measure="cumulative_since_start",
-            horizon="long",
-            description="A book a month, with room to miss one.",
-        ),
-        _goal(
-            "emergency-fund",
-            "finance",
-            "Emergency fund €5k",
-            "metric_target",
-            as_of - timedelta(days=180),
-            as_of + timedelta(days=180),
-            metric="savings",
-            target_value=5000.0,
-            comparator="at_least",
-            measure="latest_value",
-            horizon="medium",
-            parent="financial-freedom",
-            description="Three months of expenses in cash.",
-        ),
-        _goal(
-            "ship-side-project",
-            "career",
-            "Ship the side project",
-            "milestone",
-            as_of - timedelta(days=45),
-            as_of + timedelta(days=90),
-            horizon="medium",
-            description="Spec, MVP, first user.",
-        ),
-        _goal(
-            "workout-this-week",
-            "health",
-            "Workout four times",
-            "milestone",
-            as_of - timedelta(days=1),
-            as_of + timedelta(days=6),
-            horizon="short",
-            parent="bodyweight-75",
-            description="Four sessions this week to keep the streak honest.",
-        ),
-    ]
-
-
-def _milestones(as_of: date) -> list[dict[str, Any]]:
-    hit_78 = as_of - timedelta(days=14)
-    spec = as_of - timedelta(days=30)
-    return [
-        _milestone("bodyweight-75", "Hit 78kg", hit_78, done_on=hit_78),
-        _milestone("bodyweight-75", "Hit 76kg", as_of + timedelta(days=30)),
-        _milestone("ship-side-project", "Spec written", spec, done_on=spec),
-        _milestone("ship-side-project", "MVP shipped", as_of + timedelta(days=21)),
-        _milestone("ship-side-project", "First user", as_of + timedelta(days=75)),
-        _milestone("durable-health", "Keep a 30-day streak", as_of + timedelta(days=30)),
-        _milestone("workout-this-week", "Four sessions", as_of + timedelta(days=6)),
-    ]
-
-
 def _entries(start: date, as_of: date) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     first_weekday = next(day for day in _days(start, as_of) if day.isoweekday() <= 5)
@@ -422,44 +323,6 @@ def _entries(start: date, as_of: date) -> list[dict[str, Any]]:
     entries.append(_text("journal", as_of - timedelta(days=7), "Week started slow."))
     entries.append(_text("journal", as_of - timedelta(days=1), "Wrapped the deep-work block."))
     return entries
-
-
-def _tasks(as_of: date) -> list[dict[str, Any]]:
-    noon = datetime(as_of.year, as_of.month, as_of.day, 12, 0, tzinfo=UTC)
-    morning = datetime(as_of.year, as_of.month, as_of.day, 7, 0, tzinfo=UTC)
-    done_at = datetime(as_of.year, as_of.month, as_of.day, 8, 0, tzinfo=UTC)
-    return [
-        {
-            "title": "Pushups - 3 sets",
-            "bucket": "today",
-            "due_on": as_of.isoformat(),
-            "due_at": None,
-            "priority": "normal",
-            "goal": "workout-this-week",
-            "done_at": done_at.isoformat(),
-            "created_at": noon.isoformat(),
-        },
-        {
-            "title": "Meditate for 10 minutes",
-            "bucket": "today",
-            "due_on": as_of.isoformat(),
-            "due_at": morning.isoformat(),
-            "priority": "normal",
-            "goal": "workout-this-week",
-            "done_at": None,
-            "created_at": noon.isoformat(),
-        },
-        {
-            "title": "Evening walk",
-            "bucket": "today",
-            "due_on": None,
-            "due_at": None,
-            "priority": "low",
-            "goal": "workout-this-week",
-            "done_at": None,
-            "created_at": noon.isoformat(),
-        },
-    ]
 
 
 def _entertainment_topics() -> list[dict[str, Any]]:
@@ -851,67 +714,11 @@ def _habit(
         "active_to": None,
         "kind": kind,
         "time_of_day": time_of_day,
-        "goal": None,
         "archived_at": None,
         "breaks": [
             {"start_on": start_on.isoformat(), "end_on": end_on.isoformat(), "note": note}
             for start_on, end_on, note in breaks or []
         ],
-    }
-
-
-def _goal(
-    slug: str,
-    area: str | None,
-    name: str,
-    kind: str,
-    start_on: date,
-    due_on: date,
-    *,
-    metric: str | None = None,
-    target_value: float | None = None,
-    comparator: str | None = None,
-    baseline_value: float | None = None,
-    measure: str | None = None,
-    horizon: str | None = None,
-    parent: str | None = None,
-    description: str | None = None,
-) -> dict[str, Any]:
-    return {
-        "slug": slug,
-        "area": area,
-        "name": name,
-        "kind": kind,
-        "metric": metric,
-        "target_value": target_value,
-        "comparator": comparator,
-        "baseline_value": baseline_value,
-        "measure": measure,
-        "start_on": start_on.isoformat(),
-        "due_on": due_on.isoformat(),
-        "horizon": horizon,
-        "parent": parent,
-        "description": description,
-        "status": "active",
-        "achieved_at": None,
-    }
-
-
-def _milestone(
-    goal: str,
-    name: str,
-    due_on: date,
-    *,
-    done_on: date | None = None,
-) -> dict[str, Any]:
-    done_at = None
-    if done_on is not None:
-        done_at = datetime(done_on.year, done_on.month, done_on.day, 12, 0, tzinfo=UTC).isoformat()
-    return {
-        "goal": goal,
-        "name": name,
-        "due_on": due_on.isoformat(),
-        "done_at": done_at,
     }
 
 

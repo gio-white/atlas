@@ -6,8 +6,6 @@ from atlas.domain.enums import (
     Comparator,
     EntertainmentKind,
     EntertainmentStatus,
-    GoalKind,
-    Measure,
     Period,
     ScreenBudgetTargetKind,
     ScreenJudgment,
@@ -63,28 +61,6 @@ class HabitSpec:
 
 
 @dataclass(frozen=True, slots=True)
-class GoalSpec:
-    kind: GoalKind
-    start_on: date
-    due_on: date
-    target_value: float | None = None
-    comparator: Comparator | None = None
-    baseline_value: float | None = None
-    measure: Measure | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class MilestoneView:
-    name: str
-    due_on: date | None = None
-    done_at: datetime | None = None
-
-    @property
-    def is_done(self) -> bool:
-        return self.done_at is not None
-
-
-@dataclass(frozen=True, slots=True)
 class Bucket:
     period: Period
     key: date | tuple[int, int]
@@ -99,14 +75,6 @@ class Bucket:
 
     def is_in_progress(self, as_of: date) -> bool:
         return self.start <= as_of <= self.end
-
-
-@dataclass(frozen=True, slots=True)
-class GoalProgress:
-    current: float | None
-    baseline: float | None
-    fraction: float | None
-    target_met: bool
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import type { ScreenDashboard, TaskItem, WeekHabit } from './api'
-import { habitCellState, habitWeekSummary, screenHeadline, screenRows, visibleTasks } from './home'
+import type { ScreenDashboard, WeekHabit } from './api'
+import { habitCellState, habitWeekSummary, screenHeadline, screenRows } from './home'
 
 function dashboard(overrides: Partial<ScreenDashboard> = {}): ScreenDashboard {
   return {
@@ -40,20 +40,6 @@ function dashboard(overrides: Partial<ScreenDashboard> = {}): ScreenDashboard {
     budgets: [],
     ...overrides,
   } as ScreenDashboard
-}
-
-function task(overrides: Partial<TaskItem> & Pick<TaskItem, 'id'>): TaskItem {
-  return {
-    title: `Task ${overrides.id}`,
-    bucket: 'today',
-    due_on: null,
-    due_at: null,
-    priority: 'normal',
-    goal: null,
-    done_at: null,
-    created_at: '2026-08-10T12:00:00',
-    ...overrides,
-  }
 }
 
 function habit(overrides: Partial<WeekHabit> = {}): WeekHabit {
@@ -100,20 +86,6 @@ describe('screenRows', () => {
   it('headlines the total for a day and the daily average for a week', () => {
     expect(screenHeadline(dashboard(), 'day')).toBe(400)
     expect(screenHeadline(dashboard(), 'week')).toBe(100)
-  })
-})
-
-describe('visibleTasks', () => {
-  it('hides tasks finished before today and lists open tasks first', () => {
-    const rows = visibleTasks(
-      [
-        task({ id: 1, done_at: '2026-08-13T09:00:00' }),
-        task({ id: 2 }),
-        task({ id: 3, done_at: '2026-08-01T09:00:00' }),
-      ],
-      '2026-08-13',
-    )
-    expect(rows.map((row) => row.id)).toEqual([2, 1])
   })
 })
 

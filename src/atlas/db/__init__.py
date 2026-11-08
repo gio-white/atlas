@@ -7,7 +7,9 @@ from atlas.db.engine import (
     make_session_factory,
 )
 from atlas.db.models import (
+    Ambition,
     Area,
+    Chapter,
     EntertainmentTitle,
     EntertainmentTitleTopic,
     EntertainmentTopic,
@@ -23,12 +25,18 @@ from atlas.db.models import (
     ScreenCategory,
     ScreenDevice,
     ScreenSession,
+    SideQuest,
     SleepSession,
     SleepSessionStage,
     Task,
+    TimeBlock,
 )
 
 __all__ = [
+    "Ambition",
+    "Chapter",
+    "SideQuest",
+    "TimeBlock",
     "CURRENT_SCHEMA_VERSION",
     "Area",
     "EntertainmentTitle",

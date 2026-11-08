@@ -5,10 +5,6 @@ export type Period = 'day' | 'week' | 'month'
 export type Comparator = 'at_least' | 'at_most' | 'exactly'
 export type HabitKind = 'check' | 'count' | 'duration' | 'quit'
 export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'anytime'
-export type GoalKind = 'metric_target' | 'milestone'
-export type GoalHorizon = 'long' | 'medium' | 'short'
-export type GoalStatus = 'active' | 'achieved' | 'paused' | 'abandoned'
-export type PaceStatus = 'achieved' | 'overdue' | 'no_data' | 'ahead' | 'on_track' | 'behind'
 export type Source = 'cli' | 'api' | 'import'
 
 export type Area = {
@@ -56,39 +52,10 @@ export type Habit = {
   unit: string | null
   weekdays: number[] | null
   time_of_day: TimeOfDay
-  goal: string | null
   active_from: string
   active_to: string | null
   archived_at: string | null
 }
-
-export type Goal = {
-  id: number
-  slug: string
-  area: string | null
-  name: string
-  kind: GoalKind
-  metric: string | null
-  target_value: number | null
-  comparator: Comparator | null
-  baseline_value: number | null
-  measure: 'latest_value' | 'cumulative_since_start' | null
-  start_on: string
-  due_on: string
-  horizon: GoalHorizon
-  parent: string | null
-  description: string | null
-  status: GoalStatus
-  achieved_at: string | null
-}
-
-export type Milestone = {
-  name: string
-  due_on: string | null
-  done_at: string | null
-}
-
-export type GoalDetail = Goal & { milestones: Milestone[] }
 
 export type HabitStatus = {
   slug: string
@@ -107,7 +74,6 @@ export type HabitStatus = {
   kind: HabitKind
   time_of_day: TimeOfDay
   unit: string | null
-  goal_slug: string | null
   archived: boolean
   bucket_start: string | null
   bucket_end: string | null
@@ -140,26 +106,6 @@ export type HabitDetail = {
   status: HabitStatus
   breaks: HabitBreak[]
   recent: HabitCheckIn[]
-}
-
-export type GoalProgress = {
-  slug: string
-  name: string
-  kind: GoalKind
-  status: GoalStatus
-  metric_slug: string | null
-  current: number | null
-  baseline: number | null
-  fraction: number | null
-  target_met: boolean
-  pace: PaceStatus
-  target_value: number | null
-  start_on: string
-  due_on: string
-  as_of: string
-  horizon: GoalHorizon
-  parent: string | null
-  description: string | null
 }
 
 export type WeekDayCell = {
@@ -386,44 +332,6 @@ export type SleepView = {
   last_recorded_at: string | null
 }
 
-export type TaskBucket = 'today' | 'upcoming' | 'someday'
-export type TaskPriority = 'high' | 'normal' | 'low'
-
-export type TaskItem = {
-  id: number
-  title: string
-  bucket: TaskBucket
-  due_on: string | null
-  due_at: string | null
-  priority: TaskPriority
-  goal: string | null
-  done_at: string | null
-  created_at: string
-}
-
-export type GoalBoardColumn = {
-  horizon: GoalHorizon
-  on_track: number
-  total: number
-  fraction: number | null
-  goals: GoalProgress[]
-}
-
-export type GoalBoardWeek = {
-  total: number
-  done: number
-  fraction: number | null
-  tasks: TaskItem[]
-}
-
-export type GoalsBoard = {
-  as_of: string
-  long: GoalBoardColumn
-  medium: GoalBoardColumn
-  short: GoalBoardColumn
-  week: GoalBoardWeek
-}
-
 export type HabitsBoard = {
   as_of: string
   scheduled: number
@@ -545,7 +453,6 @@ export type AreaView = {
   as_of: string
   metrics: MetricSnapshot[]
   habits: HabitStatus[]
-  goals: GoalProgress[]
 }
 
 export type EntryCreate = {
@@ -638,26 +545,6 @@ export function listEntries(filters?: {
 
 export function listHabits(metric?: string): Promise<Habit[]> {
   return request(`/habits${queryString({ metric })}`)
-}
-
-export function listGoals(filters?: {
-  area?: string
-  status?: GoalStatus
-  horizon?: GoalHorizon
-  parent?: string
-}): Promise<Goal[]> {
-  return request(
-    `/goals${queryString({
-      area: filters?.area,
-      status: filters?.status,
-      horizon: filters?.horizon,
-      parent: filters?.parent,
-    })}`,
-  )
-}
-
-export function getGoalsBoard(asOf?: string): Promise<GoalsBoard> {
-  return request(`/views/goals${queryString({ as_of: asOf })}`)
 }
 
 export function getHabitsBoard(asOf?: string): Promise<HabitsBoard> {
@@ -867,46 +754,6 @@ export function getSleepView(asOf?: string, days?: number): Promise<SleepView> {
   return request(`/sleep/view${queryString({ as_of: asOf, days })}`)
 }
 
-export function listTasks(filters?: {
-  bucket?: TaskBucket
-  include_done?: boolean
-  goal?: string
-}): Promise<TaskItem[]> {
-  return request(
-    `/tasks${queryString({
-      bucket: filters?.bucket,
-      include_done: filters?.include_done,
-      goal: filters?.goal,
-    })}`,
-  )
-}
-
-export function createTask(body: {
-  title: string
-  bucket?: TaskBucket
-  due_on?: string | null
-  due_at?: string | null
-  priority?: TaskPriority
-  goal?: string | null
-}): Promise<TaskItem> {
-  return request('/tasks', { method: 'POST', body: JSON.stringify(body) })
-}
-
-export function updateTask(
-  id: number,
-  body: Partial<{
-    title: string
-    bucket: TaskBucket
-    due_on: string | null
-    due_at: string | null
-    priority: TaskPriority
-    done: boolean
-    goal: string | null
-  }>,
-): Promise<TaskItem> {
-  return request(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
-}
-
 export function getJournal(asOf?: string): Promise<JournalDay> {
   return request(`/journal${queryString({ as_of: asOf })}`)
 }
@@ -929,10 +776,6 @@ export function setHabitDay(
     method: 'PUT',
     body: JSON.stringify({ done }),
   })
-}
-
-export function getGoalProgress(slug: string, asOf?: string): Promise<GoalProgress> {
-  return request(`/goals/${encodeURIComponent(slug)}/progress${queryString({ as_of: asOf })}`)
 }
 
 export function logEntry(body: EntryCreate): Promise<Entry> {
@@ -1009,7 +852,6 @@ export function createHabit(body: {
   unit?: string | null
   weekdays?: number[] | null
   time_of_day?: TimeOfDay
-  goal?: string | null
   active_from?: string | null
   active_to?: string | null
   area?: string | null
@@ -1026,7 +868,6 @@ export function updateHabit(
     weekdays?: number[] | null
     active_to?: string | null
     time_of_day?: TimeOfDay
-    goal?: string | null
     unit?: string | null
   },
 ): Promise<Habit> {
@@ -1084,56 +925,420 @@ export function deleteHabitBreak(slug: string, breakId: number): Promise<void> {
   return request(habitPath(slug, `/breaks/${breakId}`), { method: 'DELETE' })
 }
 
-export function createGoal(body: {
-  slug: string
-  area?: string | null
-  kind: GoalKind
-  start_on: string
-  due_on: string
-  name?: string | null
-  metric?: string | null
-  target_value?: number | null
-  comparator?: Comparator | null
-  baseline_value?: number | null
-  measure?: 'latest_value' | 'cumulative_since_start' | null
-  milestones?: { name: string; due_on?: string | null }[] | null
-  horizon?: GoalHorizon | null
-  parent?: string | null
+// --- Quests (docs/domain/quests.md, docs/domain/time-blocks.md) ------------------------------
+// Every quest entity uses its integer id. Q2 and Q3 build on these; add nothing here for them.
+
+export type QuestKind = 'ambition' | 'goal' | 'milestone' | 'side_quest' | 'chapter' | 'task'
+export type ParentKind = 'ambition' | 'goal' | 'milestone' | 'chapter' | 'side_quest'
+export type PromoteKind = Exclude<QuestKind, 'task'>
+export type QuestStatus = 'active' | 'completed' | 'archived'
+export type TaskStatus = 'todo' | 'in_progress' | 'completed'
+export type TaskPriority = 'low' | 'normal' | 'high'
+export type ChapterState = 'empty' | 'not_started' | 'in_progress' | 'completed'
+export type TimeBlockStatus = 'scheduled' | 'completed' | 'cancelled'
+
+export type ItemRef = { kind: QuestKind; id: number; title: string }
+
+export type TimeBlock = {
+  id: number
+  task_id: number
+  start_at: string
+  end_at: string
+  status: TimeBlockStatus
+  provider: 'internal'
+  external_event_id: string | null
+  created_at: string
+  updated_at: string
+  minutes: number
+  unconfirmed: boolean
+  overlaps: boolean
+}
+
+export type QuestTask = {
+  id: number
+  title: string
+  description: string | null
+  status: TaskStatus
+  priority: TaskPriority
+  estimate_minutes: number | null
+  due_on: string | null
+  weight: number | null
+  weight_share: number | null
+  position: number
+  parent: ItemRef | null
+  path: ItemRef[]
+  inbox: boolean
+  standalone: boolean
+  organized_at: string | null
+  started_at: string | null
+  completed_at: string | null
+  archived_at: string | null
+  created_at: string
+  updated_at: string
+  planned_minutes: number
+  block_count: number
+}
+
+export type QuestTaskDetail = QuestTask & { blocks: TimeBlock[] }
+
+type QuestState = {
+  id: number
+  title: string
+  description: string | null
+  position: number
+  archived_at: string | null
+  created_at: string
+  updated_at: string
+  path: ItemRef[]
+  /** 0–1, or null when nothing is under it yet ("Not broken down yet"). */
+  progress: number | null
+  done_tasks: number
+  total_tasks: number
+  planned_minutes: number
+  eligible: boolean
+  open_children: ItemRef[]
+  next_action: QuestTask | null
+}
+
+type Completable = QuestState & {
+  status: QuestStatus
+  completed_at: string | null
+  completed_with_open_items: boolean
+}
+
+export type Ambition = Completable & {
+  target_on: string | null
+  weight: number | null
+  goal_count: number
+  task_count: number
+}
+
+export type QuestGoal = Completable & {
+  ambition_id: number | null
+  success_description: string | null
+  due_on: string | null
+  weight: number | null
+  weight_share: number | null
+  milestone_count: number
+  task_count: number
+}
+
+export type QuestMilestone = Completable & {
+  goal_id: number
+  due_on: string | null
+  weight: number | null
+  weight_share: number | null
+  chapter_count: number
+  task_count: number
+}
+
+export type SideQuest = Completable & {
+  due_on: string | null
+  chapter_count: number
+  task_count: number
+}
+
+export type Chapter = QuestState & {
+  milestone_id: number | null
+  side_quest_id: number | null
+  weight: number | null
+  weight_share: number | null
+  state: ChapterState
+  task_count: number
+}
+
+export type ChapterTree = { chapter: Chapter; tasks: QuestTask[] }
+export type MilestoneTree = {
+  milestone: QuestMilestone
+  chapters: ChapterTree[]
+  tasks: QuestTask[]
+}
+export type AmbitionSection = { ambition: Ambition; goals: QuestGoal[]; tasks: QuestTask[] }
+export type MainQuests = { ambitions: AmbitionSection[]; independent_goals: QuestGoal[] }
+export type GoalTree = { goal: QuestGoal; milestones: MilestoneTree[]; tasks: QuestTask[] }
+export type SideQuestTree = { side_quest: SideQuest; chapters: ChapterTree[]; tasks: QuestTask[] }
+export type SideQuests = { side_quests: SideQuest[]; standalone_tasks: QuestTask[] }
+export type Inbox = { count: number; tasks: QuestTask[] }
+export type ScheduledBlock = { block: TimeBlock; task: QuestTask }
+export type TodayQuests = {
+  date: string
+  blocks: ScheduledBlock[]
+  unconfirmed: ScheduledBlock[]
+  due_today: QuestTask[]
+  up_next: QuestTask[]
+}
+export type QuestCalendar = { start: string; end: string; blocks: ScheduledBlock[] }
+export type PromoteResult = { kind: PromoteKind; id: number; title: string }
+
+type ContainerFields = {
+  title?: string
   description?: string | null
-}): Promise<Goal> {
-  return request('/goals', { method: 'POST', body: JSON.stringify(body) })
+  position?: number
+}
+type Archivable = { archived?: boolean }
+
+export type AmbitionCreate = ContainerFields & {
+  title: string
+  target_on?: string | null
+  weight?: number | null
+}
+export type AmbitionUpdate = Omit<AmbitionCreate, 'title'> & { title?: string } & Archivable
+export type GoalCreate = ContainerFields & {
+  title: string
+  success_description?: string | null
+  due_on?: string | null
+  ambition_id?: number | null
+  weight?: number | null
+}
+export type GoalUpdate = Omit<GoalCreate, 'title'> & { title?: string } & Archivable
+export type MilestoneCreate = ContainerFields & {
+  title: string
+  goal_id: number
+  due_on?: string | null
+  weight?: number | null
+}
+export type MilestoneUpdate = Partial<MilestoneCreate> & Archivable
+export type SideQuestCreate = ContainerFields & { title: string; due_on?: string | null }
+export type SideQuestUpdate = Partial<SideQuestCreate> & Archivable
+export type ChapterCreate = ContainerFields & {
+  title: string
+  milestone_id?: number | null
+  side_quest_id?: number | null
+  weight?: number | null
+}
+export type ChapterUpdate = Partial<ChapterCreate> & Archivable
+
+export type TaskCreate = {
+  title: string
+  description?: string | null
+  parent_kind?: ParentKind | null
+  parent_id?: number | null
+  standalone?: boolean
+  priority?: TaskPriority
+  estimate_minutes?: number | null
+  due_on?: string | null
+  weight?: number | null
+  position?: number
+}
+export type TaskUpdate = {
+  title?: string
+  description?: string | null
+  status?: TaskStatus
+  priority?: TaskPriority
+  estimate_minutes?: number | null
+  due_on?: string | null
+  weight?: number | null
+  position?: number
+  archived?: boolean
+}
+export type TaskOrganize =
+  | { parent_kind: ParentKind; parent_id: number; standalone?: false }
+  | { standalone: true }
+export type TaskPromote = {
+  kind: PromoteKind
+  parent_kind?: ParentKind | null
+  parent_id?: number | null
+}
+export type TaskFilters = {
+  parent_kind?: ParentKind
+  parent_id?: number
+  status?: TaskStatus
+  inbox?: boolean
+  standalone?: boolean
+  due_on?: string
+  include_archived?: boolean
 }
 
-export function getGoal(slug: string): Promise<GoalDetail> {
-  return request(`/goals/${encodeURIComponent(slug)}`)
-}
-
-export function updateGoal(
-  slug: string,
-  body: {
-    name?: string
-    due_on?: string
-    target_value?: number
-    status?: Exclude<GoalStatus, 'achieved'>
-    horizon?: GoalHorizon
-    parent?: string | null
-    description?: string | null
-    area?: string | null
-  },
-): Promise<Goal> {
-  return request(`/goals/${encodeURIComponent(slug)}`, {
-    method: 'PATCH',
-    body: JSON.stringify(body),
+function send<T>(path: string, method: string, body?: unknown): Promise<T> {
+  return request(path, {
+    method,
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   })
 }
 
-export function toggleMilestone(
-  goalSlug: string,
-  name: string,
-  done?: boolean,
-): Promise<Milestone> {
+function archivedQuery(includeArchived?: boolean): string {
+  return queryString({ include_archived: includeArchived || undefined })
+}
+
+export function listAmbitions(includeArchived?: boolean): Promise<Ambition[]> {
+  return request(`/ambitions${archivedQuery(includeArchived)}`)
+}
+export function createAmbition(body: AmbitionCreate): Promise<Ambition> {
+  return send('/ambitions', 'POST', body)
+}
+export function getAmbition(id: number): Promise<Ambition> {
+  return request(`/ambitions/${id}`)
+}
+export function updateAmbition(id: number, body: AmbitionUpdate): Promise<Ambition> {
+  return send(`/ambitions/${id}`, 'PATCH', body)
+}
+export function deleteAmbition(id: number): Promise<void> {
+  return send(`/ambitions/${id}`, 'DELETE')
+}
+export function completeAmbition(id: number, override = false): Promise<Ambition> {
+  return send(`/ambitions/${id}/complete`, 'POST', { override })
+}
+export function reopenAmbition(id: number): Promise<Ambition> {
+  return send(`/ambitions/${id}/reopen`, 'POST')
+}
+
+export function listQuestGoals(filters?: {
+  ambition_id?: number
+  include_archived?: boolean
+}): Promise<QuestGoal[]> {
   return request(
-    `/goals/${encodeURIComponent(goalSlug)}/milestones/${encodeURIComponent(name)}/toggle${queryString({ done })}`,
-    { method: 'POST' },
+    `/goals${queryString({
+      ambition_id: filters?.ambition_id,
+      include_archived: filters?.include_archived || undefined,
+    })}`,
   )
+}
+export function createQuestGoal(body: GoalCreate): Promise<QuestGoal> {
+  return send('/goals', 'POST', body)
+}
+export function getQuestGoal(id: number): Promise<QuestGoal> {
+  return request(`/goals/${id}`)
+}
+export function updateQuestGoal(id: number, body: GoalUpdate): Promise<QuestGoal> {
+  return send(`/goals/${id}`, 'PATCH', body)
+}
+export function deleteQuestGoal(id: number): Promise<void> {
+  return send(`/goals/${id}`, 'DELETE')
+}
+export function completeQuestGoal(id: number, override = false): Promise<QuestGoal> {
+  return send(`/goals/${id}/complete`, 'POST', { override })
+}
+export function reopenQuestGoal(id: number): Promise<QuestGoal> {
+  return send(`/goals/${id}/reopen`, 'POST')
+}
+
+export function createMilestone(body: MilestoneCreate): Promise<QuestMilestone> {
+  return send('/milestones', 'POST', body)
+}
+export function getMilestone(id: number): Promise<QuestMilestone> {
+  return request(`/milestones/${id}`)
+}
+export function updateMilestone(id: number, body: MilestoneUpdate): Promise<QuestMilestone> {
+  return send(`/milestones/${id}`, 'PATCH', body)
+}
+export function deleteMilestone(id: number): Promise<void> {
+  return send(`/milestones/${id}`, 'DELETE')
+}
+export function completeMilestone(id: number, override = false): Promise<QuestMilestone> {
+  return send(`/milestones/${id}/complete`, 'POST', { override })
+}
+export function reopenMilestone(id: number): Promise<QuestMilestone> {
+  return send(`/milestones/${id}/reopen`, 'POST')
+}
+
+export function listSideQuests(includeArchived?: boolean): Promise<SideQuest[]> {
+  return request(`/side-quests${archivedQuery(includeArchived)}`)
+}
+export function createSideQuest(body: SideQuestCreate): Promise<SideQuest> {
+  return send('/side-quests', 'POST', body)
+}
+export function getSideQuest(id: number): Promise<SideQuest> {
+  return request(`/side-quests/${id}`)
+}
+export function updateSideQuest(id: number, body: SideQuestUpdate): Promise<SideQuest> {
+  return send(`/side-quests/${id}`, 'PATCH', body)
+}
+export function deleteSideQuest(id: number): Promise<void> {
+  return send(`/side-quests/${id}`, 'DELETE')
+}
+export function completeSideQuest(id: number, override = false): Promise<SideQuest> {
+  return send(`/side-quests/${id}/complete`, 'POST', { override })
+}
+export function reopenSideQuest(id: number): Promise<SideQuest> {
+  return send(`/side-quests/${id}/reopen`, 'POST')
+}
+
+export function createChapter(body: ChapterCreate): Promise<Chapter> {
+  return send('/chapters', 'POST', body)
+}
+export function getChapter(id: number): Promise<Chapter> {
+  return request(`/chapters/${id}`)
+}
+export function updateChapter(id: number, body: ChapterUpdate): Promise<Chapter> {
+  return send(`/chapters/${id}`, 'PATCH', body)
+}
+export function deleteChapter(id: number): Promise<void> {
+  return send(`/chapters/${id}`, 'DELETE')
+}
+
+export function listQuestTasks(filters?: TaskFilters): Promise<QuestTask[]> {
+  return request(`/tasks${queryString({ ...filters })}`)
+}
+export function createQuestTask(body: TaskCreate): Promise<QuestTaskDetail> {
+  return send('/tasks', 'POST', body)
+}
+export function getQuestTask(id: number): Promise<QuestTaskDetail> {
+  return request(`/tasks/${id}`)
+}
+export function updateQuestTask(id: number, body: TaskUpdate): Promise<QuestTaskDetail> {
+  return send(`/tasks/${id}`, 'PATCH', body)
+}
+export function deleteQuestTask(id: number): Promise<void> {
+  return send(`/tasks/${id}`, 'DELETE')
+}
+export function organizeTask(id: number, body: TaskOrganize): Promise<QuestTaskDetail> {
+  return send(`/tasks/${id}/organize`, 'POST', body)
+}
+export function promoteTask(id: number, body: TaskPromote): Promise<PromoteResult> {
+  return send(`/tasks/${id}/promote`, 'POST', body)
+}
+
+export function listTimeBlocks(filters?: {
+  start?: string
+  end?: string
+  task_id?: number
+}): Promise<TimeBlock[]> {
+  return request(`/time-blocks${queryString({ ...filters })}`)
+}
+export function createTimeBlock(body: {
+  task_id: number
+  start_at: string
+  end_at: string
+}): Promise<TimeBlock> {
+  return send('/time-blocks', 'POST', body)
+}
+export function updateTimeBlock(
+  id: number,
+  body: { start_at?: string; end_at?: string },
+): Promise<TimeBlock> {
+  return send(`/time-blocks/${id}`, 'PATCH', body)
+}
+export function deleteTimeBlock(id: number): Promise<void> {
+  return send(`/time-blocks/${id}`, 'DELETE')
+}
+export function completeTimeBlock(id: number): Promise<TimeBlock> {
+  return send(`/time-blocks/${id}/complete`, 'POST')
+}
+export function cancelTimeBlock(id: number): Promise<TimeBlock> {
+  return send(`/time-blocks/${id}/cancel`, 'POST')
+}
+
+export function getMainQuests(includeArchived?: boolean): Promise<MainQuests> {
+  return request(`/views/main-quests${archivedQuery(includeArchived)}`)
+}
+export function getAmbitionView(id: number, includeArchived?: boolean): Promise<AmbitionSection> {
+  return request(`/views/ambitions/${id}${archivedQuery(includeArchived)}`)
+}
+export function getGoalTree(id: number, includeArchived?: boolean): Promise<GoalTree> {
+  return request(`/views/goals/${id}${archivedQuery(includeArchived)}`)
+}
+export function getSideQuestsView(includeArchived?: boolean): Promise<SideQuests> {
+  return request(`/views/side-quests${archivedQuery(includeArchived)}`)
+}
+export function getSideQuestTree(id: number, includeArchived?: boolean): Promise<SideQuestTree> {
+  return request(`/views/side-quests/${id}${archivedQuery(includeArchived)}`)
+}
+export function getInbox(): Promise<Inbox> {
+  return request('/views/inbox')
+}
+export function getTodayQuests(asOf?: string): Promise<TodayQuests> {
+  return request(`/views/today${queryString({ as_of: asOf })}`)
+}
+export function getQuestCalendar(start: string, end: string): Promise<QuestCalendar> {
+  return request(`/views/calendar${queryString({ start, end })}`)
 }

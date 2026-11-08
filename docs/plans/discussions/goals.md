@@ -1,5 +1,8 @@
 # Discussion: what goals should be in Atlas
 
+> **Superseded (8 Nov 2026)** by the quest model in [../quests-plan.md](../quests-plan.md).
+> Kept for the record of how goals worked before.
+
 > **How to use this file.** Paste it into a chat (or say "let's go through
 > `docs/plans/discussions/goals.md`") and we work through the questions in §6, one at a time.
 > The goal is a short list of decisions (§8), not code. When we agree, the decisions become
