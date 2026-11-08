@@ -52,6 +52,10 @@ class SpaFallbackMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         if request.method != "GET" or response.status_code != 404:
             return response
+        # An API route matched and answered 404 (e.g. an unknown id): that answer stands. Only
+        # paths no route claims fall back to the SPA. Routing records the match in the scope.
+        if "endpoint" in request.scope:
+            return response
         relative = request.url.path.lstrip("/")
         target = (self.dist / relative).resolve()
         try:

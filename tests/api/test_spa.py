@@ -118,3 +118,19 @@ def test_document_navigation_to_shadowed_pages_gets_the_spa(tmp_path):
         api = client.get(path)
         assert api.status_code == 200
         assert "application/json" in api.headers["content-type"]
+
+
+def test_api_404_is_not_replaced_by_the_spa(tmp_path):
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<!doctype html><title>Atlas</title>", encoding="utf-8")
+
+    client = _client(spa_dir=dist)
+    missing = client.get("/goals/99999")
+    assert missing.status_code == 404
+    assert missing.headers["content-type"].startswith("application/json")
+    assert "detail" in missing.json()
+
+    page = client.get("/quests/goals/99999")
+    assert page.status_code == 200
+    assert "Atlas" in page.text
