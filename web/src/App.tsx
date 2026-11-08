@@ -1,8 +1,7 @@
-import { lazy, Suspense } from 'react'
+import { lazy } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 import { Layout } from '@/components/Layout'
-import { PageLoading } from '@/components/PageState'
 import { LIFE_SECTIONS } from '@/lib/sections'
 import { AreaPage } from '@/pages/AreaPage'
 import { CatalogPage } from '@/pages/CatalogPage'
@@ -14,23 +13,35 @@ import { HabitPage } from '@/pages/HabitPage'
 import { HabitsPage } from '@/pages/HabitsPage'
 import { HomePage } from '@/pages/HomePage'
 import { JournalPage } from '@/pages/JournalPage'
-import { AmbitionPage } from '@/pages/quests/AmbitionPage'
-import { GoalPage } from '@/pages/quests/GoalPage'
-import { InboxPage } from '@/pages/quests/InboxPage'
-import { MainQuestsPage } from '@/pages/quests/MainQuestsPage'
-import { SideQuestPage } from '@/pages/quests/SideQuestPage'
-import { SideQuestsPage } from '@/pages/quests/SideQuestsPage'
 import { ScreenPage } from '@/pages/ScreenPage'
 import { SectionPage } from '@/pages/SectionPage'
 import { SleepPage } from '@/pages/SleepPage'
 import { WeekPage } from '@/pages/WeekPage'
 
-// Today and Calendar load on first visit, keeping the time-block screens out of the main bundle.
-const TodayPage = lazy(() =>
-  import('@/pages/quests/TodayPage').then((module) => ({ default: module.TodayPage })),
+// The quest screens load on first visit, in their own chunks (Layout wraps pages in Suspense).
+const AmbitionPage = lazy(() =>
+  import('@/pages/quests/AmbitionPage').then((m) => ({ default: m.AmbitionPage })),
 )
 const CalendarPage = lazy(() =>
-  import('@/pages/quests/CalendarPage').then((module) => ({ default: module.CalendarPage })),
+  import('@/pages/quests/CalendarPage').then((m) => ({ default: m.CalendarPage })),
+)
+const GoalPage = lazy(() =>
+  import('@/pages/quests/GoalPage').then((m) => ({ default: m.GoalPage })),
+)
+const InboxPage = lazy(() =>
+  import('@/pages/quests/InboxPage').then((m) => ({ default: m.InboxPage })),
+)
+const MainQuestsPage = lazy(() =>
+  import('@/pages/quests/MainQuestsPage').then((m) => ({ default: m.MainQuestsPage })),
+)
+const SideQuestPage = lazy(() =>
+  import('@/pages/quests/SideQuestPage').then((m) => ({ default: m.SideQuestPage })),
+)
+const SideQuestsPage = lazy(() =>
+  import('@/pages/quests/SideQuestsPage').then((m) => ({ default: m.SideQuestsPage })),
+)
+const TodayPage = lazy(() =>
+  import('@/pages/quests/TodayPage').then((m) => ({ default: m.TodayPage })),
 )
 
 export default function App() {
@@ -60,11 +71,7 @@ export default function App() {
           <Route path="habit/:slug" element={<HabitPage />} />
           <Route
             path="today"
-            element={
-              <Suspense fallback={<PageLoading />}>
-                <TodayPage />
-              </Suspense>
-            }
+            element={<TodayPage />}
           />
           <Route path="inbox" element={<InboxPage />} />
           <Route path="quests" element={<MainQuestsPage />} />
@@ -74,11 +81,7 @@ export default function App() {
           <Route path="side-quests/:id" element={<SideQuestPage />} />
           <Route
             path="calendar"
-            element={
-              <Suspense fallback={<PageLoading />}>
-                <CalendarPage />
-              </Suspense>
-            }
+            element={<CalendarPage />}
           />
           <Route path="history" element={<EntriesPage />} />
           <Route path="catalog" element={<CatalogPage />} />

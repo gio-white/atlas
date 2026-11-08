@@ -27,6 +27,10 @@ changes, change it here, in the UI, and in the API together.
 | How much a part counts toward its parent | Weight (shown as a percentage) | `weight` | [quests](../domain/quests.md) |
 | A quest with nothing under it yet | Not broken down yet | `progress: null` | [quests](../domain/quests.md) |
 | Marked done while parts are still open | Completed with open items | `completed_with_open_items` | [quests](../domain/quests.md) |
+| Sorting an Inbox task into a quest (same task, new place) | Organize… / Move… | `POST /tasks/{id}/organize` | [quests](../domain/quests.md) |
+| Making an Inbox task into a new ambition, goal, side quest, milestone, or chapter | Turn into… | `POST /tasks/{id}/promote` | [quests](../domain/quests.md) |
+| Empty / Not started / In progress / Completed | same | chapter `state`: `empty`, `not_started`, `in_progress`, `completed` | [quests](../domain/quests.md) |
+| The task to work on next | Next | `next_action` | [quests](../domain/quests.md) |
 | A planned session on the calendar | Session (time block) | `TimeBlock`, `/time-blocks` | [time blocks](../domain/time-blocks.md) |
 | Recording that a session happened (the task stays open) | Session done | `POST /time-blocks/{id}/complete` | [time blocks](../domain/time-blocks.md) |
 | Completing the task itself from a session | Outcome achieved | task `status: completed` via `PATCH /tasks/{id}` | [time blocks](../domain/time-blocks.md) |
