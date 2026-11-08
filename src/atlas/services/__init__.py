@@ -27,6 +27,7 @@ from atlas.services.entertainment_lookup import (
 from atlas.services.entries import amend_entry, delete_entry, list_entries, log_entry
 from atlas.services.errors import (
     AlreadyExistsError,
+    ConflictError,
     NotFoundError,
     ServiceError,
     UpstreamError,
@@ -114,6 +115,7 @@ from atlas.services.views import (
 
 __all__ = [
     "AlreadyExistsError",
+    "ConflictError",
     "AreaView",
     "HabitStatus",
     "ImportSummary",

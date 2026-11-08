@@ -59,7 +59,43 @@ read as UTC (`as_utc`).
 
 ## API
 
-The time block endpoints are added with the quest services.
+Times in requests may carry any offset and are stored as UTC; responses are UTC. Errors: unknown
+block → 404; unknown, completed, or archived task, or `end_at ≤ start_at` → 400.
+
+| Method | Path | Purpose | Status |
+| ------ | ---- | ------- | ------ |
+| `GET` | `/time-blocks` | List blocks overlapping [`start`, `end`) and/or for `task_id`, oldest first, with `overlaps` | implemented |
+| `POST` | `/time-blocks` | Create (`task_id`, `start_at`, `end_at`) | implemented |
+| `PATCH` | `/time-blocks/{id}` | Move or resize (`start_at`, `end_at`) | implemented |
+| `DELETE` | `/time-blocks/{id}` | Delete a mistaken block (otherwise cancel it) | implemented |
+| `POST` | `/time-blocks/{id}/complete` / `/cancel` | Session done (a `todo` task → `in_progress`; never completes the task) / session cancelled | implemented |
+| `GET` | `/views/today` | Today's blocks with task and parent path, unconfirmed blocks, tasks due, and "Up next" (`as_of`) | implemented |
+| `GET` | `/views/calendar` | Blocks overlapping [`start`, `end`) with task and parent path, overlaps marked | implemented |
+
+A block reads `{id, task_id, start_at, end_at, status, provider, external_event_id, created_at,
+updated_at, minutes, unconfirmed, overlaps}`.
+
+**Today** (`today_view`) for the local date `as_of` (default today in `ATLAS_TZ`):
+
+- `blocks` — non-cancelled blocks overlapping that local day, by start, each with its task
+  (and the task's `path`).
+- `unconfirmed` — every block still `scheduled` after its end, on any day, whose task is not
+  archived, oldest first.
+- `due_today` — open, non-archived tasks due on or before the date (overdue included), by due
+  date.
+- `up_next` — the next action of each active goal and side quest (in position order), without
+  duplicates and without tasks already on today's timeline.
+
+**Calendar** (`calendar_view`): every block (any status) overlapping [`start`, `end`), by start,
+each with its task; `overlaps` marks non-cancelled blocks that intersect another.
+
+Service functions (`src/atlas/services/time_blocks.py`):
+
+| Function | Role |
+| -------- | ---- |
+| `list_time_blocks` / `get_time_block` / `create_time_block` / `update_time_block` / `delete_time_block` | CRUD. Datetimes are converted to UTC before they are stored or compared. |
+| `complete_time_block` / `cancel_time_block` | Session outcome through `complete_block`; the task row changes only when it was `todo`. |
+| `today_view` / `calendar_view` | Execution read models (`src/atlas/services/quest_views.py`). |
 
 ## Screens
 
@@ -73,8 +109,10 @@ drawer's blocks section, and Home's "Today's quests" card, under
 ## Tests
 
 - `tests/domain/test_quests.py` — planned effort, unconfirmed, session done (criterion 14), overlap
+- `tests/services/test_time_blocks.py` — CRUD, UTC conversion, session done and cancel, overlaps, Today (local day, unconfirmed, due, up next), Calendar
+- `tests/api/test_quests.py` — time block endpoints, Today, Calendar
 - `tests/db/test_quest_schema.py` — `end_at > start_at`, unique external event per provider
 
 ## Status
 
-Q1 in progress: table and rules done.
+Q1 in progress: table, rules, services, and API done.

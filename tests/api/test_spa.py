@@ -114,6 +114,7 @@ def test_document_navigation_to_shadowed_pages_gets_the_spa(tmp_path):
         assert page.status_code == 200
         assert "text/html" in page.headers["content-type"]
 
-    api = client.get("/journal")
-    assert api.status_code == 200
-    assert "application/json" in api.headers["content-type"]
+    for path in ("/journal", "/side-quests"):
+        api = client.get(path)
+        assert api.status_code == 200
+        assert "application/json" in api.headers["content-type"]

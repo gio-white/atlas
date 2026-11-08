@@ -62,4 +62,3 @@ def test_unknown_catalog_slug_is_not_found(client):
     assert client.get("/areas/missing").status_code == 404
     assert client.get("/metrics/missing").status_code == 404
     assert client.get("/habits/missing").status_code == 404
-    assert client.get("/goals/missing").status_code == 404

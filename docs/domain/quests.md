@@ -206,7 +206,84 @@ Planned effort and unconfirmed sessions are defined in
 
 ## API
 
-The quest endpoints are added with the quest services.
+Conventions (integer ids, error codes, filters): [api-conventions](../architecture/api-conventions.md).
+Every id is an integer; a task's parent is `parent_kind` (`ambition`, `goal`, `milestone`,
+`chapter`, `side_quest`) plus `parent_id`. Errors: invalid or archived parent → 400; unknown id
+→ 404; deleting a container with children, deleting a task outside the Inbox or with blocks, or
+completing an ineligible item without `override` → 409. Bad shapes (an `estimate_minutes` or
+`weight` ≤ 0, an unknown field) → 422.
+
+| Method | Path | Purpose | Status |
+| ------ | ---- | ------- | ------ |
+| `GET` | `/ambitions` | List ambitions with computed state (`include_archived`) | implemented |
+| `POST` | `/ambitions` | Create (`title`, `description`, `target_on`, `weight`, `position`) | implemented |
+| `GET` | `/ambitions/{id}` | Read one ambition with computed state | implemented |
+| `PATCH` | `/ambitions/{id}` | Edit title, description, `target_on`, weight, position; `archived` | implemented |
+| `DELETE` | `/ambitions/{id}` | Delete when it has no children (else 409) | implemented |
+| `POST` | `/ambitions/{id}/complete` / `/reopen` | Explicit completion (`{"override": true}` when not eligible); reopen | implemented |
+| `GET` | `/goals` | List goals (`ambition_id`, `include_archived`) | implemented |
+| `POST` | `/goals` | Create with optional `ambition_id`, `success_description`, `due_on`, `weight` | implemented |
+| `GET` | `/goals/{id}` | Read one goal | implemented |
+| `PATCH` | `/goals/{id}` | Edit, move to another ambition or none (`ambition_id: null`), archive | implemented |
+| `DELETE` | `/goals/{id}` | Delete when empty | implemented |
+| `POST` | `/goals/{id}/complete` / `/reopen` | As for ambitions | implemented |
+| `POST` | `/milestones` | Create (`goal_id` required) | implemented |
+| `GET` | `/milestones/{id}` | Read one milestone | implemented |
+| `PATCH` | `/milestones/{id}` | Edit, move to another goal (`goal_id`), archive | implemented |
+| `DELETE` | `/milestones/{id}` | Delete when empty | implemented |
+| `POST` | `/milestones/{id}/complete` / `/reopen` | As for ambitions | implemented |
+| `GET` | `/side-quests` | List side quests (`include_archived`) | implemented |
+| `POST` | `/side-quests` | Create (`title`, `description`, `due_on`, `position`; no weight) | implemented |
+| `GET` | `/side-quests/{id}` | Read one side quest | implemented |
+| `PATCH` | `/side-quests/{id}` | Edit, archive | implemented |
+| `DELETE` | `/side-quests/{id}` | Delete when empty | implemented |
+| `POST` | `/side-quests/{id}/complete` / `/reopen` | As for ambitions | implemented |
+| `POST` | `/chapters` | Create (`milestone_id` xor `side_quest_id`) | implemented |
+| `GET` | `/chapters/{id}` | Read one chapter with its computed `state` | implemented |
+| `PATCH` | `/chapters/{id}` | Edit, move (give `milestone_id` or `side_quest_id`), archive | implemented |
+| `DELETE` | `/chapters/{id}` | Delete when empty | implemented |
+| `GET` | `/tasks` | List (`parent_kind` + `parent_id`, `status`, `inbox`, `standalone`, `due_on`, `include_archived`) | implemented |
+| `POST` | `/tasks` | Create; only `title` required. No parent → Inbox; `standalone: true` → standalone; `parent_kind` + `parent_id` → organized under it | implemented |
+| `GET` | `/tasks/{id}` | Read with its time blocks and planned minutes | implemented |
+| `PATCH` | `/tasks/{id}` | Edit title, description, `status`, `priority`, `estimate_minutes`, `due_on`, `weight`, `position`, `archived` | implemented |
+| `DELETE` | `/tasks/{id}` | Delete an Inbox task without time blocks (else 409) | implemented |
+| `POST` | `/tasks/{id}/organize` | `{parent_kind, parent_id}` or `{standalone: true}`; keeps id, status, blocks | implemented |
+| `POST` | `/tasks/{id}/promote` | Inbox task → new `ambition`, `goal`, `side_quest`, `milestone`, or `chapter` (`kind`, `parent_kind`, `parent_id`); returns `{kind, id, title}` | implemented |
+| `GET` | `/views/main-quests` | Ambitions (each with goal cards and direct tasks; ambitions without goals included), then independent goals | implemented |
+| `GET` | `/views/ambitions/{id}` | One ambition: goals and direct tasks | implemented |
+| `GET` | `/views/goals/{id}` | One goal's tree: milestones → chapters → tasks, and direct tasks, with state on every node | implemented |
+| `GET` | `/views/side-quests` | Side quests and standalone tasks | implemented |
+| `GET` | `/views/side-quests/{id}` | One side quest's tree: chapters → tasks, and direct tasks | implemented |
+| `GET` | `/views/inbox` | Inbox tasks, newest first, and `count` | implemented |
+
+The views take `include_archived` (default false). Time blocks, Today, and Calendar are in
+[time blocks](time-blocks.md#api).
+
+**Response shapes.** Every container carries its stored fields plus the computed state:
+`progress` (0–1 or null), `done_tasks`, `total_tasks`, `planned_minutes`, `eligible`,
+`open_children` (`[{kind, id, title}]`), `next_action` (a task or null), `path` (ancestors from
+the root), and child counts (`goal_count`, `milestone_count`, `chapter_count`, `task_count`).
+Ambitions, goals, milestones, and side quests add `status`, `completed_at`, and
+`completed_with_open_items`; goals, milestones, and chapters add `weight_share` (the normalized
+weight among siblings); chapters add `state`. A task carries its fields plus `parent`, `path`,
+`inbox`, `standalone`, `weight_share`, `planned_minutes`, and `block_count`; `GET /tasks/{id}`
+and task writes also return `blocks`.
+
+**Promote rule** (plan D6): only an Inbox task can be turned into something else; title and
+description are carried over and the task is deleted. A task with time blocks is refused (400)
+with a hint to organize it instead. A goal may name an ambition; a milestone needs a goal; a
+chapter needs a milestone or side quest.
+
+Service functions (each takes an explicit `Session` first, and an optional `now` for tests):
+
+| Function | Role |
+| -------- | ---- |
+| `QuestIndex` | Loads every quest row once, links parents to children, builds `QuestNode` trees, and renders `ContainerView` / `TaskView` with the domain's computed state (`src/atlas/services/quests.py`). |
+| `list_containers` / `get_container` / `create_container` / `update_container` / `delete_container` | Container CRUD for any `QuestKind`. Parent columns are validated with `check_parent`; new items go last among their siblings. `archived` sets status and `archived_at`; unarchiving restores `completed` or `active`. |
+| `complete_container` / `reopen_container` | Explicit completion through `check_can_complete` (`NeedsOverrideError` → `ConflictError`, 409); reopen clears `completed_at`. |
+| `list_tasks` / `get_task` / `create_task` / `update_task` / `delete_task` | Task CRUD. Status changes go through `transition_task`. |
+| `organize_task` / `promote_task` | Organize keeps the task's identity and its first `organized_at`; promote replaces an Inbox task with a new container. |
+| `main_quests_view` / `ambition_view` / `goal_view` / `side_quests_view` / `side_quest_view` / `inbox_view` | Screen read models (`src/atlas/services/quest_views.py`). |
 
 ## Screens
 
@@ -222,8 +299,10 @@ shared components in `web/src/components/quests/`. Route inventory:
 
 - `tests/domain/test_quests.py` — every rule above, pure (acceptance criteria 14–21)
 - `tests/db/test_quest_schema.py` — constraints, RESTRICT foreign keys, v10 → v11 migration
+- `tests/services/test_quests.py` — acceptance criteria 1–21 through the services (in-memory SQLite), structure and delete rules, promote, organize, filters
+- `tests/api/test_quests.py` — every endpoint group through `TestClient`, error mapping
 - `tests/services/test_port.py` — quest export/import, v10 exports
 
 ## Status
 
-Q1 in progress: schema 11, export/import, and the domain rules done.
+Q1 in progress: schema 11, export/import, domain rules, services, and the whole API done.

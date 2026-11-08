@@ -31,6 +31,10 @@ class QuestRuleError(ValueError):
     """A quest rule was broken (invalid parent, archived parent, completed task, ...)."""
 
 
+class NeedsOverrideError(QuestRuleError):
+    """Completing an item that is not eligible without `override`."""
+
+
 # --- Structure (plan §4.1) -------------------------------------------------------------------
 
 ALLOWED_PARENTS: dict[QuestKind, frozenset[ParentKind]] = {
@@ -220,8 +224,8 @@ def check_can_complete(node: QuestNode, *, override: bool) -> CompletionCheck:
         return check
     if check.open_children:
         names = ", ".join(f"{_label(child.kind)} {child.title!r}" for child in check.open_children)
-        raise QuestRuleError(f"not everything is done yet ({names}); pass override to complete")
-    raise QuestRuleError("nothing has been added yet; pass override to complete")
+        raise NeedsOverrideError(f"not everything is done yet ({names}); pass override to complete")
+    raise NeedsOverrideError("nothing has been added yet; pass override to complete")
 
 
 # --- Progress (plan §4.5) --------------------------------------------------------------------
