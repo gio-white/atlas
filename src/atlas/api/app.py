@@ -12,14 +12,12 @@ from atlas.api.routers import (
     areas_router,
     entertainment_router,
     entries_router,
-    goals_router,
     habits_router,
     journal_router,
     metrics_router,
     port_router,
     screen_router,
     sleep_router,
-    tasks_router,
     views_router,
 )
 from atlas.api.spa import VITE_ORIGINS, mount_spa, resolve_spa_dir
@@ -56,11 +54,9 @@ def create_app(
     app.include_router(areas_router)
     app.include_router(metrics_router)
     app.include_router(habits_router)
-    app.include_router(goals_router)
     app.include_router(views_router)
     app.include_router(screen_router)
     app.include_router(sleep_router)
-    app.include_router(tasks_router)
     app.include_router(journal_router)
     app.include_router(port_router)
     if spa_dir is not None:

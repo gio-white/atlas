@@ -8,16 +8,21 @@ import { EntertainmentCategoryPage } from '@/pages/EntertainmentCategoryPage'
 import { EntertainmentInsightsPage } from '@/pages/EntertainmentInsightsPage'
 import { EntertainmentPage } from '@/pages/EntertainmentPage'
 import { EntriesPage } from '@/pages/EntriesPage'
-import { GoalPage } from '@/pages/GoalPage'
-import { GoalsPage } from '@/pages/GoalsPage'
 import { HabitPage } from '@/pages/HabitPage'
 import { HabitsPage } from '@/pages/HabitsPage'
 import { HomePage } from '@/pages/HomePage'
 import { JournalPage } from '@/pages/JournalPage'
+import { AmbitionPage } from '@/pages/quests/AmbitionPage'
+import { CalendarPage } from '@/pages/quests/CalendarPage'
+import { GoalPage } from '@/pages/quests/GoalPage'
+import { InboxPage } from '@/pages/quests/InboxPage'
+import { MainQuestsPage } from '@/pages/quests/MainQuestsPage'
+import { SideQuestPage } from '@/pages/quests/SideQuestPage'
+import { SideQuestsPage } from '@/pages/quests/SideQuestsPage'
+import { TodayPage } from '@/pages/quests/TodayPage'
 import { ScreenPage } from '@/pages/ScreenPage'
 import { SectionPage } from '@/pages/SectionPage'
 import { SleepPage } from '@/pages/SleepPage'
-import { TasksPage } from '@/pages/TasksPage'
 import { WeekPage } from '@/pages/WeekPage'
 
 export default function App() {
@@ -41,13 +46,18 @@ export default function App() {
           <Route path="entertainment/insights" element={<EntertainmentInsightsPage />} />
           <Route path="entertainment/:category" element={<EntertainmentCategoryPage />} />
           <Route path="screen" element={<ScreenPage />} />
-          <Route path="tasks" element={<TasksPage />} />
           <Route path="journal" element={<JournalPage />} />
           <Route path="area/:slug" element={<AreaPage />} />
           <Route path="habit" element={<HabitsPage />} />
           <Route path="habit/:slug" element={<HabitPage />} />
-          <Route path="goal" element={<GoalsPage />} />
-          <Route path="goal/:slug" element={<GoalPage />} />
+          <Route path="today" element={<TodayPage />} />
+          <Route path="inbox" element={<InboxPage />} />
+          <Route path="quests" element={<MainQuestsPage />} />
+          <Route path="quests/ambitions/:id" element={<AmbitionPage />} />
+          <Route path="quests/goals/:id" element={<GoalPage />} />
+          <Route path="side-quests" element={<SideQuestsPage />} />
+          <Route path="side-quests/:id" element={<SideQuestPage />} />
+          <Route path="calendar" element={<CalendarPage />} />
           <Route path="history" element={<EntriesPage />} />
           <Route path="catalog" element={<CatalogPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

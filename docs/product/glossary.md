@@ -13,12 +13,23 @@ changes, change it here, in the UI, and in the API together.
 | A recurring commitment | Habit | `Habit`, `/habits` | [habits](../domain/habits.md) |
 | A skip or pause of a habit | Skip / Pause | `HabitBreak`, `/habits/{slug}/breaks` | [habits](../domain/habits.md) |
 | Marking a habit done or logging toward it | Check in | check-in (an `Entry`), `/habits/{slug}/checkins` | [habits](../domain/habits.md) |
-| An outcome by a date | Goal | `Goal`, `/goals` | [goals](../domain/goals.md) |
-| A manual step of a goal | Milestone | `Milestone` | [goals](../domain/goals.md) |
-| How far ahead a goal looks | Long / Medium / Short term | `horizon`: `long`, `medium`, `short` | [goals](../domain/goals.md) |
-| Whether a goal is on track | Ahead / On track / Behind / Overdue / Achieved / No data | `pace_status` | [goals](../domain/goals.md) |
-| A one-off to-do | Task | `Task`, `/tasks` | [tasks](../domain/tasks.md) |
-| Today / Upcoming / Someday | same | `bucket`: `today`, `upcoming`, `someday` | [tasks](../domain/tasks.md) |
+| A broad direction in life | Ambition | `Ambition`, `/ambitions` | [quests](../domain/quests.md) |
+| A concrete outcome you want | Goal | `Goal`, `/goals` | [quests](../domain/quests.md) |
+| An important step on the way to a goal | Milestone | `Milestone`, `/milestones` | [quests](../domain/quests.md) |
+| A batch of related work, about a week | Chapter | `Chapter`, `/chapters` | [quests](../domain/quests.md) |
+| One outcome to achieve | Task | `Task`, `/tasks` | [quests](../domain/quests.md) |
+| A goal and everything under it | Main quest | derived: a `Goal` tree, `/views/main-quests` | [quests](../domain/quests.md) |
+| Something to get done outside any goal | Side quest | `SideQuest`, `/side-quests`; a standalone `Task` also counts | [quests](../domain/quests.md) |
+| A task not yet sorted into a quest | Inbox | derived: no parent and `organized_at` empty, `/views/inbox` | [quests](../domain/quests.md) |
+| A task you file on its own, outside any quest | Standalone task | `Task` with no parent and `organized_at` set | [quests](../domain/quests.md) |
+| To do / In progress / Done | same | task `status`: `todo`, `in_progress`, `completed` | [quests](../domain/quests.md) |
+| Low / Normal / High | same | task `priority` | [quests](../domain/quests.md) |
+| How much a part counts toward its parent | Weight (shown as a percentage) | `weight` | [quests](../domain/quests.md) |
+| A quest with nothing under it yet | Not broken down yet | `progress: null` | [quests](../domain/quests.md) |
+| Marked done while parts are still open | Completed with open items | `completed_with_open_items` | [quests](../domain/quests.md) |
+| A planned session on the calendar | Session (time block) | `TimeBlock`, `/time-blocks` | [time blocks](../domain/time-blocks.md) |
+| A session whose time passed without an answer | Not confirmed yet | derived: `scheduled` after `end_at` | [time blocks](../domain/time-blocks.md) |
+| Total time planned in sessions | Planned time | `planned_minutes` (never "actual effort") | [time blocks](../domain/time-blocks.md) |
 | A free-text daily note | Journal | `journal` metric in the `life` area, `/journal` | [journal](../domain/journal.md) |
 | One night of sleep | Night | `SleepSession`, `/sleep/sessions` | [sleep](../domain/sleep.md) |
 | Deep / Light / REM / Awake | same | `SleepSessionStage.stage` | [sleep](../domain/sleep.md) |

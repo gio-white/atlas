@@ -36,8 +36,7 @@ blocked commit should review, so keep it a plain two-column table.
 | `src/atlas/domain/buckets.py` | `docs/domain/trackers-and-entries.md` |
 | `src/atlas/domain/rollup.py` | `docs/domain/trackers-and-entries.md` |
 | `src/atlas/domain/habits.py` | `docs/domain/habits.md` |
-| `src/atlas/domain/goals.py` | `docs/domain/goals.md` |
-| `src/atlas/domain/horizons.py` | `docs/domain/goals.md` |
+| `src/atlas/domain/quests.py` | `docs/domain/quests.md`, `docs/domain/time-blocks.md` |
 | `src/atlas/domain/screen.py` | `docs/domain/screen-time.md` |
 | `src/atlas/domain/sleep.py` | `docs/domain/sleep.md` |
 | `src/atlas/domain/entertainment*.py` | `docs/domain/entertainment.md` |
@@ -49,26 +48,29 @@ blocked commit should review, so keep it a plain two-column table.
 | `src/atlas/services/metrics.py` | `docs/domain/trackers-and-entries.md` |
 | `src/atlas/services/entries.py` | `docs/domain/trackers-and-entries.md`, `docs/domain/history.md` |
 | `src/atlas/services/habits.py` | `docs/domain/habits.md` |
-| `src/atlas/services/goals.py` | `docs/domain/goals.md` |
-| `src/atlas/services/tasks.py` | `docs/domain/tasks.md` |
+| `src/atlas/services/quests.py` | `docs/domain/quests.md` |
+| `src/atlas/services/time_blocks.py` | `docs/domain/time-blocks.md` |
+| `src/atlas/services/quest_views.py` | `docs/domain/quests.md`, `docs/domain/time-blocks.md` |
 | `src/atlas/services/journal.py` | `docs/domain/journal.md` |
 | `src/atlas/services/life.py` | `docs/domain/journal.md` |
 | `src/atlas/services/screen.py` | `docs/domain/screen-time.md`, `docs/data-sources/screen-time.md` |
 | `src/atlas/services/sleep.py` | `docs/domain/sleep.md`, `docs/data-sources/sleep.md` |
 | `src/atlas/services/entertainment*.py` | `docs/domain/entertainment.md` |
-| `src/atlas/services/views.py` | `docs/domain/habits.md`, `docs/domain/goals.md`, `docs/domain/life-areas.md` |
+| `src/atlas/services/views.py` | `docs/domain/habits.md`, `docs/domain/life-areas.md` |
 | `src/atlas/services/port.py` | `docs/architecture/migrations.md` |
+| `src/atlas/services/quest_port.py` | `docs/architecture/migrations.md` |
 | `src/atlas/services/seed.py` | `docs/architecture/cli.md` |
 | `src/atlas/services/*` | `docs/architecture/overview.md` |
 | `src/atlas/api/routers/entries.py` | `docs/domain/trackers-and-entries.md` |
 | `src/atlas/api/routers/metrics.py` | `docs/domain/trackers-and-entries.md` |
 | `src/atlas/api/routers/areas.py` | `docs/domain/life-areas.md` |
 | `src/atlas/api/routers/habits.py` | `docs/domain/habits.md` |
-| `src/atlas/api/routers/goals.py` | `docs/domain/goals.md` |
-| `src/atlas/api/routers/views.py` | `docs/domain/habits.md`, `docs/domain/goals.md`, `docs/domain/life-areas.md` |
+| `src/atlas/api/routers/quests.py` | `docs/domain/quests.md` |
+| `src/atlas/api/routers/time_blocks.py` | `docs/domain/time-blocks.md` |
+| `src/atlas/api/routers/quest_views.py` | `docs/domain/quests.md`, `docs/domain/time-blocks.md` |
+| `src/atlas/api/routers/views.py` | `docs/domain/habits.md`, `docs/domain/life-areas.md` |
 | `src/atlas/api/routers/screen.py` | `docs/domain/screen-time.md`, `docs/data-sources/screen-time.md` |
 | `src/atlas/api/routers/sleep.py` | `docs/domain/sleep.md`, `docs/data-sources/sleep.md` |
-| `src/atlas/api/routers/tasks.py` | `docs/domain/tasks.md` |
 | `src/atlas/api/routers/journal.py` | `docs/domain/journal.md` |
 | `src/atlas/api/routers/entertainment.py` | `docs/domain/entertainment.md` |
 | `src/atlas/api/routers/port.py` | `docs/architecture/cli.md`, `docs/architecture/migrations.md` |
@@ -83,10 +85,11 @@ blocked commit should review, so keep it a plain two-column table.
 | `web/src/components/home/*` | `docs/domain/home.md` |
 | `web/src/pages/Habit*.tsx` | `docs/domain/habits.md` |
 | `web/src/components/habits/*` | `docs/domain/habits.md` |
-| `web/src/pages/Goal*.tsx` | `docs/domain/goals.md` |
-| `web/src/components/goals/*` | `docs/domain/goals.md` |
-| `web/src/pages/TasksPage.tsx` | `docs/domain/tasks.md` |
-| `web/src/components/tasks/*` | `docs/domain/tasks.md` |
+| `web/src/pages/quests/TodayPage.tsx` | `docs/domain/time-blocks.md`, `docs/product/navigation.md` |
+| `web/src/pages/quests/CalendarPage.tsx` | `docs/domain/time-blocks.md`, `docs/product/navigation.md` |
+| `web/src/pages/quests/*` | `docs/domain/quests.md`, `docs/product/navigation.md` |
+| `web/src/components/quests/time/*` | `docs/domain/time-blocks.md` |
+| `web/src/components/quests/*` | `docs/domain/quests.md` |
 | `web/src/pages/JournalPage.tsx` | `docs/domain/journal.md` |
 | `web/src/pages/SleepPage.tsx` | `docs/domain/sleep.md` |
 | `web/src/pages/ScreenPage.tsx` | `docs/domain/screen-time.md` |

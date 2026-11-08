@@ -31,7 +31,8 @@ def test_export_and_import_round_trip(client, seed_health):
     }
 
     replaced = client.post("/import", params={"replace": True}, json=payload)
-    assert replaced.status_code == 204
+    assert replaced.status_code == 200
+    assert replaced.json()["ignored_sections"] == []
 
     again = client.get("/export")
     assert again.status_code == 200

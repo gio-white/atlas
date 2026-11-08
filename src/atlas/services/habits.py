@@ -5,7 +5,7 @@ from datetime import UTC, date, datetime, timedelta
 
 from sqlmodel import Session, col, select
 
-from atlas.db.models import Area, Entry, Goal, Habit, HabitBreak, Metric
+from atlas.db.models import Area, Entry, Habit, HabitBreak, Metric
 from atlas.domain import (
     Aggregation,
     Comparator,
@@ -36,7 +36,6 @@ from atlas.services.lookups import (
     normalize_weekdays,
     require_active_area,
     require_active_metric,
-    require_goal,
     require_habit,
 )
 from atlas.services.mapping import entry_view, habit_spec
@@ -75,7 +74,6 @@ class HabitStatus:
     kind: HabitKind = HabitKind.COUNT
     time_of_day: TimeOfDay = TimeOfDay.ANYTIME
     unit: str | None = None
-    goal_slug: str | None = None
     archived: bool = False
     bucket_start: date | None = None
     bucket_end: date | None = None
@@ -131,7 +129,6 @@ def create_habit(
     unit: str | None = None,
     weekdays: Sequence[int] | None = None,
     time_of_day: TimeOfDay = TimeOfDay.ANYTIME,
-    goal_slug: str | None = None,
     active_from: date | None = None,
     active_to: date | None = None,
     area_slug: str | None = None,
@@ -161,7 +158,6 @@ def create_habit(
         target_value = 1.0
     if target_value < 0:
         raise ValidationError("target_value must not be negative")
-    goal = require_goal(session, normalize_slug(goal_slug)) if goal_slug else None
     if active_from is None:
         active_from = resolve_today(None)
     if active_to is not None and active_to < active_from:
@@ -181,7 +177,6 @@ def create_habit(
         active_to=active_to,
         kind=kind,
         time_of_day=TimeOfDay(time_of_day),
-        goal_id=goal.id if goal is not None else None,
     )
     session.add(habit)
     session.commit()
@@ -225,7 +220,6 @@ def update_habit(
     weekdays: Sequence[int] | None | object = _UNSET,
     active_to: date | None | object = _UNSET,
     time_of_day: TimeOfDay | None = None,
-    goal_slug: str | None | object = _UNSET,
     unit: str | None | object = _UNSET,
 ) -> Habit:
     habit = require_habit(session, normalize_slug(slug))
@@ -261,12 +255,6 @@ def update_habit(
         habit.active_to = active_to
     if time_of_day is not None:
         habit.time_of_day = TimeOfDay(time_of_day)
-    if goal_slug is not _UNSET:
-        habit.goal_id = (
-            require_goal(session, normalize_slug(goal_slug)).id
-            if isinstance(goal_slug, str) and goal_slug
-            else None
-        )
     if unit is not _UNSET:
         metric = metric_by_id(session, habit.metric_id)
         metric.unit = (unit.strip() or None) if isinstance(unit, str) else None
@@ -521,7 +509,6 @@ def _status_for(session: Session, habit: Habit, metric: Metric, as_of: date) -> 
     ]
     current_value = rollup(in_bucket, spec.aggregation)
     target = bucket_target(spec, bucket)
-    goal = session.get(Goal, habit.goal_id) if habit.goal_id is not None else None
     logged_days = [view.occurred_on for view in views if (view.numeric_value() or 0) > 0]
     return HabitStatus(
         slug=habit.slug,
@@ -540,7 +527,6 @@ def _status_for(session: Session, habit: Habit, metric: Metric, as_of: date) -> 
         kind=HabitKind(habit.kind),
         time_of_day=TimeOfDay(habit.time_of_day),
         unit=metric.unit,
-        goal_slug=goal.slug if goal is not None else None,
         archived=habit.archived_at is not None,
         bucket_start=bucket.start,
         bucket_end=bucket.end,

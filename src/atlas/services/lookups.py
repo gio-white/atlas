@@ -7,17 +7,14 @@ from atlas.db.models import (
     EntertainmentTitle,
     EntertainmentTopic,
     Entry,
-    Goal,
     Habit,
     Metric,
-    Milestone,
     ScreenApp,
     ScreenBudget,
     ScreenCategory,
     ScreenDevice,
     ScreenSession,
     SleepSession,
-    Task,
 )
 from atlas.domain import Period
 from atlas.services.errors import AlreadyExistsError, NotFoundError, ValidationError
@@ -41,13 +38,6 @@ def require_habit(session: Session, slug: str) -> Habit:
     row = session.exec(select(Habit).where(Habit.slug == slug)).first()
     if row is None:
         raise NotFoundError("habit", slug)
-    return row
-
-
-def require_goal(session: Session, slug: str) -> Goal:
-    row = session.exec(select(Goal).where(Goal.slug == slug)).first()
-    if row is None:
-        raise NotFoundError("goal", slug)
     return row
 
 
@@ -114,13 +104,6 @@ def require_entry(session: Session, entry_id: int) -> Entry:
     return row
 
 
-def require_task(session: Session, task_id: int) -> Task:
-    row = session.get(Task, task_id)
-    if row is None:
-        raise NotFoundError("task", task_id)
-    return row
-
-
 def require_active_area(session: Session, slug: str) -> Area:
     area = require_area(session, slug)
     if area.archived_at is not None:
@@ -143,7 +126,6 @@ def ensure_unique_slug(
     model: type[Area]
     | type[Metric]
     | type[Habit]
-    | type[Goal]
     | type[ScreenCategory]
     | type[ScreenApp]
     | type[ScreenBudget]
@@ -158,11 +140,6 @@ def ensure_unique_slug(
 
 def entries_for_metric(session: Session, metric_id: int) -> list[Entry]:
     return list(session.exec(select(Entry).where(Entry.metric_id == metric_id)).all())
-
-
-def milestones_for_goal(session: Session, goal_id: int) -> list[Milestone]:
-    statement = select(Milestone).where(Milestone.goal_id == goal_id).order_by(Milestone.id)
-    return list(session.exec(statement).all())
 
 
 def metric_by_id(session: Session, metric_id: int) -> Metric:

@@ -11,10 +11,8 @@ from atlas.db import (
     EntertainmentTitle,
     EntertainmentTopic,
     Entry,
-    Goal,
     Habit,
     Metric,
-    Milestone,
     SchemaVersion,
     ScreenApp,
     ScreenBudget,
@@ -33,10 +31,7 @@ from atlas.domain import (
     Direction,
     EntertainmentKind,
     EntertainmentStatus,
-    GoalKind,
-    GoalStatus,
     HabitKind,
-    Measure,
     Period,
     ScreenJudgment,
     Source,
@@ -113,7 +108,7 @@ def test_entry_is_indexed_on_metric_and_occurred_on(engine):
     assert ("metric_id", "occurred_on") in column_sets
 
 
-@pytest.mark.parametrize("model", [Area, Metric, Habit, Goal])
+@pytest.mark.parametrize("model", [Area, Metric, Habit])
 def test_slug_is_unique(session, model):
     area = _area(session)
     metric = _metric(session, area)
@@ -358,181 +353,6 @@ def test_habit_weekdays_round_trip_as_json(session):
     assert habit.weekdays == [1, 2, 3, 4, 5]
 
 
-def test_goal_and_milestone_persist(session):
-    area = _area(session)
-    metric = _metric(session, area, slug="weight")
-    goal = Goal(
-        area_id=area.id,
-        slug="bodyweight-75",
-        name="Bodyweight 75kg",
-        kind=GoalKind.METRIC_TARGET,
-        metric_id=metric.id,
-        target_value=75.0,
-        comparator=Comparator.AT_MOST,
-        measure=Measure.LATEST_VALUE,
-        start_on=date(2026, 1, 1),
-        due_on=date(2026, 12, 1),
-        status=GoalStatus.ACTIVE,
-    )
-    session.add(goal)
-    session.commit()
-    session.refresh(goal)
-    session.add(Milestone(goal_id=goal.id, name="Hit 78kg"))
-    session.commit()
-
-    stored = session.exec(select(Milestone).where(Milestone.goal_id == goal.id)).one()
-    assert stored.name == "Hit 78kg"
-    assert stored.done_at is None
-
-
-def test_init_schema_migrates_v3_goal_hierarchy_columns(tmp_path):
-    engine = create_engine_for(tmp_path / "v3.db")
-    with engine.begin() as connection:
-        connection.execute(
-            text(
-                "CREATE TABLE area ("
-                "id INTEGER PRIMARY KEY, slug VARCHAR UNIQUE, name VARCHAR, "
-                "description TEXT, archived_at DATETIME)"
-            )
-        )
-        connection.execute(
-            text(
-                "CREATE TABLE goal ("
-                "id INTEGER PRIMARY KEY, area_id INTEGER NOT NULL, slug VARCHAR UNIQUE, "
-                "name VARCHAR, kind VARCHAR, metric_id INTEGER, target_value FLOAT, "
-                "comparator VARCHAR, baseline_value FLOAT, measure VARCHAR, "
-                "start_on DATE, due_on DATE, status VARCHAR, achieved_at DATETIME)"
-            )
-        )
-        connection.execute(
-            text(
-                "CREATE TABLE task ("
-                "id INTEGER PRIMARY KEY, title VARCHAR, bucket VARCHAR, due_on DATE, "
-                "due_at DATETIME, priority VARCHAR, done_at DATETIME, created_at DATETIME)"
-            )
-        )
-        connection.execute(
-            text("CREATE TABLE schema_version (id INTEGER PRIMARY KEY, version INTEGER)")
-        )
-        connection.execute(text("INSERT INTO schema_version (id, version) VALUES (1, 3)"))
-        connection.execute(text("INSERT INTO area (id, slug, name) VALUES (1, 'health', 'Health')"))
-        connection.execute(
-            text(
-                "INSERT INTO goal (id, area_id, slug, name, kind, start_on, due_on, status) "
-                "VALUES (1, 1, 'year-goal', 'Year', 'milestone',"
-                " '2026-01-01', '2027-01-01', 'active')"
-            )
-        )
-        connection.execute(
-            text(
-                "INSERT INTO goal (id, area_id, slug, name, kind, start_on, due_on, status) "
-                "VALUES (2, 1, 'week-goal', 'Week', 'milestone',"
-                " '2026-08-10', '2026-08-16', 'active')"
-            )
-        )
-    init_schema(engine)
-
-    goal_columns = {column["name"] for column in inspect(engine).get_columns("goal")}
-    task_columns = {column["name"] for column in inspect(engine).get_columns("task")}
-    assert {"horizon", "parent_id", "description"} <= goal_columns
-    assert "goal_id" in task_columns
-    with engine.connect() as connection:
-        horizons = {
-            row.slug: row.horizon
-            for row in connection.execute(text("SELECT slug, horizon FROM goal")).all()
-        }
-    assert horizons["year-goal"] == "long"
-    assert horizons["week-goal"] == "short"
-    area_column = next(
-        column for column in inspect(engine).get_columns("goal") if column["name"] == "area_id"
-    )
-    assert area_column["nullable"] is True
-    with engine.connect() as connection:
-        year = connection.execute(text("SELECT area_id FROM goal WHERE slug = 'year-goal'")).one()
-        assert year.area_id == 1
-        connection.execute(text("UPDATE goal SET area_id = NULL WHERE slug = 'year-goal'"))
-        connection.commit()
-        cleared = connection.execute(
-            text("SELECT area_id FROM goal WHERE slug = 'year-goal'")
-        ).one()
-        assert cleared.area_id is None
-    with Session(engine) as session:
-        assert session.get(SchemaVersion, 1).version == CURRENT_SCHEMA_VERSION
-
-
-def test_goal_can_omit_area(session):
-    goal = Goal(
-        slug="north",
-        name="North",
-        kind=GoalKind.MILESTONE,
-        start_on=date(2026, 1, 1),
-        due_on=date(2028, 1, 1),
-        status=GoalStatus.ACTIVE,
-    )
-    session.add(goal)
-    session.commit()
-    session.refresh(goal)
-    assert goal.area_id is None
-
-
-def test_init_schema_migrates_v5_nullable_goal_area(tmp_path):
-    engine = create_engine_for(tmp_path / "v5.db")
-    with engine.begin() as connection:
-        connection.execute(
-            text(
-                "CREATE TABLE area ("
-                "id INTEGER PRIMARY KEY, slug VARCHAR UNIQUE, name VARCHAR, "
-                "description TEXT, archived_at DATETIME)"
-            )
-        )
-        connection.execute(
-            text(
-                "CREATE TABLE goal ("
-                "id INTEGER PRIMARY KEY, area_id INTEGER NOT NULL, slug VARCHAR UNIQUE, "
-                "name VARCHAR, kind VARCHAR, metric_id INTEGER, target_value FLOAT, "
-                "comparator VARCHAR, baseline_value FLOAT, measure VARCHAR, "
-                "start_on DATE, due_on DATE, horizon VARCHAR NOT NULL, parent_id INTEGER, "
-                "description TEXT, status VARCHAR, achieved_at DATETIME)"
-            )
-        )
-        connection.execute(
-            text(
-                "CREATE TABLE milestone ("
-                "id INTEGER PRIMARY KEY, goal_id INTEGER NOT NULL, name VARCHAR, "
-                "due_on DATE, done_at DATETIME, "
-                "FOREIGN KEY(goal_id) REFERENCES goal(id))"
-            )
-        )
-        connection.execute(
-            text("CREATE TABLE schema_version (id INTEGER PRIMARY KEY, version INTEGER)")
-        )
-        connection.execute(text("INSERT INTO schema_version (id, version) VALUES (1, 5)"))
-        connection.execute(text("INSERT INTO area (id, slug, name) VALUES (1, 'health', 'Health')"))
-        connection.execute(
-            text(
-                "INSERT INTO goal (id, area_id, slug, name, kind, start_on, due_on, "
-                "horizon, status) VALUES (1, 1, 'north', 'North', 'milestone',"
-                " '2026-01-01', '2028-01-01', 'long', 'active')"
-            )
-        )
-        connection.execute(
-            text("INSERT INTO milestone (id, goal_id, name) VALUES (1, 1, 'keep-going')")
-        )
-    init_schema(engine)
-
-    area_column = next(
-        column for column in inspect(engine).get_columns("goal") if column["name"] == "area_id"
-    )
-    assert area_column["nullable"] is True
-    with engine.connect() as connection:
-        goal = connection.execute(text("SELECT id, area_id FROM goal WHERE slug = 'north'")).one()
-        assert goal.area_id == 1
-        milestone = connection.execute(text("SELECT goal_id FROM milestone")).one()
-        assert milestone.goal_id == goal.id
-    with Session(engine) as session:
-        assert session.get(SchemaVersion, 1).version == CURRENT_SCHEMA_VERSION
-
-
 def _row_for(model, *, slug: str, area: Area, metric: Metric):
     if model is Area:
         return Area(slug=slug, name=slug)
@@ -545,23 +365,15 @@ def _row_for(model, *, slug: str, area: Area, metric: Metric):
             aggregation=Aggregation.SUM,
             direction=Direction.NEUTRAL,
         )
-    if model is Habit:
-        return Habit(
-            metric_id=metric.id,
-            slug=slug,
-            name=slug,
-            period=Period.DAY,
-            target_value=1.0,
-            comparator=Comparator.AT_LEAST,
-            active_from=date(2026, 8, 1),
-        )
-    return Goal(
-        area_id=area.id,
+    assert model is Habit
+    return Habit(
+        metric_id=metric.id,
         slug=slug,
         name=slug,
-        kind=GoalKind.MILESTONE,
-        start_on=date(2026, 1, 1),
-        due_on=date(2026, 12, 31),
+        period=Period.DAY,
+        target_value=1.0,
+        comparator=Comparator.AT_LEAST,
+        active_from=date(2026, 8, 1),
     )
 
 
@@ -655,7 +467,8 @@ def test_init_schema_adds_habit_kind_schedule_and_breaks(tmp_path):
     tables = set(inspect(engine).get_table_names())
     assert "habit_break" in tables
     columns = {column["name"] for column in inspect(engine).get_columns("habit")}
-    assert {"kind", "time_of_day", "goal_id", "archived_at"} <= columns
+    assert {"kind", "time_of_day", "archived_at"} <= columns
+    assert "goal_id" not in columns
     with Session(engine) as session:
         kinds = {habit.slug: habit.kind for habit in session.exec(select(Habit)).all()}
         assert kinds == {

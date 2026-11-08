@@ -1,22 +1,17 @@
 from datetime import date
 
-from atlas.domain import Comparator, Direction, GoalKind, GoalStatus, Period
+from atlas.domain import Comparator, Direction, Period
 from atlas.services import (
-    MilestoneInput,
     archive_area,
     archive_metric,
     create_area,
-    create_goal,
     create_habit,
     create_metric,
     get_area,
-    get_goal_detail,
     get_habit,
     get_metric,
     list_areas,
-    toggle_milestone,
     update_area,
-    update_goal,
     update_habit,
     update_metric,
 )
@@ -74,26 +69,6 @@ def test_update_habit_target_and_end_date(session):
     assert updated.weekdays == [1, 3, 5]
     assert updated.active_to == date(2026, 12, 31)
     assert get_habit(session, "pushups-daily").name == "Pushups Daily"
-
-
-def test_update_goal_and_toggle_milestone(session):
-    create_area(session, "health")
-    create_goal(
-        session,
-        "ship",
-        area_slug="health",
-        kind=GoalKind.MILESTONE,
-        start_on=date(2026, 1, 1),
-        due_on=date(2026, 12, 31),
-        milestones=[MilestoneInput(name="Hit 78kg")],
-    )
-    updated = update_goal(session, "ship", name="Ship it", status=GoalStatus.PAUSED)
-    assert updated.name == "Ship it"
-    assert GoalStatus(updated.status) is GoalStatus.PAUSED
-    detail = get_goal_detail(session, "ship")
-    assert [item.name for item in detail.milestones] == ["Hit 78kg"]
-    toggled = toggle_milestone(session, "ship", "Hit 78kg")
-    assert toggled.done_at is not None
 
 
 def test_get_area_and_archive_metric(session):

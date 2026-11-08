@@ -1,16 +1,19 @@
 from collections.abc import Callable
-from datetime import date
 from pathlib import Path
 
-from sqlalchemy import event, inspect, text
+from sqlalchemy import Connection, event, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.pool import StaticPool
+from sqlalchemy.schema import CreateIndex, CreateTable
 from sqlmodel import Session, SQLModel, col, create_engine, select
 
-from atlas.db.models import Entry, SchemaVersion, ScreenApp, ScreenSession
-from atlas.domain import infer_horizon
+from atlas.db.models import Entry, Habit, SchemaVersion, ScreenApp, ScreenSession
 
-CURRENT_SCHEMA_VERSION = 10
+CURRENT_SCHEMA_VERSION = 11
+
+# Tables of the goal/milestone/task model that schema 11 replaced, keyed by a column only the
+# old shape has, so the drop is idempotent and never touches the new quest tables.
+_LEGACY_TABLE_MARKERS = (("task", "bucket"), ("milestone", "name"), ("goal", "slug"))
 
 
 def create_engine_for(db_path: Path) -> Engine:
@@ -42,20 +45,21 @@ def make_session_factory(engine: Engine) -> Callable[[], Session]:
 
 
 def init_schema(engine: Engine) -> None:
+    previous = _stored_version(engine)
+    if previous is not None and previous < 11:
+        _drop_legacy_goal_tables(engine)
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         row = session.get(SchemaVersion, 1)
-        previous = None if row is None else row.version
         if previous is not None and previous < CURRENT_SCHEMA_VERSION:
-            _migrate_goal_hierarchy(engine, previous)
             if previous < 5:
                 _backfill_screen_sessions(engine)
-            if previous < 6:
-                _make_goal_area_nullable(engine)
             if previous < 9:
                 _add_entertainment_rating_and_link(engine)
             if previous < 10:
                 _add_habit_kind_and_schedule(engine)
+            if previous < 11:
+                _drop_habit_goal_link(engine)
             session.expire_all()
             row = session.get(SchemaVersion, 1)
         if row is None:
@@ -72,56 +76,73 @@ def init_db(db_path: Path) -> Engine:
     return engine
 
 
-def _migrate_goal_hierarchy(engine: Engine, from_version: int) -> None:
-    if from_version >= 4:
-        return
+def _stored_version(engine: Engine) -> int | None:
+    if "schema_version" not in inspect(engine).get_table_names():
+        return None
+    with engine.connect() as connection:
+        return connection.execute(text("SELECT version FROM schema_version WHERE id = 1")).scalar()
+
+
+def _drop_legacy_goal_tables(engine: Engine) -> None:
     inspector = inspect(engine)
     tables = set(inspector.get_table_names())
-    with engine.begin() as connection:
-        if "goal" in tables:
-            goal_columns = {column["name"] for column in inspector.get_columns("goal")}
-            if "horizon" not in goal_columns:
-                connection.execute(
-                    text("ALTER TABLE goal ADD COLUMN horizon VARCHAR NOT NULL DEFAULT 'LONG'")
-                )
-            if "parent_id" not in goal_columns:
-                connection.execute(text("ALTER TABLE goal ADD COLUMN parent_id INTEGER"))
-            if "description" not in goal_columns:
-                connection.execute(text("ALTER TABLE goal ADD COLUMN description TEXT"))
-        if "task" in tables:
-            task_columns = {column["name"] for column in inspector.get_columns("task")}
-            if "goal_id" not in task_columns:
-                connection.execute(text("ALTER TABLE task ADD COLUMN goal_id INTEGER"))
-    _normalize_horizon_enum_names(engine)
-    _backfill_goal_horizons(engine)
+    legacy = [
+        table
+        for table, marker in _LEGACY_TABLE_MARKERS
+        if table in tables and marker in {column["name"] for column in inspector.get_columns(table)}
+    ]
+    if not legacy:
+        return
+
+    def drop(connection: Connection) -> None:
+        for table in legacy:
+            connection.execute(text(f"DROP TABLE {table}"))
+
+    _without_foreign_keys(engine, drop)
 
 
-def _normalize_horizon_enum_names(engine: Engine) -> None:
+def _drop_habit_goal_link(engine: Engine) -> None:
     inspector = inspect(engine)
-    if "goal" not in inspector.get_table_names():
+    if "habit" not in inspector.get_table_names():
         return
-    columns = {column["name"] for column in inspector.get_columns("goal")}
-    if "horizon" not in columns:
+    old_columns = [column["name"] for column in inspector.get_columns("habit")]
+    if "goal_id" not in old_columns:
         return
-    with engine.begin() as connection:
-        connection.execute(text("UPDATE goal SET horizon = 'LONG' WHERE lower(horizon) = 'long'"))
+    kept = [column.name for column in Habit.__table__.columns if column.name in old_columns]
+    quoted = ", ".join(kept)
+
+    def rebuild(connection: Connection) -> None:
+        create = str(CreateTable(Habit.__table__).compile(connection))
         connection.execute(
-            text("UPDATE goal SET horizon = 'MEDIUM' WHERE lower(horizon) = 'medium'")
+            text(create.replace("CREATE TABLE habit ", "CREATE TABLE habit__new ", 1))
         )
-        connection.execute(text("UPDATE goal SET horizon = 'SHORT' WHERE lower(horizon) = 'short'"))
+        connection.execute(text(f"INSERT INTO habit__new ({quoted}) SELECT {quoted} FROM habit"))
+        connection.execute(text("DROP TABLE habit"))
+        connection.execute(text("ALTER TABLE habit__new RENAME TO habit"))
+        for index in Habit.__table__.indexes:
+            connection.execute(CreateIndex(index, if_not_exists=True))
+
+    _without_foreign_keys(engine, rebuild)
 
 
-def _backfill_goal_horizons(engine: Engine) -> None:
-    with engine.begin() as connection:
-        rows = connection.execute(text("SELECT id, start_on, due_on FROM goal")).all()
-        for row in rows:
-            start_on = _as_date(row.start_on)
-            due_on = _as_date(row.due_on)
-            horizon = infer_horizon(start_on, due_on).value
-            connection.execute(
-                text("UPDATE goal SET horizon = :horizon WHERE id = :id"),
-                {"horizon": horizon, "id": row.id},
-            )
+def _without_foreign_keys(engine: Engine, work: Callable[[Connection], None]) -> None:
+    """Run `work` in one transaction with SQLite foreign keys off (the table-rebuild recipe).
+
+    The pragma is a no-op inside a transaction, so it is switched on an autocommit connection
+    before BEGIN and restored after COMMIT or ROLLBACK.
+    """
+    with engine.connect() as connection:
+        connection = connection.execution_options(isolation_level="AUTOCOMMIT")
+        connection.execute(text("PRAGMA foreign_keys=OFF"))
+        connection.execute(text("BEGIN"))
+        try:
+            work(connection)
+            connection.execute(text("COMMIT"))
+        except Exception:
+            connection.execute(text("ROLLBACK"))
+            raise
+        finally:
+            connection.execute(text("PRAGMA foreign_keys=ON"))
 
 
 def _backfill_screen_sessions(engine: Engine) -> None:
@@ -162,57 +183,6 @@ def _backfill_screen_sessions(engine: Engine) -> None:
         session.commit()
 
 
-def _make_goal_area_nullable(engine: Engine) -> None:
-    inspector = inspect(engine)
-    if "goal" not in inspector.get_table_names():
-        return
-    columns = inspector.get_columns("goal")
-    area_column = next((column for column in columns if column["name"] == "area_id"), None)
-    if area_column is None or area_column["nullable"]:
-        return
-    names = [column["name"] for column in columns]
-    quoted = ", ".join(names)
-    with engine.connect() as connection:
-        connection = connection.execution_options(isolation_level="AUTOCOMMIT")
-        connection.execute(text("PRAGMA foreign_keys=OFF"))
-        connection.execute(text("BEGIN"))
-        try:
-            connection.execute(
-                text(
-                    "CREATE TABLE goal__new ("
-                    "id INTEGER PRIMARY KEY, "
-                    "area_id INTEGER, "
-                    "slug VARCHAR NOT NULL, "
-                    "name VARCHAR NOT NULL, "
-                    "kind VARCHAR NOT NULL, "
-                    "metric_id INTEGER, "
-                    "target_value FLOAT, "
-                    "comparator VARCHAR, "
-                    "baseline_value FLOAT, "
-                    "measure VARCHAR, "
-                    "start_on DATE NOT NULL, "
-                    "due_on DATE NOT NULL, "
-                    "horizon VARCHAR NOT NULL, "
-                    "parent_id INTEGER, "
-                    "description TEXT, "
-                    "status VARCHAR NOT NULL, "
-                    "achieved_at DATETIME)"
-                )
-            )
-            connection.execute(text(f"INSERT INTO goal__new ({quoted}) SELECT {quoted} FROM goal"))
-            connection.execute(text("DROP TABLE goal"))
-            connection.execute(text("ALTER TABLE goal__new RENAME TO goal"))
-            connection.execute(
-                text("CREATE UNIQUE INDEX IF NOT EXISTS ix_goal_slug ON goal (slug)")
-            )
-            connection.execute(text("COMMIT"))
-        except Exception:
-            connection.execute(text("ROLLBACK"))
-            connection.execute(text("PRAGMA foreign_keys=ON"))
-            raise
-        connection.execute(text("PRAGMA foreign_keys=ON"))
-
-
 def _add_entertainment_rating_and_link(engine: Engine) -> None:
     inspector = inspect(engine)
     if "entertainment_title" not in inspector.get_table_names():
@@ -247,16 +217,8 @@ def _add_habit_kind_and_schedule(engine: Engine) -> None:
             connection.execute(
                 text("ALTER TABLE habit ADD COLUMN time_of_day VARCHAR NOT NULL DEFAULT 'ANYTIME'")
             )
-        if "goal_id" not in columns:
-            connection.execute(text("ALTER TABLE habit ADD COLUMN goal_id INTEGER"))
         if "archived_at" not in columns:
             connection.execute(text("ALTER TABLE habit ADD COLUMN archived_at DATETIME"))
-
-
-def _as_date(value: date | str) -> date:
-    if isinstance(value, date):
-        return value
-    return date.fromisoformat(str(value)[:10])
 
 
 def _enable_sqlite_foreign_keys(engine: Engine) -> None:

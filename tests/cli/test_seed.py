@@ -7,7 +7,6 @@ def test_seed_loads_demo(runner):
     assert "seeded demo as of" in result.output
     assert "areas" in result.output
     assert "entries" in result.output
-    assert "tasks" in result.output
     assert "screen sessions" in result.output
 
     exported = invoke(runner, ["export"])

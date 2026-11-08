@@ -9,9 +9,13 @@ const API = 'http://127.0.0.1:8000'
 const API_UNREACHABLE = 'API is not reachable. Start it with atlas serve.'
 const apiPrefixes = [
   '/areas',
+  '/ambitions',
+  '/chapters',
   '/metrics',
   '/habits',
   '/goals',
+  '/milestones',
+  '/side-quests',
   '/entries',
   '/views',
   '/screen',
@@ -19,6 +23,7 @@ const apiPrefixes = [
   '/slips',
   '/sleep',
   '/tasks',
+  '/time-blocks',
   '/journal',
   '/entertainment',
   '/export',

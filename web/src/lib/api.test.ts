@@ -4,7 +4,6 @@ import {
   API_UNREACHABLE,
   type ApiError,
   getEntertainmentDashboard,
-  getGoalsBoard,
   getHabitsBoard,
   getHabitsCalendar,
   getScreenDashboard,
@@ -21,26 +20,6 @@ describe('queryString', () => {
 })
 
 describe('request helpers', () => {
-  it('getGoalsBoard appends as_of', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        as_of: '2026-08-13',
-        long: { horizon: 'long', on_track: 0, total: 0, fraction: null, goals: [] },
-        medium: { horizon: 'medium', on_track: 0, total: 0, fraction: null, goals: [] },
-        short: { horizon: 'short', on_track: 0, total: 0, fraction: null, goals: [] },
-        week: { total: 0, done: 0, fraction: null, tasks: [] },
-      }),
-    })
-    vi.stubGlobal('fetch', fetchMock)
-
-    await getGoalsBoard('2026-08-13')
-
-    expect(fetchMock).toHaveBeenCalledWith('/views/goals?as_of=2026-08-13', expect.any(Object))
-    vi.unstubAllGlobals()
-  })
-
   it('getHabitsBoard appends as_of', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -189,7 +168,7 @@ describe('request helpers', () => {
       }),
     )
 
-    await expect(getGoalsBoard('2026-08-15')).rejects.toMatchObject({
+    await expect(getHabitsBoard('2026-08-15')).rejects.toMatchObject({
       name: 'ApiError',
       status: 502,
       message: API_UNREACHABLE,
@@ -200,7 +179,7 @@ describe('request helpers', () => {
   it('maps a network failure to a reachable API message', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
 
-    await expect(getGoalsBoard('2026-08-15')).rejects.toMatchObject({
+    await expect(getHabitsBoard('2026-08-15')).rejects.toMatchObject({
       name: 'ApiError',
       status: 0,
       message: API_UNREACHABLE,

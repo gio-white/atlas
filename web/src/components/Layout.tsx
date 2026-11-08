@@ -1,6 +1,6 @@
 import {
   BookOpen,
-  CheckSquare,
+  CalendarDays,
   Clapperboard,
   Compass,
   Flag,
@@ -8,12 +8,15 @@ import {
   HeartPulse,
   History,
   Home,
+  Inbox,
   Menu,
   Monitor,
   Moon,
   Mountain,
   Plus,
+  Scroll,
   Settings,
+  Sun,
   X,
 } from 'lucide-react'
 import { useState } from 'react'
@@ -43,11 +46,17 @@ const NAV = [
     icon: SECTION_ICONS[section.slug],
   })),
   { to: '/screen', label: 'Screen Time', icon: Monitor },
-  { to: '/goal', label: 'Goals', icon: Flag },
   { to: '/habit', label: 'Habits', icon: Flame },
-  { to: '/tasks', label: 'Tasks', icon: CheckSquare },
   { to: '/journal', label: 'Journal', icon: BookOpen },
   { to: '/history', label: 'History', icon: History },
+] as const
+
+const QUEST_NAV = [
+  { to: '/today', label: 'Today', icon: Sun },
+  { to: '/inbox', label: 'Inbox', icon: Inbox },
+  { to: '/quests', label: 'Main quests', icon: Flag },
+  { to: '/side-quests', label: 'Side quests', icon: Scroll },
+  { to: '/calendar', label: 'Calendar', icon: CalendarDays },
 ] as const
 
 function navClass({ isActive }: { isActive: boolean }) {
@@ -89,6 +98,22 @@ export function Layout() {
             key={item.to}
             to={{ pathname: item.to, search }}
             end={'end' in item ? item.end : false}
+            className={navClass}
+            onClick={() => setSidebarOpen(false)}
+          >
+            <item.icon className="size-4 shrink-0" aria-hidden />
+            {item.label}
+          </NavLink>
+        ))}
+      </nav>
+      <nav className="flex flex-col gap-1" aria-labelledby="quests-nav-heading">
+        <h2 id="quests-nav-heading" className="px-3 pb-1 text-xs font-medium text-muted">
+          Quests
+        </h2>
+        {QUEST_NAV.map((item) => (
+          <NavLink
+            key={item.to}
+            to={{ pathname: item.to, search }}
             className={navClass}
             onClick={() => setSidebarOpen(false)}
           >

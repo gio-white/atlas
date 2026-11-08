@@ -8,12 +8,7 @@ from atlas.domain import (
     Direction,
     EntertainmentKind,
     EntertainmentStatus,
-    GoalHorizon,
-    GoalKind,
-    GoalStatus,
     HabitKind,
-    Measure,
-    PaceStatus,
     Period,
     ScreenBudgetTargetKind,
     ScreenInsightKind,
@@ -21,8 +16,6 @@ from atlas.domain import (
     ScreenScoreBand,
     SleepStage,
     Source,
-    TaskBucket,
-    TaskPriority,
     TimeOfDay,
     ValueType,
 )
@@ -130,7 +123,6 @@ class HabitCreate(BaseModel):
     unit: str | None = None
     weekdays: list[int] | None = None
     time_of_day: TimeOfDay = TimeOfDay.ANYTIME
-    goal: str | None = None
     active_from: date | None = None
     active_to: date | None = None
     area: str | None = None
@@ -145,7 +137,6 @@ class HabitUpdate(BaseModel):
     weekdays: list[int] | None = None
     active_to: date | None = None
     time_of_day: TimeOfDay | None = None
-    goal: str | None = None
     unit: str | None = None
 
 
@@ -161,7 +152,6 @@ class HabitOut(BaseModel):
     unit: str | None
     weekdays: list[int] | None
     time_of_day: TimeOfDay
-    goal: str | None
     active_from: date
     active_to: date | None
     archived_at: datetime | None
@@ -202,76 +192,6 @@ class HabitCheckInOut(BaseModel):
     created_at: datetime
 
 
-class MilestoneCreate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    name: str
-    due_on: date | None = None
-
-
-class GoalCreate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    slug: str
-    area: str | None = None
-    kind: GoalKind
-    start_on: date
-    due_on: date
-    name: str | None = None
-    metric: str | None = None
-    target_value: float | None = None
-    comparator: Comparator | None = None
-    baseline_value: float | None = None
-    measure: Measure | None = None
-    milestones: list[MilestoneCreate] | None = None
-    horizon: GoalHorizon | None = None
-    parent: str | None = None
-    description: str | None = None
-
-
-class GoalOut(BaseModel):
-    id: int
-    slug: str
-    area: str | None
-    name: str
-    kind: GoalKind
-    metric: str | None
-    target_value: float | None
-    comparator: Comparator | None
-    baseline_value: float | None
-    measure: Measure | None
-    start_on: date
-    due_on: date
-    horizon: GoalHorizon
-    parent: str | None
-    description: str | None
-    status: GoalStatus
-    achieved_at: datetime | None
-
-
-class GoalUpdate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    name: str | None = None
-    due_on: date | None = None
-    target_value: float | None = None
-    status: GoalStatus | None = None
-    horizon: GoalHorizon | None = None
-    parent: str | None = None
-    description: str | None = None
-    area: str | None = None
-
-
-class MilestoneOut(BaseModel):
-    name: str
-    due_on: date | None
-    done_at: datetime | None
-
-
-class GoalDetailOut(GoalOut):
-    milestones: list[MilestoneOut]
-
-
 class HabitStatusOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -291,7 +211,6 @@ class HabitStatusOut(BaseModel):
     kind: HabitKind
     time_of_day: TimeOfDay
     unit: str | None
-    goal_slug: str | None
     archived: bool
     bucket_start: date | None
     bucket_end: date | None
@@ -315,28 +234,6 @@ class HabitDaySet(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     done: bool
-
-
-class GoalProgressOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    slug: str
-    name: str
-    kind: GoalKind
-    status: GoalStatus
-    metric_slug: str | None
-    current: float | None
-    baseline: float | None
-    fraction: float | None
-    target_met: bool
-    pace: PaceStatus
-    target_value: float | None
-    start_on: date
-    due_on: date
-    as_of: date
-    horizon: GoalHorizon
-    parent: str | None
-    description: str | None
 
 
 class WeekDayCellOut(BaseModel):
@@ -376,49 +273,6 @@ class HabitsCalendarOut(BaseModel):
     habits: list[WeekHabitOut]
 
 
-class GoalBoardColumnOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    horizon: GoalHorizon
-    on_track: int
-    total: int
-    fraction: float | None
-    goals: list[GoalProgressOut]
-
-
-class GoalBoardTaskOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    title: str
-    bucket: TaskBucket
-    due_on: date | None
-    due_at: datetime | None
-    priority: TaskPriority
-    done_at: datetime | None
-    created_at: datetime
-    goal: str | None
-
-
-class GoalBoardWeekOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    total: int
-    done: int
-    fraction: float | None
-    tasks: list[GoalBoardTaskOut]
-
-
-class GoalsBoardOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    as_of: date
-    long: GoalBoardColumnOut
-    medium: GoalBoardColumnOut
-    short: GoalBoardColumnOut
-    week: GoalBoardWeekOut
-
-
 class HabitsBoardOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -453,7 +307,6 @@ class AreaViewOut(BaseModel):
     as_of: date
     metrics: list[MetricSnapshotOut]
     habits: list[HabitStatusOut]
-    goals: list[GoalProgressOut]
 
 
 class ScreenCategoryCreate(BaseModel):
@@ -770,43 +623,6 @@ class ScreenDashboardOut(BaseModel):
     last_recorded_at: datetime | None
 
 
-class TaskCreate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    title: str
-    bucket: TaskBucket = TaskBucket.TODAY
-    due_on: date | None = None
-    due_at: datetime | None = None
-    priority: TaskPriority = TaskPriority.NORMAL
-    goal: str | None = None
-
-
-class TaskUpdate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    title: str | None = None
-    bucket: TaskBucket | None = None
-    due_on: date | None = None
-    due_at: datetime | None = None
-    priority: TaskPriority | None = None
-    done: bool | None = None
-    goal: str | None = None
-
-
-class TaskOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    title: str
-    bucket: TaskBucket
-    due_on: date | None
-    due_at: datetime | None
-    priority: TaskPriority
-    goal: str | None
-    done_at: datetime | None
-    created_at: datetime
-
-
 class JournalCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -1069,3 +885,9 @@ class SleepViewOut(BaseModel):
     bed_spread: float | None
     wake_spread: float | None
     last_recorded_at: datetime | None
+
+
+class ImportSummaryOut(BaseModel):
+    schema_version: int
+    ignored_sections: list[str]
+    notes: list[str]

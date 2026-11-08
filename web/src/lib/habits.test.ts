@@ -33,7 +33,6 @@ function status(overrides: Partial<HabitStatus> & Pick<HabitStatus, 'slug'>): Ha
     kind: 'check',
     time_of_day: 'anytime',
     unit: null,
-    goal_slug: null,
     archived: false,
     bucket_start: '2026-08-13',
     bucket_end: '2026-08-13',

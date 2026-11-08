@@ -3,11 +3,10 @@ from datetime import date, timedelta
 
 from sqlmodel import Session, select
 
-from atlas.db.models import Goal, Habit, Metric
+from atlas.db.models import Habit, Metric
 from atlas.domain import (
     Aggregation,
     Comparator,
-    GoalStatus,
     HabitKind,
     Period,
     bucket_for,
@@ -16,7 +15,6 @@ from atlas.domain import (
     rollup,
 )
 from atlas.services.clock import resolve_today
-from atlas.services.goals import GoalProgressReport, goal_progress
 from atlas.services.habits import (
     HabitStatus,
     active_habits,
@@ -84,7 +82,6 @@ class AreaView:
     as_of: date
     metrics: list[MetricSnapshot]
     habits: list[HabitStatus]
-    goals: list[GoalProgressReport]
 
 
 def habit_calendar(
@@ -172,13 +169,6 @@ def area_view(session: Session, slug: str, *, as_of: date | None = None) -> Area
         for habit in session.exec(select(Habit).order_by(Habit.slug)).all()
         if habit.metric_id in metric_ids
     ]
-    goals = [
-        goal_progress(session, goal.slug, as_of=as_of)
-        for goal in session.exec(
-            select(Goal).where(Goal.area_id == area.id).order_by(Goal.slug)
-        ).all()
-        if GoalStatus(goal.status) is not GoalStatus.ABANDONED
-    ]
     return AreaView(
         slug=area.slug,
         name=area.name,
@@ -186,7 +176,6 @@ def area_view(session: Session, slug: str, *, as_of: date | None = None) -> Area
         as_of=as_of,
         metrics=snapshots,
         habits=habits,
-        goals=goals,
     )
 
 

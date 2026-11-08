@@ -61,7 +61,6 @@ def post_habit(session: SessionDep, body: HabitCreate) -> HabitOut:
         unit=body.unit,
         weekdays=body.weekdays,
         time_of_day=body.time_of_day,
-        goal_slug=body.goal,
         active_from=body.active_from,
         active_to=body.active_to,
         area_slug=body.area,
@@ -162,8 +161,6 @@ def get_habit_by_slug(session: SessionDep, slug: str) -> HabitOut:
 @router.patch("/{slug}", response_model=HabitOut)
 def patch_habit(session: SessionDep, slug: str, body: HabitUpdate) -> HabitOut:
     fields = body.model_dump(exclude_unset=True)
-    if "goal" in fields:
-        fields["goal_slug"] = fields.pop("goal")
     habit = update_habit(session, slug, **fields)
     return habits_out(session, [habit])[0]
 

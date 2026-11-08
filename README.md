@@ -1,6 +1,6 @@
 # Atlas
 
-Personal life-tracking backend. Records what you did, layers habits and goals on top of that record, and computes all progress on read.
+Personal life-tracking backend. Records what you did, layers habits on top of that record, plans what you want to achieve as quests, and computes all progress on read.
 
 This README is how to install and run it. The data model, layering, derived computations, API, CLI, web surface, and configuration live in the docs knowledge base: start at [docs/README.md](docs/README.md).
 
@@ -83,7 +83,7 @@ uv run pytest
 cd web && pnpm lint && pnpm test && pnpm build
 ```
 
-Python gates (`ruff check`, `ruff format --check`, `pytest`) must pass before a commit. When `web/` changes, `pnpm lint`, `pnpm test`, and `pnpm build` must pass too. A check finding is work in the same cycle: apply auto-fixes, then inspect what the fixer cannot touch. See [docs/architecture/overview.md](docs/architecture/overview.md) for layering rules and [docs/domain/](docs/domain/) for how streaks, adherence, and goal progress are defined.
+Python gates (`ruff check`, `ruff format --check`, `pytest`) must pass before a commit. When `web/` changes, `pnpm lint`, `pnpm test`, and `pnpm build` must pass too. A check finding is work in the same cycle: apply auto-fixes, then inspect what the fixer cannot touch. See [docs/architecture/overview.md](docs/architecture/overview.md) for layering rules and [docs/domain/](docs/domain/) for how streaks, adherence, and quest progress are defined.
 
 Docs change in the same commit as code. A commit that stages `src/` or `web/src/` without `docs/` is blocked unless its message has the line `Docs-Reviewed: no change needed` ([docs-sync](docs/development/docs-sync.md)). Enable the git hook once per clone:
 

@@ -1,3 +1,4 @@
+import re
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 
@@ -16,7 +17,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 
 # SPA pages whose path is also a GET API route. A browser navigation (reload, typed URL) to
 # one of these must get the page, not the JSON the route returns; fetches still reach the API.
-SPA_PATHS_SHADOWED_BY_API = frozenset({"/tasks", "/journal"})
+SPA_PATHS_SHADOWED_BY_API = re.compile(r"^/(journal|side-quests(/\d+)?)/?$")
 
 
 def resolve_spa_dir(candidates: list[Path] | None = None) -> Path | None:
@@ -43,7 +44,7 @@ class SpaFallbackMiddleware(BaseHTTPMiddleware):
         index = self.dist / "index.html"
         if (
             request.method == "GET"
-            and request.url.path in SPA_PATHS_SHADOWED_BY_API
+            and SPA_PATHS_SHADOWED_BY_API.match(request.url.path)
             and _is_document_request(request)
             and index.is_file()
         ):

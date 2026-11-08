@@ -5,10 +5,6 @@ export type Period = 'day' | 'week' | 'month'
 export type Comparator = 'at_least' | 'at_most' | 'exactly'
 export type HabitKind = 'check' | 'count' | 'duration' | 'quit'
 export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'anytime'
-export type GoalKind = 'metric_target' | 'milestone'
-export type GoalHorizon = 'long' | 'medium' | 'short'
-export type GoalStatus = 'active' | 'achieved' | 'paused' | 'abandoned'
-export type PaceStatus = 'achieved' | 'overdue' | 'no_data' | 'ahead' | 'on_track' | 'behind'
 export type Source = 'cli' | 'api' | 'import'
 
 export type Area = {
@@ -56,39 +52,10 @@ export type Habit = {
   unit: string | null
   weekdays: number[] | null
   time_of_day: TimeOfDay
-  goal: string | null
   active_from: string
   active_to: string | null
   archived_at: string | null
 }
-
-export type Goal = {
-  id: number
-  slug: string
-  area: string | null
-  name: string
-  kind: GoalKind
-  metric: string | null
-  target_value: number | null
-  comparator: Comparator | null
-  baseline_value: number | null
-  measure: 'latest_value' | 'cumulative_since_start' | null
-  start_on: string
-  due_on: string
-  horizon: GoalHorizon
-  parent: string | null
-  description: string | null
-  status: GoalStatus
-  achieved_at: string | null
-}
-
-export type Milestone = {
-  name: string
-  due_on: string | null
-  done_at: string | null
-}
-
-export type GoalDetail = Goal & { milestones: Milestone[] }
 
 export type HabitStatus = {
   slug: string
@@ -107,7 +74,6 @@ export type HabitStatus = {
   kind: HabitKind
   time_of_day: TimeOfDay
   unit: string | null
-  goal_slug: string | null
   archived: boolean
   bucket_start: string | null
   bucket_end: string | null
@@ -140,26 +106,6 @@ export type HabitDetail = {
   status: HabitStatus
   breaks: HabitBreak[]
   recent: HabitCheckIn[]
-}
-
-export type GoalProgress = {
-  slug: string
-  name: string
-  kind: GoalKind
-  status: GoalStatus
-  metric_slug: string | null
-  current: number | null
-  baseline: number | null
-  fraction: number | null
-  target_met: boolean
-  pace: PaceStatus
-  target_value: number | null
-  start_on: string
-  due_on: string
-  as_of: string
-  horizon: GoalHorizon
-  parent: string | null
-  description: string | null
 }
 
 export type WeekDayCell = {
@@ -386,44 +332,6 @@ export type SleepView = {
   last_recorded_at: string | null
 }
 
-export type TaskBucket = 'today' | 'upcoming' | 'someday'
-export type TaskPriority = 'high' | 'normal' | 'low'
-
-export type TaskItem = {
-  id: number
-  title: string
-  bucket: TaskBucket
-  due_on: string | null
-  due_at: string | null
-  priority: TaskPriority
-  goal: string | null
-  done_at: string | null
-  created_at: string
-}
-
-export type GoalBoardColumn = {
-  horizon: GoalHorizon
-  on_track: number
-  total: number
-  fraction: number | null
-  goals: GoalProgress[]
-}
-
-export type GoalBoardWeek = {
-  total: number
-  done: number
-  fraction: number | null
-  tasks: TaskItem[]
-}
-
-export type GoalsBoard = {
-  as_of: string
-  long: GoalBoardColumn
-  medium: GoalBoardColumn
-  short: GoalBoardColumn
-  week: GoalBoardWeek
-}
-
 export type HabitsBoard = {
   as_of: string
   scheduled: number
@@ -545,7 +453,6 @@ export type AreaView = {
   as_of: string
   metrics: MetricSnapshot[]
   habits: HabitStatus[]
-  goals: GoalProgress[]
 }
 
 export type EntryCreate = {
@@ -638,26 +545,6 @@ export function listEntries(filters?: {
 
 export function listHabits(metric?: string): Promise<Habit[]> {
   return request(`/habits${queryString({ metric })}`)
-}
-
-export function listGoals(filters?: {
-  area?: string
-  status?: GoalStatus
-  horizon?: GoalHorizon
-  parent?: string
-}): Promise<Goal[]> {
-  return request(
-    `/goals${queryString({
-      area: filters?.area,
-      status: filters?.status,
-      horizon: filters?.horizon,
-      parent: filters?.parent,
-    })}`,
-  )
-}
-
-export function getGoalsBoard(asOf?: string): Promise<GoalsBoard> {
-  return request(`/views/goals${queryString({ as_of: asOf })}`)
 }
 
 export function getHabitsBoard(asOf?: string): Promise<HabitsBoard> {
@@ -867,46 +754,6 @@ export function getSleepView(asOf?: string, days?: number): Promise<SleepView> {
   return request(`/sleep/view${queryString({ as_of: asOf, days })}`)
 }
 
-export function listTasks(filters?: {
-  bucket?: TaskBucket
-  include_done?: boolean
-  goal?: string
-}): Promise<TaskItem[]> {
-  return request(
-    `/tasks${queryString({
-      bucket: filters?.bucket,
-      include_done: filters?.include_done,
-      goal: filters?.goal,
-    })}`,
-  )
-}
-
-export function createTask(body: {
-  title: string
-  bucket?: TaskBucket
-  due_on?: string | null
-  due_at?: string | null
-  priority?: TaskPriority
-  goal?: string | null
-}): Promise<TaskItem> {
-  return request('/tasks', { method: 'POST', body: JSON.stringify(body) })
-}
-
-export function updateTask(
-  id: number,
-  body: Partial<{
-    title: string
-    bucket: TaskBucket
-    due_on: string | null
-    due_at: string | null
-    priority: TaskPriority
-    done: boolean
-    goal: string | null
-  }>,
-): Promise<TaskItem> {
-  return request(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
-}
-
 export function getJournal(asOf?: string): Promise<JournalDay> {
   return request(`/journal${queryString({ as_of: asOf })}`)
 }
@@ -929,10 +776,6 @@ export function setHabitDay(
     method: 'PUT',
     body: JSON.stringify({ done }),
   })
-}
-
-export function getGoalProgress(slug: string, asOf?: string): Promise<GoalProgress> {
-  return request(`/goals/${encodeURIComponent(slug)}/progress${queryString({ as_of: asOf })}`)
 }
 
 export function logEntry(body: EntryCreate): Promise<Entry> {
@@ -1009,7 +852,6 @@ export function createHabit(body: {
   unit?: string | null
   weekdays?: number[] | null
   time_of_day?: TimeOfDay
-  goal?: string | null
   active_from?: string | null
   active_to?: string | null
   area?: string | null
@@ -1026,7 +868,6 @@ export function updateHabit(
     weekdays?: number[] | null
     active_to?: string | null
     time_of_day?: TimeOfDay
-    goal?: string | null
     unit?: string | null
   },
 ): Promise<Habit> {
@@ -1082,58 +923,4 @@ export function addHabitBreak(
 
 export function deleteHabitBreak(slug: string, breakId: number): Promise<void> {
   return request(habitPath(slug, `/breaks/${breakId}`), { method: 'DELETE' })
-}
-
-export function createGoal(body: {
-  slug: string
-  area?: string | null
-  kind: GoalKind
-  start_on: string
-  due_on: string
-  name?: string | null
-  metric?: string | null
-  target_value?: number | null
-  comparator?: Comparator | null
-  baseline_value?: number | null
-  measure?: 'latest_value' | 'cumulative_since_start' | null
-  milestones?: { name: string; due_on?: string | null }[] | null
-  horizon?: GoalHorizon | null
-  parent?: string | null
-  description?: string | null
-}): Promise<Goal> {
-  return request('/goals', { method: 'POST', body: JSON.stringify(body) })
-}
-
-export function getGoal(slug: string): Promise<GoalDetail> {
-  return request(`/goals/${encodeURIComponent(slug)}`)
-}
-
-export function updateGoal(
-  slug: string,
-  body: {
-    name?: string
-    due_on?: string
-    target_value?: number
-    status?: Exclude<GoalStatus, 'achieved'>
-    horizon?: GoalHorizon
-    parent?: string | null
-    description?: string | null
-    area?: string | null
-  },
-): Promise<Goal> {
-  return request(`/goals/${encodeURIComponent(slug)}`, {
-    method: 'PATCH',
-    body: JSON.stringify(body),
-  })
-}
-
-export function toggleMilestone(
-  goalSlug: string,
-  name: string,
-  done?: boolean,
-): Promise<Milestone> {
-  return request(
-    `/goals/${encodeURIComponent(goalSlug)}/milestones/${encodeURIComponent(name)}/toggle${queryString({ done })}`,
-    { method: 'POST' },
-  )
 }

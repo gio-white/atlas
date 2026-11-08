@@ -5,15 +5,13 @@ import {
   formatDeltaFraction,
   formatEntryValue,
   formatMinutes,
-  formatPace,
   formatPercent,
 } from './format'
 import { todayIso } from './utils'
 
 describe('format helpers', () => {
-  it('maps comparators and pace labels', () => {
+  it('maps comparators', () => {
     expect(formatComparator('at_least')).toBe('≥')
-    expect(formatPace('on_track')).toBe('on track')
     expect(formatPercent(0.42)).toBe('42%')
     expect(formatPercent(null)).toBe('—')
   })

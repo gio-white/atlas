@@ -9,7 +9,6 @@ from atlas.services import (
     export_all,
     habit_statuses,
     list_entries,
-    list_goals,
     screen_dashboard,
     seed_demo,
     sleep_view,
@@ -24,10 +23,7 @@ def test_seed_demo_loads_the_demo_dataset(session):
     assert summary.areas == 6
     assert summary.metrics == 18
     assert summary.habits == 7
-    assert summary.goals == 7
-    assert summary.milestones == 7
     assert summary.entries > 0
-    assert summary.tasks == 3
     assert summary.screen_categories == 4
     assert summary.screen_apps == 6
     assert summary.screen_devices == 2
@@ -60,26 +56,6 @@ def test_seed_demo_loads_the_demo_dataset(session):
     assert habits["pushups-daily"]["time_of_day"] == "morning"
     assert habits["meditated-daily"]["name"] == "Meditate"
     assert habits["deep-work-weekdays"]["name"] == "Deep work on weekdays"
-    assert {goal["slug"] for goal in payload["goals"]} == {
-        "bodyweight-75",
-        "durable-health",
-        "emergency-fund",
-        "financial-freedom",
-        "read-12-books",
-        "ship-side-project",
-        "workout-this-week",
-    }
-    by_slug = {goal["slug"]: goal for goal in payload["goals"]}
-    assert by_slug["bodyweight-75"]["parent"] == "durable-health"
-    assert by_slug["bodyweight-75"]["horizon"] == "medium"
-    assert by_slug["durable-health"]["area"] is None
-    assert by_slug["financial-freedom"]["area"] is None
-    assert by_slug["bodyweight-75"]["area"] == "health"
-    assert {task["title"] for task in payload["tasks"]} == {
-        "Evening walk",
-        "Meditate for 10 minutes",
-        "Pushups - 3 sets",
-    }
     occurred = {entry["occurred_on"] for entry in payload["entries"]}
     assert as_of.isoformat() in occurred
     assert (as_of - timedelta(days=27)).isoformat() in occurred
@@ -148,7 +124,6 @@ def test_seed_demo_makes_today_reviewable(session):
     assert "meditated-daily" in slugs
     assert "coffee-daily" in slugs
     assert list_entries(session, start_on=as_of, end_on=as_of)
-    assert list_goals(session)
 
 
 def test_seed_demo_fills_screen_dashboard(session, monkeypatch):
