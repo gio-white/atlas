@@ -2,6 +2,8 @@
 
 The sidebar, every SPA route, and the page inventory. Each route path in
 `web/src/App.tsx` must appear in the table below; `web/src/docs-drift.test.ts` fails otherwise.
+Today and Calendar are loaded on first visit (`React.lazy`), which keeps the main bundle under
+Vite's 500 kB warning.
 Page behaviour is described in each feature's doc under [domain/](../domain/) (section
 **Screens**).
 

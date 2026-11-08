@@ -1,6 +1,8 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 import { Layout } from '@/components/Layout'
+import { PageLoading } from '@/components/PageState'
 import { LIFE_SECTIONS } from '@/lib/sections'
 import { AreaPage } from '@/pages/AreaPage'
 import { CatalogPage } from '@/pages/CatalogPage'
@@ -13,17 +15,23 @@ import { HabitsPage } from '@/pages/HabitsPage'
 import { HomePage } from '@/pages/HomePage'
 import { JournalPage } from '@/pages/JournalPage'
 import { AmbitionPage } from '@/pages/quests/AmbitionPage'
-import { CalendarPage } from '@/pages/quests/CalendarPage'
 import { GoalPage } from '@/pages/quests/GoalPage'
 import { InboxPage } from '@/pages/quests/InboxPage'
 import { MainQuestsPage } from '@/pages/quests/MainQuestsPage'
 import { SideQuestPage } from '@/pages/quests/SideQuestPage'
 import { SideQuestsPage } from '@/pages/quests/SideQuestsPage'
-import { TodayPage } from '@/pages/quests/TodayPage'
 import { ScreenPage } from '@/pages/ScreenPage'
 import { SectionPage } from '@/pages/SectionPage'
 import { SleepPage } from '@/pages/SleepPage'
 import { WeekPage } from '@/pages/WeekPage'
+
+// Today and Calendar load on first visit, keeping the time-block screens out of the main bundle.
+const TodayPage = lazy(() =>
+  import('@/pages/quests/TodayPage').then((module) => ({ default: module.TodayPage })),
+)
+const CalendarPage = lazy(() =>
+  import('@/pages/quests/CalendarPage').then((module) => ({ default: module.CalendarPage })),
+)
 
 export default function App() {
   return (
@@ -50,14 +58,28 @@ export default function App() {
           <Route path="area/:slug" element={<AreaPage />} />
           <Route path="habit" element={<HabitsPage />} />
           <Route path="habit/:slug" element={<HabitPage />} />
-          <Route path="today" element={<TodayPage />} />
+          <Route
+            path="today"
+            element={
+              <Suspense fallback={<PageLoading />}>
+                <TodayPage />
+              </Suspense>
+            }
+          />
           <Route path="inbox" element={<InboxPage />} />
           <Route path="quests" element={<MainQuestsPage />} />
           <Route path="quests/ambitions/:id" element={<AmbitionPage />} />
           <Route path="quests/goals/:id" element={<GoalPage />} />
           <Route path="side-quests" element={<SideQuestsPage />} />
           <Route path="side-quests/:id" element={<SideQuestPage />} />
-          <Route path="calendar" element={<CalendarPage />} />
+          <Route
+            path="calendar"
+            element={
+              <Suspense fallback={<PageLoading />}>
+                <CalendarPage />
+              </Suspense>
+            }
+          />
           <Route path="history" element={<EntriesPage />} />
           <Route path="catalog" element={<CatalogPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
