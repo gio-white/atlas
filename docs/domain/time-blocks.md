@@ -102,8 +102,9 @@ Service functions (`src/atlas/services/time_blocks.py`):
 Shown to people as **sessions**. Every screen shows what the API returns: unconfirmed, overlaps,
 and planned time are never worked out in the browser. Local ↔ UTC conversion happens in one
 place, `localToUtc` / `utcToLocal` in `web/src/lib/timeBlocks.ts`; times read as "09:05"
-(24-hour, browser-local). The quest accent is the theme's `primary` colour (amber in light, gold
-in dark), used for borders, icons, and the now line; the rest stays neutral. A task is drawn as
+(24-hour, browser-local). The quest accent is the theme's `iris` colour (the same accent as the
+other quest screens), used for borders, icons, the now line, and today's date pill; the rest
+stays neutral, and Unconfirmed keeps the warning colour. A task is drawn as
 a round checkbox (empty for To do, dashed for In progress, checked for Done); a side quest path
 starts with a scroll icon, a goal path with a flag, an ambition path with a compass.
 
@@ -173,8 +174,9 @@ Calendar, Home, and the task's sessions:
   and Edit.
 - **Schedule** opens the dialog for the task. It is disabled for a completed task ("Reopen the
   task to plan more sessions.").
-- Built for Q2's task drawer: `extraSection={(task) => <TaskTimeBlocks taskId={task.id}
-  onChanged={reload} />}`.
+- Shown in the task drawer for every organized task: it is the drawer's default sessions
+  section (`sessionsSection` in `web/src/components/quests/TaskDrawer.tsx`); Inbox tasks show no
+  sessions section.
 
 **Home** shows "Today's quests" from the same `/views/today` read ([home](home.md#screens)).
 
@@ -194,5 +196,5 @@ Calendar, Home, and the task's sessions:
 ## Status
 
 Implemented: backend, typed client, and seed (Q1); Today, Calendar, the time-block dialog, the
-task sessions section, and Home's card (Q3). `TaskTimeBlocks` is wired into Q2's task drawer
-once both PRs are merged.
+task sessions section, and Home's card (Q3). `TaskTimeBlocks` is the task drawer's sessions
+section.

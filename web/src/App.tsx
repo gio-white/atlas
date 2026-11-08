@@ -69,20 +69,14 @@ export default function App() {
           <Route path="area/:slug" element={<AreaPage />} />
           <Route path="habit" element={<HabitsPage />} />
           <Route path="habit/:slug" element={<HabitPage />} />
-          <Route
-            path="today"
-            element={<TodayPage />}
-          />
+          <Route path="today" element={<TodayPage />} />
           <Route path="inbox" element={<InboxPage />} />
           <Route path="quests" element={<MainQuestsPage />} />
           <Route path="quests/ambitions/:id" element={<AmbitionPage />} />
           <Route path="quests/goals/:id" element={<GoalPage />} />
           <Route path="side-quests" element={<SideQuestsPage />} />
           <Route path="side-quests/:id" element={<SideQuestPage />} />
-          <Route
-            path="calendar"
-            element={<CalendarPage />}
-          />
+          <Route path="calendar" element={<CalendarPage />} />
           <Route path="history" element={<EntriesPage />} />
           <Route path="catalog" element={<CatalogPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

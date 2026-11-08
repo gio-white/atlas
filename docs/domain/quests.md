@@ -379,11 +379,11 @@ null); rows carry a thin bar. Completed items turn `good` green. No tables.
   while the task has no parent.
 - **Belongs to**: the parent with its level and path (links to its page) and **Move…** (the
   organize picker), plus **Make it a standalone side quest**.
-- **Sessions slot**: `TaskDrawerProvider` and `TaskDrawer` take an optional
-  `extraSection(task, onChanged)` render prop, rendered in a `data-slot="task-sessions"`
-  section between Belongs to and Archive. Q3's `components/quests/time/TaskTimeBlocks.tsx`
-  mounts there in one line:
-  `extraSection={(task, onChanged) => <TaskTimeBlocks taskId={task.id} onChanged={onChanged} />}`.
+- **Sessions**: a `data-slot="task-sessions"` section between Belongs to and Archive shows the
+  task's sessions with planned time against the estimate, and Schedule
+  ([time blocks](time-blocks.md#screens)). It is `TaskDrawerProvider`'s default `extraSection`
+  (`sessionsSection`, rendering `TaskTimeBlocks`); a provider may pass its own. Inbox tasks have
+  no sessions section: they are scheduled once organized.
 - **Archive task** / **Restore task**.
 
 ## Tests

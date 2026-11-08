@@ -93,7 +93,7 @@ export function TaskTimeBlocks({ taskId, onChanged }: { taskId: number; onChange
           title={closed ? 'Reopen the task to plan more sessions.' : undefined}
           onClick={() => setDialog({ block: null })}
         >
-          <CalendarPlus className="size-4 text-primary" aria-hidden />
+          <CalendarPlus className="size-4 text-iris" aria-hidden />
           Schedule
         </Button>
       </div>

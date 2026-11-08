@@ -137,7 +137,7 @@ export function TodayPage() {
               id="due-heading"
               className="flex items-center gap-2 text-base font-semibold text-ink"
             >
-              <ListTodo className="size-4 text-primary" aria-hidden />
+              <ListTodo className="size-4 text-iris" aria-hidden />
               Due today
             </h2>
             {data.due_today.length === 0 ? (
@@ -166,7 +166,7 @@ export function TodayPage() {
               id="next-heading"
               className="flex items-center gap-2 text-base font-semibold text-ink"
             >
-              <Sparkles className="size-4 text-primary" aria-hidden />
+              <Sparkles className="size-4 text-iris" aria-hidden />
               Up next
             </h2>
             <p className="text-xs text-muted">The next step on each of your quests.</p>
@@ -206,10 +206,10 @@ function DueLabel({ due, today }: { due: string | null; today: string }) {
 function NowMarker() {
   return (
     <li className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 sm:grid-cols-[5rem_minmax(0,1fr)]">
-      <span className="whitespace-nowrap text-right text-xs font-semibold tabular-nums text-primary">
+      <span className="whitespace-nowrap text-right text-xs font-semibold tabular-nums text-iris">
         Now · {formatTime(new Date().toISOString())}
       </span>
-      <span className="h-0.5 rounded-full bg-primary" aria-hidden />
+      <span className="h-0.5 rounded-full bg-iris" aria-hidden />
     </li>
   )
 }

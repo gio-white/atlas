@@ -37,6 +37,7 @@ import { cn } from '@/lib/utils'
 
 import { OrganizePicker } from './OrganizePicker'
 import { LevelIcon } from './QuestVisuals'
+import { TaskTimeBlocks } from './time/TaskTimeBlocks'
 import { errorMessage } from './useQuestView'
 
 /**
@@ -44,6 +45,14 @@ import { errorMessage } from './useQuestView'
  * `components/quests/time/TaskTimeBlocks.tsx`) plugs in here; see `TaskDrawerProvider`.
  */
 export type TaskDrawerSection = (task: QuestTaskDetail, onChanged: () => void) => ReactNode
+
+/**
+ * The drawer's default sessions section: a task's time blocks with planned effort. The drawer
+ * hides it for Inbox tasks: they are scheduled once organized, like the time-block picker.
+ */
+export const sessionsSection: TaskDrawerSection = (task, onChanged) => (
+  <TaskTimeBlocks taskId={task.id} onChanged={onChanged} />
+)
 
 type DrawerContext = { openTask: (id: number) => void }
 
@@ -76,7 +85,7 @@ export function TaskDrawerProvider({
         taskId={taskId}
         onClose={() => setTaskId(null)}
         onChanged={onChanged}
-        extraSection={extraSection}
+        extraSection={extraSection ?? sessionsSection}
       />
     </TaskDrawerContext.Provider>
   )
@@ -423,8 +432,8 @@ export function TaskDrawer({
                 )}
               </section>
 
-              {/* Sessions slot: Q3 mounts TaskTimeBlocks here through `extraSection`. */}
-              {extraSection !== undefined && (
+              {/* Sessions: `sessionsSection` by default (TaskTimeBlocks); a provider may replace it. */}
+              {extraSection !== undefined && !task.inbox && (
                 <section aria-label="Sessions" data-slot="task-sessions">
                   {extraSection(task, () => {
                     void refresh(task.id)

@@ -56,7 +56,7 @@ export function SessionRow({
           unconfirmed
             ? 'border-warn/40'
             : scheduled
-              ? 'border-line border-l-4 border-l-primary'
+              ? 'border-line border-l-4 border-l-iris'
               : 'border-line',
         )}
       >
@@ -89,7 +89,7 @@ export function SessionRow({
                 onClick={() => actions.onSessionDone(item)}
                 aria-label={`Session done: ${task.title}`}
               >
-                <CalendarCheck className="size-4 text-primary" aria-hidden />
+                <CalendarCheck className="size-4 text-iris" aria-hidden />
                 Session done
               </Button>
             ) : (

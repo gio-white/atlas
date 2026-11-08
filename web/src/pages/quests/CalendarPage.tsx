@@ -89,10 +89,7 @@ export function CalendarPage() {
           </Button>
         </nav>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted">
-          <Legend
-            swatch="border-l-4 border-l-primary border-primary/40 bg-surface"
-            label="Planned"
-          />
+          <Legend swatch="border-l-4 border-l-iris border-iris/40 bg-surface" label="Planned" />
           <Legend swatch="border-l-4 border-l-warn border-warn/50 bg-warn/10" label="Unconfirmed" />
           <Legend swatch="border-line bg-raised" label="Done" />
           <span className="inline-flex items-center gap-1.5">
@@ -102,7 +99,7 @@ export function CalendarPage() {
           <label className="inline-flex items-center gap-2 text-ink">
             <input
               type="checkbox"
-              className="size-4 accent-[var(--primary)]"
+              className="size-4 accent-[var(--iris)]"
               checked={showCancelled}
               onChange={(event) => setShowCancelled(event.target.checked)}
             />

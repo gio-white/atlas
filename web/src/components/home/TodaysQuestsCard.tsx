@@ -29,12 +29,12 @@ export function TodaysQuestsCard({
       <CardHeader>
         <div>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Sun className="size-4 text-primary" aria-hidden />
+            <Sun className="size-4 text-iris" aria-hidden />
             Today’s quests
           </CardTitle>
           <CardDescription>Your sessions and next steps</CardDescription>
         </div>
-        <Link to={todayLink} className="text-xs font-medium text-primary hover:underline">
+        <Link to={todayLink} className="text-xs font-medium text-iris hover:underline">
           View all
         </Link>
       </CardHeader>
@@ -133,7 +133,7 @@ function Sessions({
                 onClick={() => actions.onSessionDone(item)}
                 aria-label={`Session done: ${item.task.title}`}
               >
-                <CalendarCheck className="size-4 text-primary" aria-hidden />
+                <CalendarCheck className="size-4 text-iris" aria-hidden />
                 <span className="sr-only sm:not-sr-only">Session done</span>
               </Button>
             </li>

@@ -90,7 +90,7 @@ export function WeekCalendar({
             >
               <span className="sr-only">{heading.full}</span>
               <p
-                className={cn('text-xs', isToday ? 'font-semibold text-primary' : 'text-muted')}
+                className={cn('text-xs', isToday ? 'font-semibold text-iris' : 'text-muted')}
                 aria-hidden
               >
                 {heading.weekday}
@@ -98,7 +98,7 @@ export function WeekCalendar({
               <p
                 className={cn(
                   'mx-auto mt-0.5 flex size-8 items-center justify-center rounded-full text-base font-semibold tabular-nums',
-                  isToday ? 'bg-primary text-on-primary' : 'text-ink',
+                  isToday ? 'bg-iris text-surface' : 'text-ink',
                 )}
                 aria-hidden
               >
@@ -168,7 +168,7 @@ function DayColumn({
 
   return (
     <div
-      className={cn('relative border-l border-line', isToday && 'bg-primary/[0.04]')}
+      className={cn('relative border-l border-line', isToday && 'bg-iris/[0.04]')}
       style={{ height: HOUR_PX * 24 }}
       data-day={date}
       data-testid={`day-${date}`}
@@ -186,11 +186,11 @@ function DayColumn({
 
       {isToday && (
         <div
-          className="pointer-events-none absolute inset-x-0 z-10 h-0.5 bg-primary"
+          className="pointer-events-none absolute inset-x-0 z-10 h-0.5 bg-iris"
           style={{ top: (nowMinutes / 60) * HOUR_PX }}
           aria-hidden
         >
-          <span className="absolute -top-1 -left-1 size-2.5 rounded-full bg-primary" />
+          <span className="absolute -top-1 -left-1 size-2.5 rounded-full bg-iris" />
         </div>
       )}
 
@@ -212,7 +212,7 @@ function DayColumn({
               'absolute z-20 overflow-hidden rounded-lg border px-1.5 py-1 text-left text-xs shadow-sm motion-safe:transition-colors',
               block.status === 'scheduled' &&
                 !block.unconfirmed &&
-                'border-primary/40 border-l-4 border-l-primary bg-surface text-ink hover:bg-raised',
+                'border-iris/40 border-l-4 border-l-iris bg-surface text-ink hover:bg-raised',
               block.unconfirmed && 'border-warn/50 border-l-4 border-l-warn bg-warn/10 text-ink',
               block.status === 'completed' && 'border-line bg-raised text-muted hover:text-ink',
               block.status === 'cancelled' &&
