@@ -8,14 +8,14 @@ import { TaskDrawerProvider } from '@/components/quests/TaskDrawer'
 import { errorMessage, useQuestView } from '@/components/quests/useQuestView'
 import { Input } from '@/components/ui/input'
 import { createQuestTask, getInbox } from '@/lib/api'
-import { itemHref, KIND_LABELS, notifyInboxChanged } from '@/lib/quests'
+import { INBOX_CHANGED_EVENT, itemHref, KIND_LABELS, notifyInboxChanged } from '@/lib/quests'
 
 type Notice = { text: string; href?: string; link?: string }
 
 function noticeFor(outcome: InboxOutcome): Notice | null {
   if (outcome.kind === 'organized') return { text: `Sorted into ${outcome.where}.` }
   if (outcome.kind === 'standalone') {
-    return { text: 'Now a standalone task.', href: '/side-quests', link: 'See side quests' }
+    return { text: 'Now a standalone task.', href: '/quests/side-quests', link: 'See side quests' }
   }
   if (outcome.kind === 'promoted') {
     const { result } = outcome
@@ -41,6 +41,10 @@ export function InboxPage() {
 
   useEffect(() => {
     void reload()
+    // A task added elsewhere (the header's Add → Task) shows up without leaving the page.
+    const onChange = () => void reload()
+    window.addEventListener(INBOX_CHANGED_EVENT, onChange)
+    return () => window.removeEventListener(INBOX_CHANGED_EVENT, onChange)
   }, [reload])
 
   const focusCapture = useCallback(() => formRef.current?.querySelector('input')?.focus(), [])
@@ -66,13 +70,14 @@ export function InboxPage() {
   }
 
   if (error !== null && data === null) {
-    return <PageUnavailable title="Inbox" message={error} />
+    return <PageUnavailable tab title="Inbox" message={error} />
   }
 
   return (
     <TaskDrawerProvider onChanged={refresh}>
       <div className="flex flex-col gap-6">
         <PageHeader
+          tab
           title="Inbox"
           description="Capture anything now, sort it later. Only a title is needed."
         />

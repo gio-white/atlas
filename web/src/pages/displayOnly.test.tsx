@@ -173,7 +173,7 @@ describe('Home sleep card', () => {
     renderPage(<SleepCard view={sleepView([night('2026-08-13')], '2026-08-13T08:00:00Z')} />)
 
     expect(screen.queryByRole('button', { name: CAPTURE })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'View all' })).toHaveAttribute('href', '/sleep')
+    expect(screen.getByRole('link', { name: 'View all' })).toHaveAttribute('href', '/stats/sleep')
   })
 
   it('shows the empty message without data', () => {

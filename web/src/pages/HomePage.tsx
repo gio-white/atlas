@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 
 import { HabitsWeekCard } from '@/components/home/HomeCards'
 import { ScreenTimeCard } from '@/components/home/ScreenTimeCard'
@@ -69,11 +69,20 @@ export function HomePage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <header>
-        <h1 className="text-3xl font-semibold tracking-tight">
-          Good {greeting}, {displayName}
-        </h1>
-        <p className="mt-1 text-sm text-muted">{longDateLabel(asOf)}</p>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            Good {greeting}, {displayName}
+          </h1>
+          <p className="mt-1 text-sm text-muted">{longDateLabel(asOf)}</p>
+        </div>
+        {/* Journal has no place on the rail; this link stands in until Home holds the note. */}
+        <Link
+          to={{ pathname: '/journal', search }}
+          className="text-sm font-medium text-iris hover:underline"
+        >
+          Journal
+        </Link>
       </header>
       <section
         aria-label="Overview"

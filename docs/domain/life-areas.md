@@ -49,7 +49,7 @@ Service functions (in `src/atlas/services/`, each taking an explicit `Session` f
 
 ## Screens
 
-`/area/:slug` is the area dashboard; areas are created and edited in Catalog. Route inventory with status: [navigation](../product/navigation.md).
+`/area/:slug` is the area dashboard; areas are created and edited in Catalog, a tab of Settings until the [redesign brief](../plans/redesign-brief.md) removes both in its phase 2. Route inventory with status: [navigation](../product/navigation.md).
 
 ## Tests
 

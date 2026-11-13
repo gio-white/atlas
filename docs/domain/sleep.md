@@ -77,7 +77,7 @@ Service functions (in `src/atlas/services/`, each taking an explicit `Session` f
 
 ## Screens
 
-`/sleep` is read-only and reads `GET /sleep/view?days=N` only:
+`/stats/sleep` (Stats → Sleep) is read-only and reads `GET /sleep/view?days=N` only:
 
 - **Range** — Week / Month / 90 days (7 / 30 / 90 days), kept in the URL as `?range=month` or `?range=quarter` (week is the default and has no parameter).
 - **Last updated** — from `last_recorded_at` ("Last updated today at 08:22").

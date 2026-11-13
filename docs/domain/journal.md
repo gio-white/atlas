@@ -36,7 +36,7 @@ Service functions (in `src/atlas/services/`, each taking an explicit `Session` f
 
 ## Screens
 
-`/journal` shows today's journal text (`POST /journal` to write, `PATCH /entries/{id}` to edit), and the last 90 days of earlier journal entries from `GET /entries?metric=journal`.
+`/journal` (reached from a link on Home; it has no entry on the rail) shows today's journal text (`POST /journal` to write, `PATCH /entries/{id}` to edit), and the last 90 days of earlier journal entries from `GET /entries?metric=journal`.
 
 Route inventory with status: [navigation](../product/navigation.md).
 

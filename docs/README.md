@@ -18,7 +18,7 @@ How to install and run Atlas is in the root [README](../README.md).
 | [development/](development/) | Setup, workflow, parallel branches, testing, the docs gate | [workflow](development/workflow.md) |
 | [decisions/](decisions/) | Short records of choices that should not be re-argued | [0001](decisions/0001-local-first-single-user.md) |
 | [changelog/](changelog/) | What landed, per cycle | [how fragments work](changelog/README.md) |
-| [plans/](plans/) | Active plans and discussion briefs | — |
+| [plans/](plans/) | Active plans and discussion briefs | [redesign brief](plans/redesign-brief.md), [open points](plans/open-points.md) |
 
 Every `domain/*.md` file uses the same headings: **Purpose · Concepts · Data model · Rules and
 calculations · API · Screens · Tests · Status**. For any feature you know where to look, and a
@@ -81,7 +81,8 @@ blocked commit should review, so keep it a plain two-column table.
 | `src/atlas/settings.py` | `docs/architecture/configuration.md` |
 | `web/src/App.tsx` | `docs/product/navigation.md` |
 | `web/src/components/Layout.tsx` | `docs/product/navigation.md` |
-| `web/src/lib/sections.ts` | `docs/product/navigation.md` |
+| `web/src/lib/nav.ts` | `docs/product/navigation.md` |
+| `web/src/components/shell/*` | `docs/product/navigation.md`, `docs/product/design-system.md` |
 | `web/src/pages/HomePage.tsx` | `docs/domain/home.md` |
 | `web/src/components/home/*` | `docs/domain/home.md` |
 | `web/src/pages/Habit*.tsx` | `docs/domain/habits.md` |
@@ -107,7 +108,8 @@ blocked commit should review, so keep it a plain two-column table.
 | `web/src/lib/freshness.ts` | `docs/domain/sleep.md`, `docs/domain/screen-time.md` |
 | `web/src/lib/habits.ts` | `docs/domain/habits.md` |
 | `web/src/components/WeekGrid.tsx` | `docs/domain/habits.md` |
-| `web/src/pages/SectionPage.tsx` | `docs/product/navigation.md` |
+| `web/src/pages/HealthPage.tsx` | `docs/product/navigation.md` |
+| `web/src/pages/settings/*` | `docs/product/navigation.md` |
 | `web/src/components/LogDialog.tsx` | `docs/domain/trackers-and-entries.md` |
 | `web/src/components/LogForm.tsx` | `docs/domain/trackers-and-entries.md` |
 | `web/src/components/ui/*` | `docs/product/design-system.md` |

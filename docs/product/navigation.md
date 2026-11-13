@@ -1,44 +1,125 @@
 # Navigation
 
-The sidebar, every SPA route, and the page inventory. Each route path in
-`web/src/App.tsx` must appear in the table below; `web/src/docs-drift.test.ts` fails otherwise.
-Every quest page is loaded on first visit (`React.lazy`), which keeps the main bundle under
-Vite's 500 kB warning.
+The rail, the tabs inside each destination, every SPA route, and the redirects from old
+addresses. Each route path in `web/src/App.tsx` must appear in a table below;
+`web/src/docs-drift.test.ts` fails otherwise. Home, the Habits pages, and a few small pages are in the main
+bundle; every other page is loaded on first visit (`React.lazy`), which keeps the main bundle
+under Vite's 500 kB warning.
 Page behaviour is described in each feature's doc under [domain/](../domain/) (section
 **Screens**).
 
+The structure comes from the [redesign brief](../plans/redesign-brief.md) and
+[decision 0007](../decisions/0007-five-destinations-on-a-rail.md). The brief lands in phases;
+this page describes what is built now. **Phase 1 (the shell) is built.** Pages keep their
+earlier content; the notes marked *until phase N* say what is still temporary.
+
+## Destinations
+
+Five destinations plus Settings. Labels, order, and addresses live in `web/src/lib/nav.ts`.
+
+| Destination | Address | Tabs inside | Marked active on |
+| ----------- | ------- | ----------- | ---------------- |
+| Home | `/` | none | `/`, and `/today` and `/journal` (reached from Home *until phase 3*) |
+| Quests | `/quests` | Main quests · Side quests · Inbox · Plan | everything under `/quests` |
+| Habits | `/habit` | none | everything under `/habit` |
+| Stats | `/stats` | Sleep · Screen time · Health (This week joins in phase 4) | everything under `/stats` |
+| Library | `/library` | none | everything under `/library` |
+| Settings | `/settings` | Appearance · All entries · Catalog (*until phase 2*, when Screen time setup, Devices, and Metrics replace Catalog) | everything under `/settings`, `/catalog`, `/area` |
+
+Habits keeps the address `/habit`: `/habits` is the API's list of habits.
+
+## Shell
+
+`web/src/components/Layout.tsx` and `web/src/components/shell/`.
+
+- **Rail** (screens 768px and wider): a fixed left rail, 76px wide. Each item is an icon with
+  its label underneath: Home, Quests, Habits, Stats, Library from the top, Settings at the
+  bottom. The active item has the accent colour (`iris`) on icon and label and a raised surface,
+  and carries `aria-current="page"`. Icons are house, map, repeat arrows, bar chart, and books;
+  none is a quest level icon (compass, flag, diamond, bookmark, scroll).
+- **Bottom tab bar** (narrower screens): the same five destinations in a fixed bar at the bottom.
+  Settings is a gear in the header instead.
+- **Inbox count**: the number of tasks still to sort, from `GET /views/inbox`, shows as a badge
+  on the Quests item (rail and bottom bar) and on the Inbox tab. It refreshes on every
+  navigation and whenever a screen changes the Inbox (the `atlas:inbox-changed` window event),
+  and is hidden at zero.
+- **Section tabs** (`SectionLayout`): a destination with sub-pages shows its title (`Quests`,
+  `Stats`, `Settings`) with a row of text tabs underneath; the active tab is underlined in the
+  accent colour. Each tab has its own address, so links and the back button work. On narrow
+  screens the row scrolls sideways. A tab page keeps its own name as a screen-reader heading
+  (`PageHeader` with `tab`), since the tab already shows it. Detail pages (an ambition, a goal,
+  a side quest, a habit, a Library category) show no tabs; the quest ones keep their breadcrumb.
+- **Header**: the date, which is also the **As of** control, and **Add**.
+  - Pressing the date opens the date picker. While another date is chosen it reads
+    "As of 7 Nov 2026" in the attention colour, with **Back to today** ("Today" on narrow
+    screens). The date is kept in the address as `?on=`.
+  - **Add** opens a menu with **Task** (a one-field dialog that adds the title to the Inbox,
+    like the Inbox's own capture field) and **Entry** (the New entry dialog,
+    [trackers and entries](../domain/trackers-and-entries.md#screens)).
+- **What follows you between destinations**: only the As of date (`?on=`). A page's own filters
+  stay with that page.
+- There is no profile dialog, avatar, or "Home" link above page titles: the rail is always
+  there. The display name and theme are in Settings → Appearance.
+
 ## Routes
 
-| Path            | Page                                      | Status      |
-| --------------- | ----------------------------------------- | ----------- |
-| `/`               | Home: Sleep and Screen Time summary cards, then Today’s quests and the weekly Habits confirm grid | implemented |
-| `/week`           | Redirects to `/habit?period=week` (preserves `?on=`) | implemented |
-| `/sleep`          | Display-only: Week / Month / 90 days range, time asleep trend, bedtime and wake consistency, stage split, read-only nights list with No data gaps | implemented |
-| `/health`         | Placeholder ("Coming soon"); its design waits on the navigation discussion | implemented |
-| `/adventure`      | Placeholder ("Coming soon"); its design waits on the navigation discussion | implemented |
-| `/entertainment`  | Category icons, add from link, Everything / Insights dock | implemented |
-| `/entertainment/:category` | Library table for one category (or `all`) with filter/sort, add/edit dialog | implemented |
-| `/entertainment/insights` | Period dashboard: finished by kind and tag, recently finished | implemented |
-| `/screen`         | Display-only period dashboard: totals, score, charts, heatmap, insights, cap status; collapsed Configure section for category judgment, app category, caps, and devices | implemented |
-| `/journal`        | Today's journal (write / edit), earlier entries | implemented |
-| `/history`        | Every entry by day with metric and date filters and Hide automatic data (on by default); edit value, day, note; delete | implemented |
-| `/area/:slug`   | Area dashboard (linked from Catalog)      | implemented |
-| `/habit`        | Today checklist by time of day with one-tap check-ins, this week / this month progress, 7/30-day completion, week/month overview grid | implemented |
-| `/habit/:slug`  | Habit detail: check-in, streaks, adherence, this week, recent check-ins (slips for quit habits), pauses & skips; edit, archive, delete | implemented |
-| `/catalog`      | Create and edit areas, metrics, and habits; slugs link to review pages | implemented |
-| `/today`        | Quests: timeline of today’s sessions with Session done and, separately, Outcome achieved; unconfirmed sessions to resolve; due today; up next; Plan a session ([time blocks](../domain/time-blocks.md#screens)) | implemented |
-| `/inbox`        | Quests: always-focused capture (Enter adds a title); each item can be edited, organized into any ambition, goal, milestone, chapter, or side quest (search picker), made standalone, turned into a new item, or archived ([quests](../domain/quests.md#screens)) | implemented |
-| `/quests`       | Quests: Main quests — each ambition with its goal cards (ring, status, date, counts, next action) and direct tasks, ambitions without goals included, then independent goals; new ambition and new goal | implemented |
-| `/quests/ambitions/:id` | Quests: one ambition — edit, complete or reopen, its goal cards (reorder, add) and direct tasks | implemented |
-| `/quests/goals/:id` | Quests: one goal's quest map — breadcrumb, success description, completion (with override), a path of expandable milestones with chapters and tasks, direct tasks, add and reorder at every level | implemented |
-| `/side-quests`  | Quests: side quest cards with progress and standalone tasks; new side quest | implemented |
-| `/side-quests/:id` | Quests: one side quest — edit, completion, its chapters and direct tasks (the same tree as a milestone) | implemented |
-| `/calendar`     | Quests: Monday–Sunday week of sessions by hour (`?on=` picks the week); click an empty hour to plan a session, click a session to edit, complete, cancel, or delete ([time blocks](../domain/time-blocks.md#screens)) | implemented |
+| Path | Page | Status |
+| ---- | ---- | ------ |
+| `/` | Home: Sleep and Screen Time summary cards, then Today's quests and the weekly Habits confirm grid; a Journal link *until phase 3* ([home](../domain/home.md)) | implemented |
+| `/today` | Timeline of today's sessions with Session done and, separately, Outcome achieved; unconfirmed sessions to resolve; due today; up next; Plan a session ([time blocks](../domain/time-blocks.md#screens)). Reached from Home's Today's quests card; merges into Home in phase 3 | implemented |
+| `/journal` | Today's journal (write / edit), earlier entries. Reached from a link on Home; becomes "Earlier notes" in phase 3 | implemented |
+| `/quests` | Quests → Main quests: each ambition with its goal cards (ring, status, date, counts, next action) and direct tasks, ambitions without goals included, then independent goals; new ambition and new goal | implemented |
+| `/quests/side-quests` | Quests → Side quests: side quest cards with progress and standalone tasks; new side quest | implemented |
+| `/quests/inbox` | Quests → Inbox: always-focused capture (Enter adds a title); each item can be edited, organized into any ambition, goal, milestone, chapter, or side quest (search picker), made standalone, turned into a new item, or archived ([quests](../domain/quests.md#screens)) | implemented |
+| `/quests/plan` | Quests → Plan: Monday–Sunday week of sessions by hour (`?on=` picks the week); click an empty hour to plan a session, click a session to edit, complete, cancel, or delete ([time blocks](../domain/time-blocks.md#screens)) | implemented |
+| `/quests/ambitions/:id` | One ambition: edit, complete or reopen, its goal cards (reorder, add) and direct tasks | implemented |
+| `/quests/goals/:id` | One goal's quest map: breadcrumb, success description, completion (with override), a path of expandable milestones with chapters and tasks, direct tasks, add and reorder at every level | implemented |
+| `/quests/side-quests/:id` | One side quest: edit, completion, its chapters and direct tasks (the same tree as a milestone) | implemented |
+| `/habit` | Today checklist by time of day with one-tap check-ins, this week / this month progress, 7/30-day completion, week/month overview grid | implemented |
+| `/habit/:slug` | Habit detail: check-in, streaks, adherence, this week, recent check-ins (slips for quit habits), pauses & skips; edit, archive, delete | implemented |
+| `/stats/sleep` | Stats → Sleep, display-only: Week / Month / 90 days range, time asleep trend, bedtime and wake consistency, stage split, read-only nights list with No data gaps | implemented |
+| `/stats/screen-time` | Stats → Screen time, display-only period dashboard: totals, score, charts, heatmap, insights, cap status; collapsed Configure section for category judgment, app category, caps, and devices (*until phase 2*) | implemented |
+| `/stats/health` | Stats → Health: an empty state, "No health data yet / This fills in once a device is connected." Health only ever shows device data | implemented |
+| `/library` | Library: category icons, add from link, Everything / Insights dock ([entertainment](../domain/entertainment.md#screens)) | implemented |
+| `/library/:category` | Library table for one category (or `all`) with filter/sort, add/edit dialog | implemented |
+| `/library/insights` | Period dashboard: finished by kind and tag, recently finished | implemented |
+| `/settings/appearance` | Settings → Appearance: theme (dark or light) and your name, both kept on this device | implemented |
+| `/settings/entries` | Settings → All entries: every entry by day with metric and date filters and Hide automatic data (on by default); edit value, day, note; delete ([history](../domain/history.md)) | implemented |
+| `/catalog` | Settings → Catalog (*until phase 2*): create and edit areas, metrics, and habits | implemented |
+| `/area/:slug` | Area dashboard, linked from Catalog (*until phase 2*) | implemented |
 
-## Sidebar and review pages
+## Redirects
 
-The sidebar lists Home, the life sections, Screen Time, Habits, Journal, and History, then a **Quests** group: Today, Inbox, Main quests, Side quests, and Calendar (labels in sentence case per [ux-writing](ux-writing.md)). Inbox shows the number of items still to sort from `GET /views/inbox`, refreshed on every navigation and whenever a quest screen changes something (the `atlas:inbox-changed` window event), and hidden at zero. All quest pages are built: Today and Calendar are described in [time blocks](../domain/time-blocks.md#screens), the others in [quests](../domain/quests.md#screens). Any task row opens the task drawer, which includes the task's sessions. Every quest page is lazy-loaded in its own chunk; `Layout` wraps the page outlet in `Suspense`. Health and Adventure are placeholder pages in the sidebar ("Coming soon / There is nothing to show on this page yet."); what they become is decided in the navigation discussion (`docs/plans/discussions/navigation-and-organization.md`). The header shows a menu button (narrow screens), the date, and a Settings button; there is no notifications bell. Review pages (Catalog, Area, Habit, Habits, Screen, Entertainment, life sections) link back to Home.
+Old addresses still work. `Redirect` (`web/src/components/shell/Redirect.tsx`) keeps ids, the
+query string (so the As of date and filters survive), and the hash.
+
+| Path | Goes to |
+| ---- | ------- |
+| `/stats` | `/stats/sleep` (the first Stats tab; `/stats/week` from phase 4) |
+| `/settings` | `/settings/appearance` |
+| `/week` | `/habit?period=week` |
+| `/side-quests` | `/quests/side-quests` |
+| `/side-quests/:id` | `/quests/side-quests/:id` |
+| `/inbox` | `/quests/inbox` |
+| `/calendar` | `/quests/plan` |
+| `/sleep` | `/stats/sleep` |
+| `/screen` | `/stats/screen-time` |
+| `/health` | `/stats/health` |
+| `/adventure` | `/` (Adventure is removed) |
+| `/entertainment/*` | `/library/*` (the home, a category, and Insights) |
+| `/history` | `/settings/entries` |
+
+Any other unknown address goes to Home.
+
+## Names that are ahead of the API
+
+Two labels and addresses already use their final names while the API and code keep the old ones
+*until phase 5*: **Library** (API `/entertainment`, code `Entertainment*`) and **Plan** (API
+`GET /views/calendar`, code `CalendarPage`). Phase 5 renames both everywhere
+([glossary](glossary.md)).
 
 ## Catalog
 
-Catalog creates and edits areas, metrics, and habits. Catalog slugs link to `/area/:slug` and `/habit/:slug`, preserving `?on=`. Quests are not in Catalog; they are created on the quest pages.
+*Until phase 2.* Catalog creates and edits areas, metrics, and habits. Catalog slugs link to
+`/area/:slug` and `/habit/:slug`, preserving `?on=`. Quests are not in Catalog; they are created
+on the quest pages.

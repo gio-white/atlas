@@ -56,7 +56,8 @@ export function CalendarPage() {
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <PageHeader
-          title="Calendar"
+          tab
+          title="Plan"
           kicker={weekLabel(monday)}
           description="When you plan to work on your tasks. Click an empty time to plan a session."
         />

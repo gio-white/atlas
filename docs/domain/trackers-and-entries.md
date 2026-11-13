@@ -104,7 +104,7 @@ Service functions (in `src/atlas/services/`, each taking an explicit `Session` f
 
 ## Screens
 
-Capture is the **New Entry** dialog (`LogDialog`) wrapping the log form (`LogForm`, `POST /entries`). Its description is "Log a value for today." (or "for <date>" when *As of* is set). No metric is preselected: the select starts on "Choose…", except when only one metric is offered (the Home habit grid), which is picked automatically. The value field is empty with a placeholder per value type ("How many?", "Amount", "Minutes", "1 to 10", "Write something") and shows the metric's unit beside it ("min" for a duration without a unit). Yes/no values read "Yes" / "No"; the note is "Optional"; the button is "Save".
+Capture is the **New entry** dialog (`LogDialog`), opened from **Add → Entry** in the header, wrapping the log form (`LogForm`, `POST /entries`). Its description is "Log a value for today." (or "for <date>" when *As of* is set). No metric is preselected: the select starts on "Choose…", except when only one metric is offered (the Home habit grid), which is picked automatically. The value field is empty with a placeholder per value type ("How many?", "Amount", "Minutes", "1 to 10", "Write something") and shows the metric's unit beside it ("min" for a duration without a unit). Yes/no values read "Yes" / "No"; the note is "Optional"; the button is "Save".
 
 History of entries: [history](history.md). Route inventory with status: [navigation](../product/navigation.md).
 

@@ -85,7 +85,7 @@ export function ScreenPage() {
   }
 
   if (error !== null) {
-    return <PageUnavailable title="Screen Time" message={error} />
+    return <PageUnavailable tab title="Screen time" message={error} />
   }
   if (dash === null) return <PageLoading />
 
@@ -97,9 +97,9 @@ export function ScreenPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
           <PageHeader
-            title="Screen Time"
+            tab
+            title="Screen time"
             description={`${shortDateLabel(dash.range_start)} – ${shortDateLabel(dash.range_end)}`}
-            homeLink
           />
           {updated !== null && <p className="text-xs text-muted">{updated}</p>}
         </div>

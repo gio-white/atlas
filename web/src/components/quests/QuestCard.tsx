@@ -128,7 +128,7 @@ export function SideQuestCard({ quest }: { quest: SideQuest }) {
     <CardShell
       kind="side_quest"
       item={quest}
-      href={`/side-quests/${quest.id}`}
+      href={`/quests/side-quests/${quest.id}`}
       date={quest.due_on === null ? null : `Due ${questDateLabel(quest.due_on)}`}
       counts={quest.chapter_count > 0 ? [countLabel(quest.chapter_count, 'chapter')] : []}
       compact

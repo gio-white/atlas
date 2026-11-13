@@ -83,7 +83,7 @@ export function JournalPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Journal" description="A few lines about the day." homeLink />
+      <PageHeader title="Journal" description="A few lines about the day." />
       {actionError !== null && <PageError message={actionError} />}
       <Card>
         <CardHeader>

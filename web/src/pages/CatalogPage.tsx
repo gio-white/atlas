@@ -73,9 +73,9 @@ export function CatalogPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
+        tab
         title="Catalog"
-        description="Define what you track. Capture stays in New Entry and on Home."
-        homeLink
+        description="Define what you track. To log a value, use Add, then Entry."
       />
       {error !== null && <PageError message={error} />}
       <AreaSection areas={areas} onChange={refresh} />

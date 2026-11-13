@@ -107,15 +107,15 @@ export function EntriesPage() {
     }
   }
 
-  if (error !== null) return <PageUnavailable title="History" message={error} />
+  if (error !== null) return <PageUnavailable tab title="All entries" message={error} />
   if (entries === null) return <PageLoading />
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="History"
+        tab
+        title="All entries"
         description="Everything you have logged. Fix a value, move it to another day, or delete it — streaks and goals recompute on their own."
-        homeLink
       />
       <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="flex flex-col gap-1">

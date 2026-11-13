@@ -50,3 +50,16 @@ changes, change it here, in the UI, and in the API together.
 | Viewing the app on a past date | As of | `as_of` / `?on=` | [api conventions](../architecture/api-conventions.md) |
 
 Words that never reach the UI are listed in [ux-writing](ux-writing.md).
+
+## Names that are ahead of the API
+
+The [redesign brief](../plans/redesign-brief.md) renames two things. Their labels and addresses
+changed with the shell (phase 1); the API and code follow in phase 5, and until then these two
+rows are the only places where the UI word and the API word differ.
+
+| Concept | Shown in the UI as | In the code / API until phase 5 |
+| ------- | ------------------ | ------------------------------- |
+| Everything watched, read, and heard | Library (`/library`) | `Entertainment*`, `/entertainment` |
+| The week of planned sessions | Plan (`/quests/plan`) | `CalendarPage`, `GET /views/calendar` |
+
+History is shown as **All entries** (Settings → All entries); the API is `GET /entries` as before.

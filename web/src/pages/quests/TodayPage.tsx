@@ -48,7 +48,7 @@ export function TodayPage() {
 
   const isToday = data.date === todayIso()
   const schedule = (task: QuestTask) => setScheduling({ task })
-  const calendarLink = { pathname: '/calendar', search: params.toString() }
+  const calendarLink = { pathname: '/quests/plan', search: params.toString() }
 
   return (
     <div className="flex flex-col gap-6">

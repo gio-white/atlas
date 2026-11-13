@@ -25,12 +25,12 @@ export function EntertainmentPage() {
 
   const legacyCategory = categoryFromPath(params.get('cat') ?? undefined)
   if (params.get('view') === 'insights') {
-    return <Navigate to={{ pathname: '/entertainment/insights', search }} replace />
+    return <Navigate to={{ pathname: '/library/insights', search }} replace />
   }
   if (legacyCategory !== null) {
-    return <Navigate to={{ pathname: `/entertainment/${legacyCategory}`, search }} replace />
+    return <Navigate to={{ pathname: `/library/${legacyCategory}`, search }} replace />
   }
-  if (error !== null) return <PageUnavailable title="Entertainment" message={error} />
+  if (error !== null) return <PageUnavailable title="Library" message={error} />
   if (titles === null) return <PageLoading />
 
   function openAdd(fromLink: string | null) {
@@ -50,9 +50,8 @@ export function EntertainmentPage() {
     <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <PageHeader
-          title="Entertainment"
+          title="Library"
           description="Everything you have watched, read, and listened to, and what is next."
-          homeLink
         />
         <Button type="button" variant="outline" onClick={() => openAdd(null)}>
           <Plus className="size-4" aria-hidden />
@@ -96,7 +95,7 @@ export function EntertainmentPage() {
                 <IconTile
                   id={category.id}
                   label={category.label}
-                  to={`/entertainment/${category.id}${search}`}
+                  to={`/library/${category.id}${search}`}
                   caption={countCaption(inside.length)}
                   badge={inside.filter((title) => title.status === 'in_progress').length}
                 />
@@ -113,14 +112,14 @@ export function EntertainmentPage() {
         <IconTile
           id="all"
           label="Everything"
-          to={`/entertainment/all${search}`}
+          to={`/library/all${search}`}
           caption={countCaption(titles.length)}
           small
         />
         <IconTile
           id="insights"
           label="Insights"
-          to={`/entertainment/insights${search}`}
+          to={`/library/insights${search}`}
           caption="Charts"
           small
         />

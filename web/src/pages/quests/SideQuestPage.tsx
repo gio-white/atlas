@@ -36,7 +36,7 @@ export function SideQuestPage() {
     <TaskDrawerProvider onChanged={refresh}>
       <div className="flex flex-col gap-6">
         <QuestBreadcrumb
-          root={{ label: 'Side quests', to: '/side-quests' }}
+          root={{ label: 'Side quests', to: '/quests/side-quests' }}
           path={[]}
           current={quest.title}
         />

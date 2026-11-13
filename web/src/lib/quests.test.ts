@@ -41,7 +41,7 @@ describe('links', () => {
   it('links pages directly and milestones and chapters to the nearest page above them', () => {
     expect(itemHref({ kind: 'goal', id: 4, title: 'G' })).toBe('/quests/goals/4')
     expect(itemHref({ kind: 'ambition', id: 2, title: 'A' })).toBe('/quests/ambitions/2')
-    expect(itemHref({ kind: 'side_quest', id: 3, title: 'S' })).toBe('/side-quests/3')
+    expect(itemHref({ kind: 'side_quest', id: 3, title: 'S' })).toBe('/quests/side-quests/3')
     expect(
       itemHref({ kind: 'chapter', id: 9, title: 'C' }, [
         { kind: 'ambition', id: 1, title: 'A' },
@@ -58,7 +58,9 @@ describe('links', () => {
       { kind: 'side_quest' as const, id: 2, title: 'Taxes' },
       { kind: 'chapter' as const, id: 8, title: 'Collect' },
     ]
-    expect(taskContextHref(task(1, 'Receipts', { parent: path[1], path }))).toBe('/side-quests/2')
+    expect(taskContextHref(task(1, 'Receipts', { parent: path[1], path }))).toBe(
+      '/quests/side-quests/2',
+    )
   })
 })
 

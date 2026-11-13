@@ -19,7 +19,7 @@ export function EntertainmentCategoryPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<EntertainmentTitle | null>(null)
 
-  if (category === null) return <Navigate to={{ pathname: '/entertainment', search }} replace />
+  if (category === null) return <Navigate to={{ pathname: '/library', search }} replace />
   const meta = categoryFor(category)
   if (error !== null) return <PageUnavailable title={meta.label} message={error} />
   if (titles === null) return <PageLoading />

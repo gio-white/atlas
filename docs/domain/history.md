@@ -23,7 +23,7 @@ Uses `GET /entries` (with `exclude_area`), `PATCH /entries/{id}`, and `DELETE /e
 
 ## Screens
 
-`/history` lists entries from `GET /entries` grouped by day (last 30 days by default; `?metric=`, `?from=`, `?to=`) with inline edit of value, day, and note (`PATCH /entries/{id}`, only changed fields) and a confirmed delete.
+`/settings/entries` (Settings → All entries, formerly History at `/history`) lists entries from `GET /entries` grouped by day (last 30 days by default; `?metric=`, `?from=`, `?to=`) with inline edit of value, day, and note (`PATCH /entries/{id}`, only changed fields) and a confirmed delete.
 
 A **Hide automatic data** switch is on by default and sends `exclude_area=screen`, so Screen Time minutes don't flood the list. Turning it off is kept in the URL as `?automatic=show`. When one metric is picked in the filter, that metric is always shown and the switch is disabled.
 

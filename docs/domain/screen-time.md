@@ -160,7 +160,7 @@ Service functions (in `src/atlas/services/`, each taking an explicit `Session` f
 
 ## Screens
 
-`/screen` is the read-only period dashboard from `GET /screen/dashboard` (Day / Week / Month in the query string). Sessions arrive from a data source ([decision 0004](../decisions/0004-device-data-is-display-only.md)); there is no form to log, edit, or delete a session.
+`/stats/screen-time` (Stats → Screen time) is the read-only period dashboard from `GET /screen/dashboard` (Day / Week / Month in the query string). Sessions arrive from a data source ([decision 0004](../decisions/0004-device-data-is-display-only.md)); there is no form to log, edit, or delete a session.
 
 - **Last updated** — from `last_recorded_at`.
 - **Totals** — total, daily average, longest day, and the score. The score is explained in plain words: "How much of your screen time went to apps you count as Good. Neutral time counts for half." Judgments are labelled Good / Bad / Neutral on screen (`useful` / `waste` / `neutral` in the API).

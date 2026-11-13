@@ -50,3 +50,12 @@ export function toLocalInput(iso: string): string {
   const date = new Date(iso)
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
+
+/** "7 Nov 2026": the short form every date in the UI uses. */
+export function dayLabel(isoDate: string): string {
+  return parseIsoDate(isoDate).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}

@@ -22,7 +22,7 @@ export function SleepCard({ view, search = '' }: { view: SleepView | null; searc
           <CardDescription>Last night and the past 7 nights</CardDescription>
         </div>
         <Link
-          to={{ pathname: '/sleep', search }}
+          to={{ pathname: '/stats/sleep', search }}
           className="text-xs font-medium text-sleep hover:underline"
         >
           View all

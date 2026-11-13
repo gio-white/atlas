@@ -62,7 +62,7 @@ export function SleepPage() {
     setParams(copy, { replace: true })
   }
 
-  if (error !== null) return <PageUnavailable title="Sleep" message={error} />
+  if (error !== null) return <PageUnavailable tab title="Sleep" message={error} />
   if (view === null) return <PageLoading />
 
   const updated = lastUpdatedLabel(view.last_recorded_at)
@@ -73,9 +73,9 @@ export function SleepPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
           <PageHeader
+            tab
             title="Sleep"
             description="Rest and recovery, as recorded by your devices."
-            homeLink
           />
           {updated !== null && <p className="text-xs text-muted">{updated}</p>}
         </div>

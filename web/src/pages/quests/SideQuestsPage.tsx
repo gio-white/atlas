@@ -21,7 +21,7 @@ export function SideQuestsPage() {
   }, [reload])
 
   if (error !== null && data === null) {
-    return <PageUnavailable title="Side quests" message={error} />
+    return <PageUnavailable tab title="Side quests" message={error} />
   }
   if (data === null) return <PageLoading />
 
@@ -30,6 +30,7 @@ export function SideQuestsPage() {
       <div className="flex flex-col gap-8">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <PageHeader
+            tab
             title="Side quests"
             description="Work that matters but isn't part of a goal."
           />

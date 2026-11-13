@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The dashboard at `/`: four cards summarising sleep, screen time, today's quests (sessions and next steps), and this week's habits. `/today` is the full execution screen; Home keeps a short slice of it (quest plan D13).
+The dashboard at `/`: four cards summarising sleep, screen time, today's quests (sessions and next steps), and this week's habits. `/today` is the full execution screen; Home keeps a short slice of it (quest plan D13). The [redesign brief](../plans/redesign-brief.md) merges `/today` into Home in its phase 3; until then Home is as described here.
 
 ## Concepts
 
@@ -41,7 +41,7 @@ Main row, side by side on wide screens: **Today's quests** and **Habits**.
 - The habit name column is pinned while the day columns scroll sideways on narrow screens, and the grid opens scrolled so today is in view.
 - Daily habits show their schedule under the name ("Every day", "Weekdays", "Weekends", or a list such as "Mon, Wed"), from the calendar's `kind` and `weekdays`.
 
-Each card degrades to its own unavailable message if its request fails. The quote on Home is static copy. Habits are not tasks: Home copy says habits scheduled, not tasks planned. The old Tasks card (today / upcoming / someday) was removed with the old task model, and Today's quests took its place.
+A **Journal** link beside the greeting opens `/journal`, which has no entry on the rail; it stays until Home holds the note for today (brief phase 3). Each card degrades to its own unavailable message if its request fails. The quote on Home is static copy. Habits are not tasks: Home copy says habits scheduled, not tasks planned. The old Tasks card (today / upcoming / someday) was removed with the old task model, and Today's quests took its place.
 
 Route inventory with status: [navigation](../product/navigation.md).
 

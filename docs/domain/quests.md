@@ -287,10 +287,10 @@ Service functions (each takes an explicit `Session` first, and an optional `now`
 
 ## Screens
 
-The sidebar's **Quests** group links Today, Inbox, Main quests, Side quests, and Calendar
-(route inventory: [navigation](../product/navigation.md)). This section covers the screens Q2
-of the [plan](../plans/quests-plan.md#6-screens) builds; Today, Calendar, and the sessions
-section of the task drawer are in [time blocks](time-blocks.md#screens).
+The **Quests** destination has four tabs: Main quests, Side quests, Inbox, and Plan (route
+inventory: [navigation](../product/navigation.md)). This section covers the screens Q2 of the
+[plan](../plans/quests-plan.md#6-screens) builds; Today, Plan (the week of sessions), and the
+sessions section of the task drawer are in [time blocks](time-blocks.md#screens).
 
 **The browser computes nothing.** Progress, `weight_share`, chapter state, eligibility, open
 children, and next action are shown exactly as the API returns them. `web/src/lib/quests.ts`
@@ -310,9 +310,9 @@ null); rows carry a thin bar. Completed items turn `good` green. No tables.
 | Main quests | `/quests` | One section per ambition: title, goal count, done-task count, target date, a thin bar, then its **goal cards** and an "Add a goal" tile, then a strip of the ambition's direct tasks. An ambition with no goals stays visible with "No goals yet" and **Add a goal**. Then **Independent goals**. Header buttons: **New ambition**, **New goal**. No trees here |
 | Ambition | `/quests/ambitions/:id` | Breadcrumb, ring, status, counts, target date, **Edit** (title, description, target date, archive). Completion control. Goal cards with up/down; **Add a goal** (pre-set to this ambition). Its direct tasks with add and reorder |
 | Goal (quest map) | `/quests/goals/:id` | Breadcrumb **Main quests › Ambition › Goal**; ring, status, due date, counts, **Edit** (including moving to another ambition or none, weight, archive); **What success looks like**; completion control. **Quest map**: a vertical dashed path of diamond milestone nodes. Each node shows its title, done count, due date, chapter count, its share of the goal, a thin bar, edit, and up/down, and expands into its chapters and its direct tasks plus a compact completion control. Completed milestones start folded. The path ends with **Add a milestone**. Then **Tasks directly on this goal**. A line under the heading says how tasks fill chapters, milestones, and the goal, and that the percentage beside an item is how much it counts toward the level above |
-| Side quests | `/side-quests` | **New side quest**; compact side quest cards (ring, status, due date, chapter count, done count, next action); **Standalone tasks** with add (created with `standalone: true`) |
-| Side quest | `/side-quests/:id` | Breadcrumb, ring, status, counts, **Edit**, completion control, and the same tree component as a milestone |
-| Inbox | `/inbox` | See below |
+| Side quests | `/quests/side-quests` | **New side quest**; compact side quest cards (ring, status, due date, chapter count, done count, next action); **Standalone tasks** with add (created with `standalone: true`) |
+| Side quest | `/quests/side-quests/:id` | Breadcrumb, ring, status, counts, **Edit**, completion control, and the same tree component as a milestone |
+| Inbox | `/quests/inbox` | See below |
 | Task drawer | from any task row | See below |
 
 **Shared pieces** (`web/src/components/quests/`):
@@ -350,7 +350,7 @@ null); rows carry a thin bar. Completed items turn `good` green. No tables.
   title, the ancestor path, or the level name. Arrow keys move the highlight; Enter picks. The
   current parent is marked "Here now" and cannot be picked.
 
-**Inbox** (`/inbox`, `InboxPage.tsx`, `InboxItem.tsx`):
+**Inbox** (`/quests/inbox`, `InboxPage.tsx`, `InboxItem.tsx`):
 
 - The capture field is focused on arrival and again after each capture or sort. Enter adds the
   title alone (`POST /tasks` with only `title`); the newest item is first.
@@ -365,9 +365,13 @@ null); rows carry a thin bar. Completed items turn `good` green. No tables.
   Organize it instead: it keeps its sessions." The server's refusal (400) shows the same text.
 - After each change a line confirms it ("Sorted into …", "Now a standalone task.", "Turned
   into a side quest: …" with a link). Empty: "Inbox zero".
-- **Sidebar count:** every quest screen calls `notifyInboxChanged()` after a change that can
-  touch the Inbox; `Layout` listens for the `atlas:inbox-changed` window event and refetches
-  `GET /views/inbox`, besides refreshing on navigation.
+- **Inbox count:** every screen calls `notifyInboxChanged()` after a change that can touch the
+  Inbox; `Layout` listens for the `atlas:inbox-changed` window event and refetches
+  `GET /views/inbox`, besides refreshing on navigation. The count shows on the Quests item of
+  the rail and on the Inbox tab ([navigation](../product/navigation.md#shell)).
+- **Add → Task** in the header (`components/shell/QuickTaskDialog.tsx`) captures a title from
+  any page with the same `POST /tasks` call. The Inbox page listens for the same event, so a
+  task added that way appears in the list at once.
 
 **Task drawer** (`TaskDrawer.tsx`) slides in from the right on any screen that renders tasks
 (each page wraps its content in `TaskDrawerProvider`, and rows call `useOpenTask()`):
@@ -396,7 +400,7 @@ null); rows carry a thin bar. Completed items turn `good` green. No tables.
 - `tests/services/test_seed.py` — the demo seed covers every quest shape
 - `web/src/lib/quests.test.ts` — labels, links, sibling reorder, organize targets and search
 - `web/src/components/quests/QuestTree.test.tsx` — tree with mixed children and an empty chapter; completing only through the checkbox
-- `web/src/components/quests/InboxItem.test.tsx` — Inbox capture with only a title, organize keeps the task id, make standalone, sidebar count event
+- `web/src/components/quests/InboxItem.test.tsx` — Inbox capture with only a title, organize keeps the task id, make standalone, Inbox count event
 - `web/src/components/quests/PromoteDialog.test.tsx` — promote refused when the task has sessions (before sending and on a 400), promote with and without a parent
 - `web/src/components/quests/CompletionControl.test.tsx` — the override confirmation lists open items and sends `override` only on confirm; eligible completion; reopen
 

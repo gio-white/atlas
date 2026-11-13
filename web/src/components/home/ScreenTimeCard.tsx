@@ -58,7 +58,7 @@ export function ScreenTimeCard({
           </CardDescription>
         </div>
         <Link
-          to={{ pathname: '/screen', search }}
+          to={{ pathname: '/stats/screen-time', search }}
           className="text-xs font-medium text-screen hover:underline"
         >
           View all

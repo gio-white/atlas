@@ -43,7 +43,7 @@ export function AreaPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title={view.name} description={view.description ?? undefined} homeLink />
+      <PageHeader title={view.name} description={view.description ?? undefined} />
       <section>
         <h2 className="mb-3 font-serif text-lg font-medium tracking-tight">Metrics</h2>
         {view.metrics.length === 0 ? (

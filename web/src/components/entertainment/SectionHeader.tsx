@@ -26,11 +26,11 @@ export function SectionHeader({
   return (
     <div className="flex flex-col gap-3">
       <Link
-        to={{ pathname: '/entertainment', search }}
+        to={{ pathname: '/library', search }}
         className="inline-flex w-fit items-center gap-1 text-sm text-muted hover:text-ink"
       >
         <ChevronLeft className="size-4" aria-hidden />
-        Entertainment
+        Library
       </Link>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">

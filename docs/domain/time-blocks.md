@@ -129,9 +129,9 @@ the shell date (`?on=`).
   has not started.
 - **Due today** (`due_today`, overdue marked "Overdue · 5 Nov") and **Up next** (`up_next`):
   each task has a **Schedule** button that opens the time-block dialog for it.
-- **Plan a session** (header) opens the dialog with the task picker; **Week** goes to Calendar.
+- **Plan a session** (header) opens the dialog with the task picker; **Week** goes to Plan.
 
-**Calendar** (`/calendar`, `CalendarPage.tsx` + `components/quests/time/WeekCalendar.tsx`) reads
+**Plan** (`/quests/plan`, the page that was called Calendar: `CalendarPage.tsx` + `components/quests/time/WeekCalendar.tsx`) reads
 `GET /views/calendar` for the local Monday 00:00 to the next Monday 00:00, converted to UTC.
 
 - The week is the one containing the shell date, so it lives in the URL as `?on=`. **Previous**
