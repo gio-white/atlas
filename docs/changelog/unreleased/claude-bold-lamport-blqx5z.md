@@ -1,0 +1,1 @@
+- **2026-11-13 —** `redesign-brief` — Added the [redesign brief](../../plans/redesign-brief.md) (navigation, Home, Stats, Settings, in seven phases) and its [open points](../../plans/open-points.md), recorded [decision 0007](../../decisions/0007-five-destinations-on-a-rail.md), and marked the navigation discussion and restructure track T2 as superseded.

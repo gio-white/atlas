@@ -1,5 +1,9 @@
 # Discussion: how Atlas is organized
 
+> **Superseded (13 Nov 2026)** by the [redesign brief](../redesign-brief.md) and
+> [decision 0007](../../decisions/0007-five-destinations-on-a-rail.md). Kept for the record of
+> the options that were weighed.
+
 > **How to use this file.** Paste it into a chat (or say "let's go through
 > `docs/plans/discussions/navigation-and-organization.md`") and we work through the questions
 > in §6, one at a time. The goal is a short list of decisions (§8), not code. When we agree,
