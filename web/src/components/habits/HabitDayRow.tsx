@@ -1,18 +1,11 @@
-import { Flame, MoreHorizontal } from 'lucide-react'
+import { MoreHorizontal } from 'lucide-react'
 import { useState } from 'react'
 
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import type { HabitDayRow as Row } from '@/lib/api'
 import {
   DAY_STATUS_LABEL,
   progressLabel,
   progressShare,
-  ROW_ACTION_LABEL,
   type RowAction,
   reasonLine,
   rowActions,
@@ -20,7 +13,9 @@ import {
 } from '@/lib/habits'
 import { cn } from '@/lib/utils'
 
+import { DayMenu } from './DayMenu'
 import { StatusIcon } from './StatusIcon'
+import { Streak } from './Streak'
 
 /**
  * One habit on the Day tab (habits brief §7): its status icon, name, reason line, and on the
@@ -62,40 +57,32 @@ export function HabitDayRow({
       >
         <StatusIcon status={result.status} share={progressShare(row)} />
       </button>
-      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-        <DropdownMenuTrigger asChild disabled={busy}>
-          <button
-            type="button"
-            aria-label={`${habit.name}, ${status}${reason === null ? '' : `, ${reason}`}`}
-            className="flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-xl py-2 pr-2 text-left focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
-          >
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate font-medium text-ink">{habit.name}</span>
-              {reason !== null && <span className="truncate text-xs text-muted">{reason}</span>}
+      <DayMenu
+        actions={actions}
+        onAction={onAction}
+        open={menuOpen}
+        onOpenChange={setMenuOpen}
+        disabled={busy}
+      >
+        <button
+          type="button"
+          aria-label={`${habit.name}, ${status}${reason === null ? '' : `, ${reason}`}`}
+          className="flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-xl py-2 pr-2 text-left focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+        >
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate font-medium text-ink">{habit.name}</span>
+            {reason !== null && <span className="truncate text-xs text-muted">{reason}</span>}
+          </span>
+          {(progressText !== null || streakText !== null) && (
+            <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted tabular-nums">
+              {progressText !== null && <span>{progressText}</span>}
+              {progressText !== null && streakText !== null && <span aria-hidden>·</span>}
+              {streakText !== null && <Streak label={streakText} />}
             </span>
-            {(progressText !== null || streakText !== null) && (
-              <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted tabular-nums">
-                {progressText !== null && <span>{progressText}</span>}
-                {progressText !== null && streakText !== null && <span aria-hidden>·</span>}
-                {streakText !== null && (
-                  <span className="inline-flex items-center gap-1">
-                    <Flame className="size-3.5 text-accent" aria-hidden />
-                    {streakText}
-                  </span>
-                )}
-              </span>
-            )}
-            <MoreHorizontal className="size-4 shrink-0 text-muted" aria-hidden />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          {actions.map((action) => (
-            <DropdownMenuItem key={action} onSelect={() => onAction(action)}>
-              {ROW_ACTION_LABEL[action]}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+          )}
+          <MoreHorizontal className="size-4 shrink-0 text-muted" aria-hidden />
+        </button>
+      </DayMenu>
     </li>
   )
 }

@@ -17,7 +17,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 
 # SPA pages whose path is also a GET API route. A browser navigation (reload, typed URL) to
 # one of these must get the page, not the JSON the route returns; fetches still reach the API.
-SPA_PATHS_SHADOWED_BY_API = re.compile(r"^/(journal|habits|side-quests(/\d+)?)/?$")
+SPA_PATHS_SHADOWED_BY_API = re.compile(r"^/(journal|habits(/week)?|side-quests(/\d+)?)/?$")
 
 
 def resolve_spa_dir(candidates: list[Path] | None = None) -> Path | None:

@@ -124,6 +124,49 @@ export type HabitsDay = {
   rows: HabitDayRow[]
 }
 
+/** The Week tab: every active habit's Monday–Sunday, and Habits kept for this week so far and
+ * the same days of last week. */
+export type HabitsWeek = {
+  as_of: string
+  week_start: string
+  week_end: string
+  rows: {
+    habit: Habit
+    days: HabitDayResult[]
+    streak: HabitStreak
+    progress: HabitProgress | null
+  }[]
+  kept: HabitKept
+  kept_last_week: HabitKept
+}
+
+export type HabitKept = { done: number; target: number; share: number | null }
+
+export type HabitPeriodState = 'kept' | 'missed' | 'running' | 'waiting' | 'frozen' | 'upcoming'
+
+/** One period of a habit: a day, a Monday–Sunday week, or a calendar month. */
+export type HabitPeriod = {
+  period: Period
+  start: string
+  end: string
+  target: number
+  done: number
+  state: HabitPeriodState
+}
+
+/** One habit's page: streaks, Kept last 4 weeks, 12 weeks of history, the last 14 days (newest
+ * first), and its freezes (its own and those for every habit). */
+export type HabitDetail = {
+  habit: Habit
+  as_of: string
+  current_streak: HabitStreak
+  best_streak: number
+  kept_last_4_weeks: HabitKept
+  history: HabitPeriod[]
+  recent: HabitDayResult[]
+  freezes: HabitFreeze[]
+}
+
 /** A freeze for one habit (`habit` is its slug) or for every habit (`habit` null). */
 export type HabitFreeze = {
   id: number
@@ -512,6 +555,28 @@ export function listHabits(): Promise<Habit[]> {
 
 export function getHabitsDay(asOf?: string): Promise<HabitsDay> {
   return request(`/views/habits/day${queryString({ as_of: asOf })}`)
+}
+
+export function getHabitsWeek(asOf?: string): Promise<HabitsWeek> {
+  return request(`/views/habits/week${queryString({ as_of: asOf })}`)
+}
+
+export function getHabitDetail(slug: string, asOf?: string): Promise<HabitDetail> {
+  return request(`/views/habit/${encodeURIComponent(slug)}${queryString({ as_of: asOf })}`)
+}
+
+export function archiveHabit(slug: string): Promise<Habit> {
+  return request(`/habits/${encodeURIComponent(slug)}/archive`, { method: 'POST' })
+}
+
+/** Restore an archived habit; the days it was archived are frozen. */
+export function restoreHabit(slug: string): Promise<Habit> {
+  return request(`/habits/${encodeURIComponent(slug)}/restore`, { method: 'POST' })
+}
+
+/** Delete a habit with its rule versions, marks, own freezes, and quest links. */
+export function deleteHabit(slug: string): Promise<void> {
+  return request(`/habits/${encodeURIComponent(slug)}`, { method: 'DELETE' })
 }
 
 /** Answer a habit's day: Done or Not done, set by you. */

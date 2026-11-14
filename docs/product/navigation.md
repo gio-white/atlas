@@ -21,15 +21,16 @@ Five destinations plus Settings. Labels, order, and addresses live in `web/src/l
 | ----------- | ------- | ----------- | ---------------- |
 | Home | `/` | none | `/`, and `/journal` (Earlier notes, reached from Home) |
 | Quests | `/quests` | Main quests · Side quests · Inbox · Plan | everything under `/quests` |
-| Habits | `/habits` | none (the Day and Week tabs arrive in habits phases 3 and 4) | everything under `/habits` and `/habit` |
+| Habits | `/habits` | Day (`/habits`), Week (`/habits/week`) | everything under `/habits` and `/habit` |
 | Stats | `/stats` | This week · Sleep · Screen time · Health | everything under `/stats` |
 | Library | `/library` | none | everything under `/library` |
 | Settings | `/settings` | Appearance · Screen time setup · Devices · Metrics · All entries | everything under `/settings` |
 
-`/habits` is also the API's list of habits; the server sends the SPA for a browser's page load
-there ([frontend](../architecture/frontend.md)). The habits rebuild
-([habits brief](../plans/habits-brief.md), [habits plan](../plans/habits-plan.md)) lands in
-seven phases; phase 1 (the model) is built, so Habits is a read-only list until phase 3.
+`/habits` and `/habits/week` are also API addresses (the list of habits, and `GET /habits/{slug}`);
+the server sends the SPA for a browser's page load there ([frontend](../architecture/frontend.md)).
+The habits rebuild ([habits brief](../plans/habits-brief.md), [habits plan](../plans/habits-plan.md))
+lands in seven phases; phases 1–4 are built (the model, the calculations, the Day and Week tabs,
+and the habit page), and the New habit, Edit, and Freeze sheets come in phase 5.
 
 ## Shell
 
@@ -47,7 +48,7 @@ seven phases; phase 1 (the model) is built, so Habits is a read-only list until 
   navigation and whenever a screen changes the Inbox (the `atlas:inbox-changed` window event),
   and is hidden at zero.
 - **Section tabs** (`SectionLayout`): a destination with sub-pages shows its title (`Quests`,
-  `Stats`, `Settings`) with a row of text tabs underneath; the active tab is underlined in the
+  `Habits`, `Stats`, `Settings`) with a row of text tabs underneath; the active tab is underlined in the
   accent colour. Each tab has its own address, so links and the back button work. On narrow
   screens the row scrolls sideways. A tab page keeps its own name as a screen-reader heading
   (`PageHeader` with `tab`), since the tab already shows it. Detail pages (an ambition, a goal,
@@ -77,7 +78,9 @@ seven phases; phase 1 (the model) is built, so Habits is a read-only list until 
 | `/quests/ambitions/:id` | One ambition: edit, complete or reopen, its goal cards (reorder, add) and direct tasks | implemented |
 | `/quests/goals/:id` | One goal's quest map: breadcrumb, success description, completion (with override), a path of expandable milestones with chapters and tasks, direct tasks, add and reorder at every level | implemented |
 | `/quests/side-quests/:id` | One side quest: edit, completion, its chapters and direct tasks (the same tree as a milestone) | implemented |
-| `/habits` | Habits → Day: a Monday–Sunday strip (each day a ring of its share done; `?on=` picks the day, ‹ › move a week, days after today are off), the day and "3 of 6 done", then the day's scheduled habits by time of day, each with its status icon (tap to tick a habit you tick), reason line, progress, and streak, and a row menu (Mark done, Mark not done, Use data again, Freeze this day / Unfreeze, Open habit). The Day · Week tabs and New habit arrive with the Week tab and the habit sheet ([habits](../domain/habits.md#screens)) | implemented |
+| `/habits` | Habits → Day: a Monday–Sunday strip (each day a ring of its share done; `?on=` picks the day, ‹ › move a week, days after today are off), the day and "3 of 6 done", then the day's scheduled habits by time of day, each with its status icon (tap to tick a habit you tick), reason line, progress, and streak, and a row menu (Mark done, Mark not done, Use data again, Freeze this day / Unfreeze, Open habit). New habit arrives with the habit sheet ([habits](../domain/habits.md#screens)) | implemented |
+| `/habits/week` | Habits → Week: Monday–Sunday of the `?on=` week (‹ › move a whole week) for every active habit, grouped like Day: each day's status (tap to tick a habit you tick, or open that day's row menu), "2 of 4" for a weekly or monthly habit, and the streak; Habits kept this week and last week; then Archived habits. A habit's name opens its page ([habits](../domain/habits.md#screens)) | implemented |
+| `/habit/:slug` | One habit: its rule in one line; Current streak, Best streak, Kept, last 4 weeks; 12 weeks of history; the last 14 days (each opens the row menu); upcoming and past freezes, each removable; Archive or Restore, and Delete (asks first) ([habits](../domain/habits.md#screens)) | implemented |
 | `/stats/week` | Stats → This week: one Monday–Sunday week (`?on=` picks it; previous and next move by whole weeks) in five blocks, Quests, Habits, Sleep, Screen time, and Library, each number with its change from the same days last week ([this week](../domain/this-week.md)) | implemented |
 | `/stats/sleep` | Stats → Sleep, display-only: Week / Month / 90 days range, time asleep trend, bedtime and wake consistency, stage split, read-only nights list with No data gaps | implemented |
 | `/stats/screen-time` | Stats → Screen time, display-only period dashboard: totals, score, charts, heatmap, insights, cap status; a link to its setup in Settings | implemented |
@@ -100,9 +103,8 @@ query string (so the As of date and filters survive), and the hash.
 | ---- | ------- |
 | `/stats` | `/stats/week` (the first Stats tab) |
 | `/settings` | `/settings/appearance` |
-| `/week` | `/habits` (the old habit week grid; Week returns at `/habits/week` in habits phase 4) |
+| `/week` | `/habits/week` (the old habit week grid) |
 | `/habit` | `/habits` |
-| `/habit/:slug` | `/habits` (the habit page returns at `/habit/:slug` in habits phase 4) |
 | `/side-quests` | `/quests/side-quests` |
 | `/side-quests/:id` | `/quests/side-quests/:id` |
 | `/inbox` | `/quests/inbox` |

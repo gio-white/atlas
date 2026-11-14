@@ -368,6 +368,13 @@ Service functions (in `src/atlas/services/`, each taking an explicit `Session` f
 
 ## Screens
 
+Habits is a section with two tabs, **Day** (`/habits`) and **Week** (`/habits/week`), under the
+title "Habits" (`SectionLayout`, [navigation](../product/navigation.md)); each habit has its own
+page, `/habit/:slug`. All three follow the shell's *As of* date (`?on=`). The writes behind a
+day (ticking and the row menu) are shared (`useDayActions`, `DayMenu` in
+`web/src/components/habits/`): each writes through the API, then the screen reloads; a failed
+write shows its error above the list and leaves the screen as it was.
+
 **Habits → Day** (`/habits`, `web/src/pages/habits/HabitsDayPage.tsx`, brief §7), on
 `GET /views/habits/day`. The day is the shell's *As of* date (`?on=`, today when absent).
 
@@ -403,19 +410,69 @@ Service functions (in `src/atlas/services/`, each taking an explicit `Session` f
   menu instead. Tapping the rest of the row also opens it.
 - **Row menu** (`rowActions`), only what applies: Mark done (unless Done) · Mark not done (unless
   Not done) · Use data again (only when Set by you; removes your mark) · Freeze this day (a
-  one-day freeze for this habit, `POST /freezes`) · Open habit (`/habit/:slug`, which redirects
-  to `/habits` until the habit page lands in phase 4). A frozen day takes no answer, since a freeze
+  one-day freeze for this habit, `POST /freezes`) · Open habit (`/habit/:slug`). A frozen day takes no answer, since a freeze
   wins over a mark: its menu is Unfreeze, when the freeze is this habit's own one-day freeze
   (`ownDayFreeze`, `DELETE /freezes/{id}`), and Open habit. A longer freeze, or one for every
   habit, is not undone from a row.
-- After each change the day reloads, so the count, strip, streaks, and progress follow. A failed
-  change shows its error above the list and leaves the day as it was.
+- After each change the day reloads, so the count, strip, streaks, and progress follow.
 - **Empty**: "No habits yet" when there is no active habit; "No habits scheduled on this day."
   when none is due that day. The New habit button arrives with the habit sheet (phase 5); until
   then a habit is created through the API or the demo seed.
 
-The Week tab, the habit page, and the New habit, Edit, and Freeze sheets are phases 4 and 5;
-`/habit`, `/habit/:slug`, and `/week` redirect to `/habits` until then. Home's Habits block still
+**Habits → Week** (`/habits/week`, `web/src/pages/habits/HabitsWeekPage.tsx`, brief §8), on
+`GET /views/habits/week`: the Monday–Sunday week holding the *As of* date.
+
+- **Heading**: "Week of 9 Nov 2026" (`weekOfLabel`) with ‹ ›, which move a whole week like Stats →
+  This week (`weekSteps`: the other week's Sunday, so it is judged whole; none past today's week).
+- **Rows** (`web/src/components/habits/HabitWeekRow.tsx`): every active habit, in the Day tab's
+  order and groups (`dayGroups`), its name a link to its page, then seven day cells under a
+  weekday header, then "2 of 4" for a weekly or monthly habit and the flame streak. On a narrow
+  screen the name and streak sit above the seven cells, each cell 44px high.
+- **Cells** (`StatusIcon`, small): Done, Not done, In progress, Waiting, Frozen, Open, Blank as on
+  the Day tab; Not scheduled empty; a day after today a dimmed dot. What a tap does
+  (`cellAction`): on a habit you tick, a day up to today that is not frozen toggles Done (as the
+  Day tab's icon does); any other judged day opens that day's row menu (`rowActions`, the Day
+  tab's); Not scheduled and later days do nothing. Each cell is labelled "Run, Tue 10 Nov: Done".
+- **Footer**: "Habits kept this week 84% · last week 83%" (`keptFigure`, the view's `kept` and
+  `kept_last_week`; "—" when nothing was judged).
+- **Archived**: archived habits by name with their rule (`ruleSummary`), each a link to its page.
+  Nowhere else lists them.
+- **Empty**: "No habits yet".
+
+**Habit page** (`/habit/:slug`, `web/src/pages/habits/HabitPage.tsx`, brief §8), on
+`GET /views/habit/{slug}`. Reached from a name on the Week tab or Open habit in a row menu; the
+"Habits" link above goes back to Day (Week for an archived habit).
+
+- **Header**: the name ("Archived" beside it when archived) and one line from `ruleSummary`:
+  "Every day · From your data: wake time before 07:00 · Morning".
+- **Figures**: Current streak and Best streak in the habit's period ("12 days", "0 weeks",
+  `streakFigure`), and Kept, last 4 weeks as a share with "24 of 28 days" under it.
+- **History** (`HistoryGrid.tsx`): for a habit judged per day, a calendar of one square per day,
+  Monday-first columns from the habit's first week (at most 12 weeks back) to the As of week;
+  days it was not scheduled are empty. For a weekly or monthly habit, one square per period,
+  with the first and last period's dates under the row. Squares: Done or Kept in the success
+  green, Not done or Missed a quiet grey (never red), Today or In progress an accent outline,
+  Waiting a dashed outline, Frozen a grey snowflake, Upcoming a faint outline; each has a tooltip
+  ("Tue 10 Nov: Done", "Week of 9 Nov 2026: Kept, 3 of 3", `periodLabel`), a legend names the
+  states shown, and screen readers get "20 of 24 days kept in the last 12 weeks."
+- **Recent days**: the last 14 days, newest first (from the habit's first day), each with its
+  status icon, "Sat 14 Nov", and a line (`dayLine`): "Done · 06:48 · from sleep", "Not done · No
+  data received", "Frozen", or for a Blank day its reason or "No tick". Each row opens the day's
+  row menu without Open habit; an archived habit's rows do not.
+- **Freezes**: Upcoming (ending today or later, soonest first) and Past (latest first), each
+  "13–15 Nov 2026 · Holiday" (`dateRangeLabel`), "All habits" under one for every habit, and a
+  remove button (`DELETE /freezes/{id}`; a freeze for every habit is removed for all of them).
+  Without any: "No freezes. Freeze a day from its row menu to keep the streak through it."
+- **Actions**: Archive (`POST /habits/{slug}/archive`; the habit leaves the Day tab, the Week
+  tab's rows, Home, and Habits kept, and shows under Archived) or, when archived, Restore
+  (`POST …/restore`, which freezes the archived days), and Delete, which asks first: "Delete
+  Run? Its history goes with it: every day's result, its rule changes, and its freezes. To keep
+  the history, archive it instead." Deleting goes to the Week tab. Edit and Freeze… arrive with
+  their sheets in phase 5.
+- An unknown address: "There is no habit at this address."
+
+The New habit, Edit, and Freeze sheets are phase 5. `/habit` redirects to `/habits`, and `/week`
+to `/habits/week`. Home's Habits block still
 lists today's habits read-only ([home](home.md#screens)); Home and Stats → This week show Habits
 kept, and This week lists active habits by name.
 
@@ -455,14 +512,16 @@ Route inventory with status: [navigation](../product/navigation.md).
 - `tests/api/test_habits.py` — the endpoints above, including the three views
 - `tests/services/test_habit_supports.py` — links at every level, the path from the habit, habits on an item and under it, no progress / weight / Next action change, refusals, removal, deletes and promote, export round trip and replace
 - `tests/api/test_habit_supports.py` — read, add, remove at every level; error codes; each item's `/habits`
-- `web/src/lib/habits.test.ts` — rule lines, Day tab words (streaks, progress, every reason and reading), the row menu, Unfreeze, the strip arrows, groups
+- `web/src/lib/habits.test.ts` — rule lines, Day tab words (streaks, progress, every reason and reading), the row menu, Unfreeze, the strip arrows, groups; Week tab words and cell taps; Recent days lines, streak figures, date ranges, history labels and calendar, freezes split
+- `web/src/pages/habits/HabitsWeekPage.test.tsx` — the Week tab: heading, groups, cells and their labels, progress, streak, Habits kept, Next week off; future days inert; ticking and unticking from a cell (Blank included); a data habit's cell menu; the Archived list
+- `web/src/pages/habits/HabitPage.test.tsx` — the habit page: rule line, figures, history summary, recent days, freezes; a recent day's menu; removing a freeze; archive and restore; Delete asking first, then going to Week; an unknown habit
 - `web/src/pages/habits/HabitsDayPage.test.tsx` — the Day tab: heading, count, groups, reasons, progress, streaks; the strip; ticking and unticking; a data habit's icon opening the menu; Freeze this day, Use data again, Unfreeze; no headings; no habits yet
 
 ## Status
 
-Brief phases 1–3 of 7: the model, schema 15, the API, the demo data, the calculations with their
+Brief phases 1–4 of 7: the model, schema 15, the API, the demo data, the calculations with their
 views (day results from your marks and the data, periods, streaks, Kept last 4 weeks, Habits
-kept), and the Day tab (ticking, the row menu, one-day freezes). Phases 4 and 5 build the Week
-tab, the habit page, and the New habit, Edit, and Freeze sheets; phase 6 Home; phase 7 removes
-what is left of the old shape.
+kept), the Day tab (ticking, the row menu, one-day freezes), the Week tab, and the habit page
+(history, recent days, freezes, archive, restore, delete). Phase 5 builds the New habit, Edit,
+and Freeze sheets; phase 6 Home; phase 7 removes what is left of the old shape.
 Quest links have no screen yet.

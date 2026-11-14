@@ -1,24 +1,35 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Habit, HabitDayResult, HabitDayRow, HabitFreeze, HabitRule } from './api'
+import type { Habit, HabitDayResult, HabitDayRow, HabitFreeze, HabitPeriod, HabitRule } from './api'
 import {
+  cellAction,
   checkLabel,
+  dateRangeLabel,
   dayCountLabel,
   dayGroups,
   dayHeading,
+  dayLine,
   dueOn,
   frequencyLabel,
+  historyWeeks,
+  keptFigure,
+  mondayOf,
   ownDayFreeze,
+  periodLabel,
   progressLabel,
   progressShare,
   reasonLine,
   rowActions,
   ruleSummary,
+  shortDay,
   sourceLine,
+  splitFreezes,
+  streakFigure,
   streakLabel,
   stripSteps,
   timeGroups,
   weekdaysLabel,
+  weekOfLabel,
 } from './habits'
 
 function rule(overrides: Partial<HabitRule> = {}): HabitRule {
@@ -278,5 +289,125 @@ describe('Day tab row menu and strip', () => {
     expect(plain).toHaveLength(1)
     expect(plain[0].label).toBeNull()
     expect(dayGroups([])).toEqual([])
+  })
+})
+
+describe('Week tab and habit page words', () => {
+  it('heads the week and words Habits kept', () => {
+    expect(weekOfLabel('2026-11-09')).toBe('Week of 9 Nov 2026')
+    expect(keptFigure({ done: 13, target: 16, share: 0.8125 })).toBe('81%')
+    expect(keptFigure({ done: 0, target: 0, share: null })).toBe('—')
+  })
+
+  it('ticks a habit you tick from a cell, opens the menu otherwise, and leaves the rest alone', () => {
+    expect(cellAction(result({ status: 'open' }), 'manual')).toBe('toggle')
+    expect(cellAction(result({ status: 'blank' }), 'manual')).toBe('toggle')
+    expect(cellAction(result({ status: 'frozen', reason: 'frozen' }), 'manual')).toBe('menu')
+    expect(cellAction(result({ status: 'done' }), 'data')).toBe('menu')
+    expect(cellAction(result({ status: 'not_scheduled' }), 'manual')).toBe('none')
+    expect(cellAction(result({ status: 'upcoming' }), 'data')).toBe('none')
+  })
+
+  it('words days, streak figures, and date ranges', () => {
+    expect(shortDay('2026-11-14')).toBe('Sat 14 Nov')
+    expect(streakFigure(0, 'day')).toBe('0 days')
+    expect(streakFigure(1, 'week')).toBe('1 week')
+    expect(dateRangeLabel('2026-11-04', '2026-11-04')).toBe('4 Nov 2026')
+    expect(dateRangeLabel('2026-11-13', '2026-11-15')).toBe('13–15 Nov 2026')
+    expect(dateRangeLabel('2026-10-28', '2026-11-03')).toBe('28 Oct – 3 Nov 2026')
+    expect(dateRangeLabel('2026-12-29', '2027-01-02')).toBe('29 Dec 2026 – 2 Jan 2027')
+  })
+
+  it('words a Recent days line, Blank days by their reason or "No tick"', () => {
+    const wake = habit('wake', { rule: WAKE })
+    expect(dayLine(dayRow(wake, { status: 'done', value: 408 }))).toBe('Done · 06:48 · from sleep')
+    expect(dayLine(dayRow(wake, { status: 'not_done', reason: 'no_data' }))).toBe(
+      'Not done · No data received',
+    )
+    expect(dayLine(dayRow(wake, { status: 'waiting', reason: 'waiting_for_data' }))).toBe(
+      'Waiting for data',
+    )
+    expect(dayLine(dayRow(habit('read'), { status: 'frozen', reason: 'frozen' }))).toBe('Frozen')
+    expect(dayLine(dayRow(habit('run'), { status: 'blank' }))).toBe('No tick')
+    expect(dayLine(dayRow(wake, { status: 'blank', reason: 'no_data' }))).toBe('No data received')
+  })
+
+  it('labels history squares by their period', () => {
+    const period = (overrides: Partial<HabitPeriod>): HabitPeriod => ({
+      period: 'day',
+      start: '2026-11-10',
+      end: '2026-11-10',
+      target: 1,
+      done: 1,
+      state: 'kept',
+      ...overrides,
+    })
+    expect(periodLabel(period({}))).toBe('Tue 10 Nov: Done')
+    expect(periodLabel(period({ state: 'missed', done: 0 }))).toBe('Tue 10 Nov: Not done')
+    expect(
+      periodLabel(
+        period({ period: 'week', start: '2026-11-09', end: '2026-11-15', target: 3, done: 3 }),
+      ),
+    ).toBe('Week of 9 Nov 2026: Kept, 3 of 3')
+    expect(
+      periodLabel(
+        period({
+          period: 'month',
+          start: '2026-11-01',
+          end: '2026-11-30',
+          target: 2,
+          done: 1,
+          state: 'running',
+        }),
+      ),
+    ).toBe('November 2026: In progress, 1 of 2')
+  })
+
+  it('lays daily history out as Monday-first weeks', () => {
+    expect(mondayOf('2026-11-14')).toBe('2026-11-09')
+    expect(mondayOf('2026-11-09')).toBe('2026-11-09')
+    const kept: HabitPeriod = {
+      period: 'day',
+      start: '2026-11-03',
+      end: '2026-11-03',
+      target: 1,
+      done: 1,
+      state: 'kept',
+    }
+    const weeks = historyWeeks([kept], '2026-11-02', '2026-11-14')
+    expect(weeks).toHaveLength(2)
+    expect(weeks[0].map((cell) => cell.day)).toEqual([
+      '2026-11-02',
+      '2026-11-03',
+      '2026-11-04',
+      '2026-11-05',
+      '2026-11-06',
+      '2026-11-07',
+      '2026-11-08',
+    ])
+    expect(weeks[0][1].period).toBe(kept)
+    expect(weeks[1][0].period).toBeNull()
+  })
+
+  it('splits freezes into upcoming (soonest first) and past (latest first)', () => {
+    const freeze = (id: number, start: string, end: string): HabitFreeze => ({
+      id,
+      habit: 'run',
+      start_on: start,
+      end_on: end,
+      reason: null,
+      created_at: '2026-11-01T00:00:00Z',
+    })
+    const { upcoming, past } = splitFreezes(
+      [
+        freeze(1, '2026-10-01', '2026-10-03'),
+        freeze(2, '2026-11-20', '2026-11-22'),
+        freeze(3, '2026-11-13', '2026-11-15'),
+        freeze(4, '2026-11-04', '2026-11-04'),
+      ],
+      '2026-11-14',
+    )
+    expect(upcoming.map((item) => item.id)).toEqual([3, 2])
+    expect(past.map((item) => item.id)).toEqual([4, 1])
   })
 })

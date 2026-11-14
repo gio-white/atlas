@@ -5,6 +5,9 @@ import type {
   HabitDayRow,
   HabitDayStatus,
   HabitFreeze,
+  HabitKept,
+  HabitPeriod,
+  HabitPeriodState,
   HabitProgress,
   HabitRule,
   HabitSource,
@@ -256,7 +259,7 @@ export const DAY_STATUS_LABEL: Record<HabitDayStatus, string> = {
   open: 'Not done yet',
   in_progress: 'In progress',
   waiting: 'Waiting for data',
-  blank: 'Not done',
+  blank: 'No tick',
 }
 
 /** The week strip's arrows: the same weekday a week earlier, and a week later up to today (none
@@ -274,11 +277,11 @@ export function stripSteps(
   }
 }
 
-/** Habits on the Day tab grouped Morning → Any time; empty groups dropped. One group without a
- * heading when no habit shown has a time of day. */
-export function dayGroups(
-  rows: HabitDayRow[],
-): { id: TimeOfDay; label: string | null; rows: HabitDayRow[] }[] {
+/** Habits on the Day and Week tabs grouped Morning → Any time; empty groups dropped. One group
+ * without a heading when no habit shown has a time of day. */
+export function dayGroups<T extends { habit: Pick<Habit, 'time_of_day'> }>(
+  rows: T[],
+): { id: TimeOfDay; label: string | null; rows: T[] }[] {
   if (rows.every((row) => row.habit.time_of_day === 'anytime')) {
     return rows.length === 0 ? [] : [{ id: 'anytime', label: null, rows }]
   }
@@ -287,4 +290,142 @@ export function dayGroups(
     label: TIME_OF_DAY_LABEL[id],
     rows: rows.filter((row) => row.habit.time_of_day === id),
   })).filter((group) => group.rows.length > 0)
+}
+
+/** "Week of 9 Nov 2026", the Week tab's heading. */
+export function weekOfLabel(monday: string): string {
+  return `Week of ${dayLabel(monday)}`
+}
+
+/** "81%", or "—" when nothing was judged. */
+export function keptFigure(kept: HabitKept): string {
+  return kept.share === null ? '—' : `${Math.round(kept.share * 100)}%`
+}
+
+/** What tapping a day does: tick a habit you tick (a scheduled day up to today, not frozen),
+ * open the row menu (any other judged day), or nothing (not scheduled, or after today). */
+export function cellAction(
+  result: HabitDayResult,
+  check: HabitRule['check'],
+): 'toggle' | 'menu' | 'none' {
+  if (result.status === 'not_scheduled' || result.status === 'upcoming') return 'none'
+  if (check === 'manual' && result.status !== 'frozen') return 'toggle'
+  return 'menu'
+}
+
+/** "Sat 14 Nov", a day in lists and cell labels. */
+export function shortDay(isoDate: string): string {
+  const date = parseIsoDate(isoDate)
+  const weekday = date.toLocaleDateString('en-GB', { weekday: 'short' })
+  return `${weekday} ${date.getDate()} ${date.toLocaleDateString('en-GB', { month: 'short' })}`
+}
+
+/** A streak as a figure: "12 days", "1 week", "0 days". */
+export function streakFigure(count: number, period: Period): string {
+  const [one, many] = PERIOD_UNIT[period]
+  return `${count} ${count === 1 ? one : many}`
+}
+
+/** "4 Nov 2026", "13–15 Nov 2026", "28 Oct – 3 Nov 2026", "29 Dec 2026 – 2 Jan 2027". */
+export function dateRangeLabel(start: string, end: string): string {
+  if (start === end) return dayLabel(start)
+  const a = parseIsoDate(start)
+  const b = parseIsoDate(end)
+  const month = (date: Date) => date.toLocaleDateString('en-GB', { month: 'short' })
+  if (a.getFullYear() !== b.getFullYear()) return `${dayLabel(start)} – ${dayLabel(end)}`
+  if (a.getMonth() !== b.getMonth()) {
+    return `${a.getDate()} ${month(a)} – ${dayLabel(end)}`
+  }
+  return `${a.getDate()}–${dayLabel(end)}`
+}
+
+const DAY_STATE_LABEL: Record<HabitPeriodState, string> = {
+  kept: 'Done',
+  missed: 'Not done',
+  running: 'Today',
+  waiting: 'Waiting for data',
+  frozen: 'Frozen',
+  upcoming: 'Upcoming',
+}
+
+const PERIOD_STATE_LABEL: Record<HabitPeriodState, string> = {
+  kept: 'Kept',
+  missed: 'Missed',
+  running: 'In progress',
+  waiting: 'Waiting for data',
+  frozen: 'Frozen',
+  upcoming: 'Upcoming',
+}
+
+/** A history square's state in words: Done / Not done for a day, Kept / Missed for a week or
+ * a month. */
+export function periodStateLabel(period: Pick<HabitPeriod, 'period' | 'state'>): string {
+  return (period.period === 'day' ? DAY_STATE_LABEL : PERIOD_STATE_LABEL)[period.state]
+}
+
+/** A history square's label: "Tue 10 Nov: Done", "Week of 9 Nov 2026: Kept, 3 of 3",
+ * "November 2026: In progress, 1 of 2". */
+export function periodLabel(period: HabitPeriod): string {
+  const state = periodStateLabel(period)
+  if (period.period === 'day') return `${shortDay(period.start)}: ${state}`
+  const name =
+    period.period === 'week'
+      ? weekOfLabel(period.start)
+      : parseIsoDate(period.start).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+  const count = period.state === 'frozen' ? '' : `, ${period.done} of ${period.target}`
+  return `${name}: ${state}${count}`
+}
+
+/** The habit page's history as a calendar: Monday-first columns of seven days from `since` (a
+ * Monday) through the week holding `asOf`, each day with its daily period or null. Only for a
+ * habit judged per day; a weekly or monthly history is a row of periods instead. */
+export function historyWeeks(
+  history: HabitPeriod[],
+  since: string,
+  asOf: string,
+): { day: string; period: HabitPeriod | null }[][] {
+  const byDay = new Map(history.map((period) => [period.start, period]))
+  const columns: { day: string; period: HabitPeriod | null }[][] = []
+  let monday = since
+  while (monday <= asOf) {
+    const column = []
+    for (let offset = 0; offset < 7; offset++) {
+      const day = shiftPeriodDate(monday, 'day', offset)
+      column.push({ day, period: byDay.get(day) ?? null })
+    }
+    columns.push(column)
+    monday = shiftPeriodDate(monday, 'week', 1)
+  }
+  return columns
+}
+
+/** The Monday of the week holding a day. */
+export function mondayOf(isoDate: string): string {
+  const weekday = (parseIsoDate(isoDate).getDay() + 6) % 7
+  return shiftPeriodDate(isoDate, 'day', -weekday)
+}
+
+/** Freezes that end on or after the day (upcoming or running), and the ones before it. */
+export function splitFreezes(
+  freezes: HabitFreeze[],
+  day: string,
+): { upcoming: HabitFreeze[]; past: HabitFreeze[] } {
+  const upcoming = freezes
+    .filter((freeze) => freeze.end_on >= day)
+    .sort((a, b) => a.start_on.localeCompare(b.start_on))
+  const past = freezes
+    .filter((freeze) => freeze.end_on < day)
+    .sort((a, b) => b.start_on.localeCompare(a.start_on))
+  return { upcoming, past }
+}
+
+/** A day in the habit page's Recent days: its status and reason, "Done · 06:48 · from sleep",
+ * "Not done · No data received", "Frozen". A Blank day (a weekly or monthly habit's day without
+ * a tick) shows only its reason, or "No tick". */
+export function dayLine(row: Pick<HabitDayRow, 'habit' | 'result'>): string {
+  const reason = reasonLine(row)
+  const { status } = row.result
+  const word = status === 'blank' ? null : DAY_STATUS_LABEL[status]
+  const parts = [word, reason === word ? null : reason].filter((part) => part !== null)
+  return parts.length === 0 ? DAY_STATUS_LABEL.blank : parts.join(' · ')
 }

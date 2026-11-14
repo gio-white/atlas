@@ -111,7 +111,7 @@ def test_document_navigation_to_shadowed_pages_gets_the_spa(tmp_path):
     (dist / "index.html").write_text("<!doctype html><title>Atlas</title>", encoding="utf-8")
     client = _client(spa_dir=dist)
 
-    for path in ("/journal", "/habits", "/side-quests", "/side-quests/1"):
+    for path in ("/journal", "/habits", "/habits/week", "/side-quests", "/side-quests/1"):
         page = client.get(path, headers={"Accept": "text/html,application/xhtml+xml"})
         assert page.status_code == 200
         assert "text/html" in page.headers["content-type"]
@@ -125,6 +125,11 @@ def test_document_navigation_to_shadowed_pages_gets_the_spa(tmp_path):
         # The page's own fetch of the same URL must not be answered from the cached page.
         assert api.headers["vary"] == "Accept, Sec-Fetch-Dest"
         assert api.headers["cache-control"] == "no-cache"
+
+    # The Week tab's address is also GET /habits/{slug}; a fetch still reaches the API.
+    week = client.get("/habits/week")
+    assert week.status_code == 404
+    assert "application/json" in week.headers["content-type"]
 
 
 def test_api_404_is_not_replaced_by_the_spa(tmp_path):

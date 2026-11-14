@@ -31,7 +31,7 @@ export const SETTINGS: Destination = {
   owns: ['/settings'],
 }
 
-export type SectionId = 'quests' | 'stats' | 'settings'
+export type SectionId = 'quests' | 'habits' | 'stats' | 'settings'
 
 export type Tab = { label: string; to: string }
 
@@ -45,6 +45,13 @@ export const SECTIONS: Record<SectionId, Section> = {
       { label: 'Side quests', to: '/quests/side-quests' },
       { label: 'Inbox', to: '/quests/inbox' },
       { label: 'Plan', to: '/quests/plan' },
+    ],
+  },
+  habits: {
+    title: 'Habits',
+    tabs: [
+      { label: 'Day', to: '/habits' },
+      { label: 'Week', to: '/habits/week' },
     ],
   },
   stats: {
