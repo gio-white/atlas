@@ -14,33 +14,6 @@ def test_get_patch_and_archive_metric(client, seed_health):
     assert archived.json()["archived_at"] is not None
 
 
-def test_get_and_patch_habit(client, seed_health):
-    created = client.post(
-        "/habits",
-        json={
-            "slug": "pushups-daily",
-            "metric": "pushups",
-            "period": "day",
-            "target_value": 1,
-            "comparator": "at_least",
-            "active_from": "2026-08-01",
-        },
-    )
-    assert created.status_code == 201
-
-    fetched = client.get("/habits/pushups-daily")
-    assert fetched.status_code == 200
-    assert fetched.json()["metric"] == "pushups"
-
-    patched = client.patch(
-        "/habits/pushups-daily",
-        json={"target_value": 20, "weekdays": [1, 3, 5]},
-    )
-    assert patched.status_code == 200
-    assert patched.json()["target_value"] == 20
-    assert patched.json()["weekdays"] == [1, 3, 5]
-
-
 def test_unknown_catalog_slug_is_not_found(client):
     assert client.get("/metrics/missing").status_code == 404
     assert client.get("/habits/missing").status_code == 404

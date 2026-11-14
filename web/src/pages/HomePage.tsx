@@ -20,16 +20,16 @@ import { PageError, PageLoading } from '@/components/PageState'
 import { type DialogTask, TimeBlockDialog } from '@/components/quests/time/TimeBlockDialog'
 import { useSessionActions } from '@/components/quests/time/useSessionActions'
 import {
-  getHabitsBoard,
   getJournal,
   getMainQuests,
   getScreenDashboard,
   getSleepView,
   getTodayQuests,
   getWeekSoFar,
-  type HabitsBoard,
+  type Habit,
   type JournalDay,
   type LibraryTitle,
+  listHabits,
   listLibraryTitles,
   type MainQuests,
   type ScreenDashboard,
@@ -43,7 +43,7 @@ import { greetingForHour } from '@/lib/greeting'
 /** Every source Home reads. A source that fails is null, and only its blocks say so. */
 export type HomeData = {
   today: TodayQuests | null
-  habits: HabitsBoard | null
+  habits: Habit[] | null
   journal: JournalDay | null
   week: WeekSoFar | null
   quests: MainQuests | null
@@ -55,7 +55,7 @@ export type HomeData = {
 export async function loadHome(asOf: string): Promise<HomeData> {
   const [today, habits, journal, week, quests, sleep, screen, reading] = await Promise.all([
     getTodayQuests(asOf).catch(() => null),
-    getHabitsBoard(asOf).catch(() => null),
+    listHabits().catch(() => null),
     getJournal(asOf).catch(() => null),
     getWeekSoFar(asOf).catch(() => null),
     getMainQuests().catch(() => null),
@@ -144,10 +144,9 @@ export function HomePage() {
             className="order-5 lg:order-none"
           />
           <HabitsTodayBlock
-            board={data.habits}
+            habits={data.habits}
             asOf={asOf}
             search={search}
-            onChanged={refresh}
             className="order-4 lg:order-none"
           />
           <NoteBlock

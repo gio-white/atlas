@@ -14,7 +14,7 @@ from atlas.db.models import Milestone, Task, TimeBlock
 from atlas.domain import Period, QuestStatus, TaskStatus
 from atlas.domain.quests import as_utc, sessions_kept
 from atlas.services.clock import resolve_today
-from atlas.services.habits import HabitWeekProgress, habit_week_progress, pooled_adherence_counts
+from atlas.services.habits import list_habits
 from atlas.services.library import library_dashboard
 from atlas.services.quest_views import local_day_bounds
 from atlas.services.quests import block_view
@@ -50,6 +50,15 @@ class WeekNumbers:
 
 
 @dataclass(frozen=True, slots=True)
+class WeekHabit:
+    """An active habit listed on This week. Its week's result arrives with the habits
+    calculations (habits brief phase 2); until then none is judged."""
+
+    slug: str
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
 class ThisWeek:
     """The week holding `as_of`, counted up to `as_of`, against the same days a week earlier.
 
@@ -63,7 +72,7 @@ class ThisWeek:
     complete: bool
     current: WeekNumbers
     previous: WeekNumbers
-    habits: list[HabitWeekProgress]
+    habits: list[WeekHabit]
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,7 +122,8 @@ def week_numbers(session: Session, *, as_of: date, now: datetime | None = None) 
         )
     ).one()
 
-    satisfied, judged = pooled_adherence_counts(session, monday, as_of)
+    # Habits kept returns with the habits calculations (habits brief phase 2).
+    satisfied, judged = 0, 0
     days = (as_of - monday).days + 1
     sleep = sleep_view(session, as_of=as_of, days=days)
     screen = screen_dashboard(session, as_of=as_of, period=Period.WEEK)
@@ -157,7 +167,10 @@ def this_week(
         complete=as_of >= week_end,
         current=current,
         previous=previous,
-        habits=habit_week_progress(session, current.week_start, as_of),
+        habits=[
+            WeekHabit(slug=habit.slug, name=habit.name)
+            for habit in list_habits(session, include_archived=False)
+        ],
     )
 
 

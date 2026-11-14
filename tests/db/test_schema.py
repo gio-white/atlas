@@ -9,6 +9,7 @@ from atlas.db import (
     CURRENT_SCHEMA_VERSION,
     Entry,
     Habit,
+    HabitRule,
     LibraryTitle,
     LibraryTopic,
     Metric,
@@ -28,7 +29,9 @@ from atlas.domain import (
     Aggregation,
     Comparator,
     Direction,
-    HabitKind,
+    HabitCheck,
+    HabitFrequency,
+    HabitSource,
     LibraryKind,
     LibraryStatus,
     MetricOrigin,
@@ -316,23 +319,50 @@ def test_a_metric_is_manual_unless_told_otherwise_and_belongs_to_no_area(session
     assert "area" not in inspect(engine).get_table_names()
 
 
-def test_habit_weekdays_round_trip_as_json(session):
-    metric = _metric(session)
-    habit = Habit(
-        metric_id=metric.id,
-        slug="weekday-runs",
-        name="Weekday runs",
-        period=Period.DAY,
-        target_value=1.0,
-        comparator=Comparator.AT_LEAST,
-        weekdays=[1, 2, 3, 4, 5],
-        active_from=date(2026, 8, 1),
-    )
+def test_habit_rule_weekdays_round_trip_as_json_and_none_as_null(session, engine):
+    habit = Habit(slug="weekday-runs", name="Weekday runs", first_day=date(2026, 8, 1))
     session.add(habit)
     session.commit()
-    session.refresh(habit)
+    some_days = HabitRule(
+        habit_id=habit.id,
+        starts_on=date(2026, 8, 1),
+        frequency=HabitFrequency.SPECIFIC_DAYS,
+        weekdays=[1, 2, 3, 4, 5],
+        check=HabitCheck.MANUAL,
+    )
+    every_day = HabitRule(
+        habit_id=habit.id,
+        starts_on=date(2026, 8, 10),
+        frequency=HabitFrequency.EVERY_DAY,
+        check=HabitCheck.MANUAL,
+    )
+    session.add_all([some_days, every_day])
+    session.commit()
+    session.refresh(some_days)
 
-    assert habit.weekdays == [1, 2, 3, 4, 5]
+    assert some_days.weekdays == [1, 2, 3, 4, 5]
+    with engine.connect() as connection:
+        stored = connection.execute(
+            text("SELECT weekdays FROM habit_rule WHERE starts_on = '2026-08-10'")
+        ).scalar()
+    assert stored is None
+
+
+def test_a_manual_rule_cannot_carry_a_source(session):
+    habit = Habit(slug="read", name="Read", first_day=date(2026, 8, 1))
+    session.add(habit)
+    session.commit()
+    session.add(
+        HabitRule(
+            habit_id=habit.id,
+            starts_on=date(2026, 8, 1),
+            frequency=HabitFrequency.EVERY_DAY,
+            check=HabitCheck.MANUAL,
+            source=HabitSource.WAKE_TIME,
+        )
+    )
+    with pytest.raises(IntegrityError):
+        session.commit()
 
 
 def _row_for(model, *, slug: str, metric: Metric):
@@ -345,15 +375,7 @@ def _row_for(model, *, slug: str, metric: Metric):
             direction=Direction.NEUTRAL,
         )
     assert model is Habit
-    return Habit(
-        metric_id=metric.id,
-        slug=slug,
-        name=slug,
-        period=Period.DAY,
-        target_value=1.0,
-        comparator=Comparator.AT_LEAST,
-        active_from=date(2026, 8, 1),
-    )
+    return Habit(slug=slug, name=slug, first_day=date(2026, 8, 1))
 
 
 def test_init_schema_adds_library_rating_and_link(tmp_path):
@@ -391,7 +413,7 @@ def test_init_schema_adds_library_rating_and_link(tmp_path):
         assert session.get(SchemaVersion, 1).version == CURRENT_SCHEMA_VERSION
 
 
-def test_init_schema_adds_habit_kind_schedule_and_breaks(tmp_path):
+def test_init_schema_carries_a_v9_habit_through_to_rules(tmp_path):
     engine = create_engine_for(tmp_path / "v9.db")
     with engine.begin() as connection:
         connection.execute(
@@ -444,16 +466,19 @@ def test_init_schema_adds_habit_kind_schedule_and_breaks(tmp_path):
     init_schema(engine)
 
     tables = set(inspect(engine).get_table_names())
-    assert "habit_break" in tables
+    assert "habit_break" not in tables
     columns = {column["name"] for column in inspect(engine).get_columns("habit")}
-    assert {"kind", "time_of_day", "archived_at"} <= columns
-    assert "goal_id" not in columns
+    assert {"first_day", "time_of_day", "archived_at"} <= columns
+    assert not {"goal_id", "kind", "metric_id"} & columns
     with Session(engine) as session:
-        kinds = {habit.slug: habit.kind for habit in session.exec(select(Habit)).all()}
-        assert kinds == {
-            "meditated": HabitKind.CHECK,
-            "pushups": HabitKind.COUNT,
-            "deep-work": HabitKind.DURATION,
+        assert {habit.slug for habit in session.exec(select(Habit)).all()} == {
+            "meditated",
+            "pushups",
+            "deep-work",
+        }
+        rules = session.exec(select(HabitRule)).all()
+        assert {(rule.frequency, rule.check) for rule in rules} == {
+            (HabitFrequency.EVERY_DAY, HabitCheck.MANUAL)
         }
         habit = session.exec(select(Habit).where(Habit.slug == "pushups")).one()
         assert habit.time_of_day is TimeOfDay.ANYTIME
@@ -529,7 +554,7 @@ def test_init_schema_replaces_areas_with_metric_origins(tmp_path):
 
     init_schema(engine)
 
-    assert CURRENT_SCHEMA_VERSION == 14
+    assert CURRENT_SCHEMA_VERSION == 15
     inspector = inspect(engine)
     assert "area" not in inspector.get_table_names()
     columns = {column["name"] for column in inspector.get_columns("metric")}
@@ -570,7 +595,9 @@ def test_the_area_migration_keeps_ids_values_and_what_points_at_metrics(tmp_path
         entry = session.exec(select(Entry)).one()
         assert (entry.metric_id, entry.value_num, entry.note) == (1, 40.0, "morning")
         habit = session.exec(select(Habit)).one()
-        assert (habit.slug, habit.metric_id) == ("meditate", 2)
+        assert habit.slug == "meditate"
+        # Schema 15 archives the metric a habit read; its entries stay.
+        assert session.get(Metric, 2).archived_at is not None
         apps = {app.slug: app.metric_id for app in session.exec(select(ScreenApp)).all()}
         assert apps == {"instagram": 3, "youtube": 7}
     with engine.connect() as connection:

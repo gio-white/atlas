@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from atlas.domain import (
     ChapterState,
-    HabitKind,
+    HabitCheck,
     ParentKind,
     QuestStatus,
     TaskPriority,
@@ -383,7 +383,7 @@ class HabitSupportOut(_Read):
 class SupportingHabitOut(_Read):
     slug: str
     name: str
-    kind: HabitKind
+    check: HabitCheck
     archived: bool
     linked_to: ItemRefOut
     direct: bool

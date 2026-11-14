@@ -1,7 +1,5 @@
-import type { HabitWeekProgress } from './api'
 import { shortDateLabel, weekdayLabel } from './dates'
 import { formatMinutes } from './format'
-import { formatAmount } from './habits'
 import { addDays, weekLabel, weekStart } from './timeBlocks'
 
 /** "This week" for the week holding today, otherwise "Week of 9 Nov 2026". */
@@ -78,21 +76,4 @@ export function clockChange(current: number | null, previous: number | null): st
   const delta = Math.round(current - previous)
   if (delta === 0) return `Same as last week`
   return `${formatMinutes(Math.abs(delta))} ${delta > 0 ? 'later' : 'earlier'} than last week`
-}
-
-/**
- * One habit's line for the week. Daily habits count the days judged so far ("5 of 6 days");
- * weekly and monthly ones show their amount for the period ("1 of 3", "2 of 4 this month").
- */
-export function habitWeekLabel(row: HabitWeekProgress): string {
-  if (row.period === 'day') {
-    if (row.judged === 0) return 'No full days yet'
-    const days = row.judged === 1 ? 'day' : 'days'
-    return row.kind === 'quit'
-      ? `${row.kept} of ${row.judged} ${days} clean`
-      : `${row.kept} of ${row.judged} ${days}`
-  }
-  if (row.target === null) return 'On a break'
-  const amount = `${formatAmount(row.value, row.kind, row.unit)} of ${formatAmount(row.target, row.kind, row.unit)}`
-  return row.period === 'month' ? `${amount} this month` : amount
 }

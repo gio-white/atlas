@@ -45,9 +45,9 @@ What you used: Instagram, YouTube, a code editor. One category. One backing dura
 
 ### ScreenBudget
 
-A threshold over **all screen time**, a **judgment**, or a **category**, not over a single metric. "At most 3 hours of screen time a day" is `target_kind=total` (its `target_slug` is always `all`); Home shows today's total against an active daily cap of this kind ([home](home.md)). "Keep waste under 90 minutes a day" is `target_kind=judgment`, `target_slug=waste`, `comparator=at_most`. An entertainment cap uses `target_kind=category`. App-level caps stay ordinary habits on the app's metric.
+A threshold over **all screen time**, a **judgment**, or a **category**, not over a single metric. "At most 3 hours of screen time a day" is `target_kind=total` (its `target_slug` is always `all`); Home shows today's total against an active daily cap of this kind ([home](home.md)). "Keep waste under 90 minutes a day" is `target_kind=judgment`, `target_slug=waste`, `comparator=at_most`. An entertainment cap uses `target_kind=category`. A limit on one app is a habit from your data ("Screen time in Instagram at most 30m", [habits](habits.md#sources)).
 
-`screen_view` and `screen_dashboard` read `screen_session` on read. Capture still dual-writes a backing entry so habits on the app metric keep working. Totals, score, heatmap, and insights are never stored.
+`screen_view` and `screen_dashboard` read `screen_session` on read. Capture still dual-writes a backing entry on the app's metric, so the app's minutes show in All entries and in exports. Totals, score, heatmap, and insights are never stored.
 
 | Field          | Type            | Notes                                      |
 | -------------- | --------------- | ------------------------------------------ |
@@ -72,6 +72,9 @@ A device that can host a session: iPhone, MacBook. Optional on each session. Nul
 | `slug`        | str              | unique (`iphone`)    |
 | `name`        | str              |                      |
 | `archived_at` | datetime \| None | UTC                  |
+| `complete_through` | datetime \| None | UTC; "complete up to": the device has sent every session up to this moment |
+
+`complete_through` tells data habits on screen time whether a day's minutes are final ([habits](habits.md#sources)). Whatever brings the data in sets it: the import file, `POST` / `PATCH /screen/devices`, and the demo seed. It only moves forward: an earlier value is ignored.
 
 ### ScreenSession
 
@@ -139,7 +142,7 @@ Conventions shared by every endpoint (slugs, `as_of`, errors): [api-conventions]
 | `GET`    | `/screen/devices`        | List screen devices                               | implemented |
 | `POST`   | `/screen/devices`        | Create a screen device                            | implemented |
 | `GET`    | `/screen/devices/{slug}` | Get one screen device                             | implemented |
-| `PATCH`  | `/screen/devices/{slug}` | Update name                                       | implemented |
+| `PATCH`  | `/screen/devices/{slug}` | Update name and `complete_through` (forward only) | implemented |
 | `GET`    | `/screen/sessions`       | List screen sessions (`occurred_on`)              | implemented |
 | `POST`   | `/screen/sessions`       | Ingest a session (interval or duration); the pipeline contract, no UI | implemented |
 | `GET`    | `/screen/sessions/{id}`  | Get one screen session                            | implemented |
@@ -153,7 +156,7 @@ Service functions (in `src/atlas/services/`, each taking an explicit `Session` f
 | `create_screen_category` / `list_screen_categories` / `get_screen_category` / `update_screen_category` | Screen categories. `update_screen_category` may change name and judgment; a judgment change updates member metrics' `direction`. `archived_at` is honored on list (`include_archived`) and import; there is no archive endpoint. |
 | `create_screen_app` / `list_screen_apps` / `get_screen_app` / `update_screen_app` | Screen apps. Create inserts a duration/`sum`/`min` metric with origin `screen` and the same slug and a direction from the category judgment. `update_screen_app` may change name (synced onto the metric) and category (direction follows the new category). `archived_at` is honored on list (`include_archived`) and import; there is no archive endpoint. |
 | `create_screen_budget` / `list_screen_budgets` / `get_screen_budget` / `update_screen_budget` | Screen budgets targeting all screen time (`total`, every app counts; `target_slug` is set to `all`, defaulting there when left out), a judgment, or a category. Judgment `target_slug` must be `useful`, `waste`, or `neutral`; category targets must name an existing category. |
-| `create_screen_device` / `list_screen_devices` / `get_screen_device` / `update_screen_device` | Screen devices. `update_screen_device` may change name. `archived_at` is honored on list (`include_archived`) and import; there is no archive endpoint. |
+| `create_screen_device` / `list_screen_devices` / `get_screen_device` / `update_screen_device` | Screen devices. `create_screen_device` takes an optional `complete_through`; `update_screen_device` may change name and move `complete_through` forward. `archived_at` is honored on list (`include_archived`) and import; there is no archive endpoint. |
 | `log_screen_session` / `list_screen_sessions` / `get_screen_session` / `update_screen_session` / `delete_screen_session` | Screen sessions. Provide `started_at`+`ended_at` or `minutes`. Interval minutes are derived; a client `minutes` must match within `0.01`. Dual-writes a backing entry. Amend/delete keep the pair in sync. |
 | `screen_view` | Review for `as_of`: minutes per app and category that day from sessions (interval-clipped), judgment totals, today's sessions, and each budget's current rollup, satisfaction, streak, and adherence over merged member-app session minutes. |
 | `screen_dashboard` | Period dashboard (`day` / `week` / `month`) from sessions: totals, score, apps, categories, devices, daily and comparison series, hour heatmap, 8-week trend, insights/prescriptions, budgets, and `last_recorded_at`. |

@@ -21,12 +21,15 @@ Five destinations plus Settings. Labels, order, and addresses live in `web/src/l
 | ----------- | ------- | ----------- | ---------------- |
 | Home | `/` | none | `/`, and `/journal` (Earlier notes, reached from Home) |
 | Quests | `/quests` | Main quests · Side quests · Inbox · Plan | everything under `/quests` |
-| Habits | `/habit` | none | everything under `/habit` |
+| Habits | `/habits` | none (the Day and Week tabs arrive in habits phases 3 and 4) | everything under `/habits` and `/habit` |
 | Stats | `/stats` | This week · Sleep · Screen time · Health | everything under `/stats` |
 | Library | `/library` | none | everything under `/library` |
 | Settings | `/settings` | Appearance · Screen time setup · Devices · Metrics · All entries | everything under `/settings` |
 
-Habits keeps the address `/habit`: `/habits` is the API's list of habits.
+`/habits` is also the API's list of habits; the server sends the SPA for a browser's page load
+there ([frontend](../architecture/frontend.md)). The habits rebuild
+([habits brief](../plans/habits-brief.md), [habits plan](../plans/habits-plan.md)) lands in
+seven phases; phase 1 (the model) is built, so Habits is a read-only list until phase 3.
 
 ## Shell
 
@@ -74,8 +77,7 @@ Habits keeps the address `/habit`: `/habits` is the API's list of habits.
 | `/quests/ambitions/:id` | One ambition: edit, complete or reopen, its goal cards (reorder, add) and direct tasks | implemented |
 | `/quests/goals/:id` | One goal's quest map: breadcrumb, success description, completion (with override), a path of expandable milestones with chapters and tasks, direct tasks, add and reorder at every level | implemented |
 | `/quests/side-quests/:id` | One side quest: edit, completion, its chapters and direct tasks (the same tree as a milestone) | implemented |
-| `/habit` | Today checklist by time of day with one-tap check-ins, this week / this month progress, 7/30-day completion, week/month overview grid | implemented |
-| `/habit/:slug` | Habit detail: check-in, streaks, adherence, this week, recent check-ins (slips for quit habits), pauses & skips; edit, archive, delete | implemented |
+| `/habits` | Habits, read-only *until habits phase 3*: active habits grouped Morning, Afternoon, Evening, Anytime, each with its rule in plain words, then Archived ([habits](../domain/habits.md#screens)) | temporary |
 | `/stats/week` | Stats → This week: one Monday–Sunday week (`?on=` picks it; previous and next move by whole weeks) in five blocks, Quests, Habits, Sleep, Screen time, and Library, each number with its change from the same days last week ([this week](../domain/this-week.md)) | implemented |
 | `/stats/sleep` | Stats → Sleep, display-only: Week / Month / 90 days range, time asleep trend, bedtime and wake consistency, stage split, read-only nights list with No data gaps | implemented |
 | `/stats/screen-time` | Stats → Screen time, display-only period dashboard: totals, score, charts, heatmap, insights, cap status; a link to its setup in Settings | implemented |
@@ -98,7 +100,9 @@ query string (so the As of date and filters survive), and the hash.
 | ---- | ------- |
 | `/stats` | `/stats/week` (the first Stats tab) |
 | `/settings` | `/settings/appearance` |
-| `/week` | `/habit?period=week` |
+| `/week` | `/habits` (the old habit week grid; Week returns at `/habits/week` in habits phase 4) |
+| `/habit` | `/habits` |
+| `/habit/:slug` | `/habits` (the habit page returns at `/habit/:slug` in habits phase 4) |
 | `/side-quests` | `/quests/side-quests` |
 | `/side-quests/:id` | `/quests/side-quests/:id` |
 | `/inbox` | `/quests/inbox` |

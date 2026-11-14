@@ -19,7 +19,7 @@ export const DESTINATIONS: readonly Destination[] = [
   // Earlier notes (`/journal`) is reached from Home's note, so it lights Home up.
   { id: 'home', label: 'Home', to: '/', owns: ['/journal'] },
   { id: 'quests', label: 'Quests', to: '/quests', owns: ['/quests'] },
-  { id: 'habits', label: 'Habits', to: '/habit', owns: ['/habit'] },
+  { id: 'habits', label: 'Habits', to: '/habits', owns: ['/habits', '/habit'] },
   { id: 'stats', label: 'Stats', to: '/stats', owns: ['/stats'] },
   { id: 'library', label: 'Library', to: '/library', owns: ['/library'] },
 ]

@@ -6,7 +6,12 @@ from atlas.domain import (
     Aggregation,
     Comparator,
     Direction,
-    HabitKind,
+    HabitApply,
+    HabitCheck,
+    HabitFrequency,
+    HabitMarkResult,
+    HabitSource,
+    HabitThreshold,
     LibraryKind,
     LibraryStatus,
     MetricOrigin,
@@ -85,166 +90,94 @@ class EntryOut(BaseModel):
     created_at: datetime
 
 
+class HabitRuleIn(BaseModel):
+    """A habit's rule (habits brief §2). A manual rule has no data fields; a data rule names a
+    source, and a missing threshold or value takes the source's default."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    frequency: HabitFrequency
+    check: HabitCheck = HabitCheck.MANUAL
+    weekdays: list[int] | None = None
+    times: int | None = None
+    source: HabitSource | None = None
+    source_ref: str | None = None
+    threshold: HabitThreshold | None = None
+    value: float | None = None
+
+
+class HabitRuleOut(BaseModel):
+    starts_on: date
+    frequency: HabitFrequency
+    check: HabitCheck
+    weekdays: list[int] | None
+    times: int | None
+    source: HabitSource | None
+    source_ref: str | None
+    source_ref_name: str | None
+    threshold: HabitThreshold | None
+    value: float | None
+
+
 class HabitCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    name: str
     slug: str | None = None
-    name: str | None = None
-    kind: HabitKind | None = None
-    metric: str | None = None
-    period: Period = Period.DAY
-    target_value: float | None = None
-    comparator: Comparator | None = None
-    unit: str | None = None
-    weekdays: list[int] | None = None
     time_of_day: TimeOfDay = TimeOfDay.ANYTIME
-    active_from: date | None = None
-    active_to: date | None = None
+    first_day: date | None = None
+    rule: HabitRuleIn
 
 
 class HabitUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = None
-    target_value: float | None = None
-    comparator: Comparator | None = None
-    weekdays: list[int] | None = None
-    active_to: date | None = None
     time_of_day: TimeOfDay | None = None
-    unit: str | None = None
+    rule: HabitRuleIn | None = None
+    apply: HabitApply = HabitApply.FROM_TODAY
 
 
 class HabitOut(BaseModel):
     id: int
     slug: str
-    metric: str
     name: str
-    kind: HabitKind
-    period: Period
-    target_value: float
-    comparator: Comparator
-    unit: str | None
-    weekdays: list[int] | None
     time_of_day: TimeOfDay
-    active_from: date
-    active_to: date | None
+    first_day: date
     archived_at: datetime | None
-
-
-class HabitBreakCreate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    start_on: date
-    end_on: date | None = None
-    note: str | None = None
-
-
-class HabitBreakOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    start_on: date
-    end_on: date
-    note: str | None
-
-
-class HabitCheckInCreate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    amount: float | None = None
-    on: date | None = None
-    note: str | None = None
-
-
-class HabitCheckInOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    occurred_on: date
-    value: float | None
-    note: str | None
-    created_at: datetime
-
-
-class HabitStatusOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    slug: str
-    name: str
-    metric_slug: str
-    period: Period
-    target_value: float
-    comparator: Comparator
-    current_streak: int
-    longest_streak: int
-    adherence: float | None
-    current_value: float | None
-    satisfied: bool
-    scheduled: bool
-    as_of: date
-    kind: HabitKind
-    time_of_day: TimeOfDay
-    unit: str | None
-    archived: bool
-    bucket_start: date | None
-    bucket_end: date | None
-    days_left: int
-    effective_target: float | None
-    excused: bool
-    skipped_today: bool
-    today_value: float | None
-    last_entry_on: date | None
-    weekdays: list[int] | None
-
-
-class HabitDetailOut(BaseModel):
-    habit: HabitOut
-    status: HabitStatusOut
-    breaks: list[HabitBreakOut]
-    recent: list[HabitCheckInOut]
+    rule: HabitRuleOut
+    """The rule in force today."""
 
 
 class HabitDaySet(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    done: bool
+    result: HabitMarkResult
 
 
-class WeekDayCellOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class HabitDayOut(BaseModel):
     day: date
-    scheduled: bool
-    value: float | None
-    satisfied: bool | None
-    excused: bool
+    result: HabitMarkResult | None
+    """What you set for the day; empty when nothing is stored (a manual day without a tick)."""
 
 
-class WeekHabitOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+class HabitFreezeCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
-    slug: str
-    name: str
-    metric_slug: str
-    period: Period
-    target_value: float
-    comparator: Comparator
-    current_value: float | None
-    satisfied: bool
-    current_streak: int
-    days: list[WeekDayCellOut]
-    kind: HabitKind
-    weekdays: list[int] | None
+    habit: str | None = None
+    """The habit's slug; empty freezes every habit."""
+    start_on: date | None = None
+    end_on: date | None = None
+    reason: str | None = None
 
 
-class HabitsGridOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    as_of: date
-    period: Period
-    range_start: date
-    range_end: date
-    habits: list[WeekHabitOut]
+class HabitFreezeOut(BaseModel):
+    id: int
+    habit: str | None
+    start_on: date
+    end_on: date
+    reason: str | None
+    created_at: datetime
 
 
 class WeekSoFarOut(BaseModel):
@@ -288,20 +221,11 @@ class WeekNumbersOut(BaseModel):
     titles_finished: int
 
 
-class HabitWeekProgressOut(BaseModel):
+class WeekHabitOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     slug: str
     name: str
-    kind: HabitKind
-    period: Period
-    comparator: Comparator
-    unit: str | None
-    kept: int
-    judged: int
-    value: float | None
-    target: float | None
-    satisfied: bool
 
 
 class ThisWeekOut(BaseModel):
@@ -313,21 +237,7 @@ class ThisWeekOut(BaseModel):
     complete: bool
     current: WeekNumbersOut
     previous: WeekNumbersOut
-    habits: list[HabitWeekProgressOut]
-
-
-class HabitsBoardOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    as_of: date
-    scheduled: int
-    satisfied: int
-    fraction: float | None
-    completion_7d: float | None
-    completion_30d: float | None
-    day: list[HabitStatusOut]
-    week: list[HabitStatusOut]
-    month: list[HabitStatusOut]
+    habits: list[WeekHabitOut]
 
 
 class ScreenCategoryCreate(BaseModel):
@@ -463,18 +373,21 @@ class ScreenDeviceCreate(BaseModel):
 
     slug: str
     name: str | None = None
+    complete_through: datetime | None = None
 
 
 class ScreenDeviceUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = None
+    complete_through: datetime | None = None
 
 
 class ScreenDeviceOut(BaseModel):
     id: int
     slug: str
     name: str
+    complete_through: datetime | None
     archived_at: datetime | None
 
 

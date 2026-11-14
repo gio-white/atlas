@@ -12,7 +12,6 @@ import { formatClock } from '@/lib/sleep'
 import {
   clockChange,
   countChange,
-  habitWeekLabel,
   minutesChange,
   shareChange,
   weekRangeLine,
@@ -185,7 +184,7 @@ export function ThisWeekPage() {
           <HomeBlock
             id="week-habits"
             title="Habits"
-            to="/habit"
+            to="/habits"
             search={search}
             className="order-2 lg:order-none"
           >
@@ -201,12 +200,8 @@ export function ThisWeekPage() {
             ) : (
               <ul className="flex flex-col divide-y divide-line border-t border-line text-sm">
                 {week.habits.map((row) => (
-                  <li key={row.slug} className="flex items-baseline justify-between gap-3 py-2">
+                  <li key={row.slug} className="py-2">
                     <span className="min-w-0 truncate text-ink">{row.name}</span>
-                    <span className="shrink-0 tabular-nums text-muted">
-                      {habitWeekLabel(row)}
-                      {row.period !== 'day' && row.satisfied ? ' · Done' : ''}
-                    </span>
                   </li>
                 ))}
               </ul>

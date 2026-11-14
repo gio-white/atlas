@@ -4,11 +4,10 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { Habit, Metric } from '@/lib/api'
+import type { Metric } from '@/lib/api'
 
 const api = vi.hoisted(() => ({
   listMetrics: vi.fn(),
-  listHabits: vi.fn(),
   createMetric: vi.fn(),
   updateMetric: vi.fn(),
   archiveMetric: vi.fn(),
@@ -46,9 +45,6 @@ const METRICS = [
 
 beforeEach(() => {
   api.listMetrics.mockResolvedValue(METRICS)
-  api.listHabits.mockResolvedValue([
-    { slug: 'meditate', name: 'Meditate daily', metric: 'meditate', archived_at: null } as Habit,
-  ])
 })
 
 afterEach(() => {
@@ -142,7 +138,7 @@ describe('Settings → Metrics', () => {
     )
   })
 
-  it('asks before archiving and names the habit that depends on the metric', async () => {
+  it('asks before archiving', async () => {
     api.archiveMetric.mockResolvedValue(METRICS[1])
     render(<MetricsPage />)
 
@@ -150,9 +146,7 @@ describe('Settings → Metrics', () => {
     fireEvent.click(within(row).getByRole('button', { name: 'Archive' }))
 
     expect(api.archiveMetric).not.toHaveBeenCalled()
-    expect(
-      within(row).getByText(/Meditate daily uses it and will stop showing/),
-    ).toBeInTheDocument()
+    expect(within(row).getByText(/Its entries are kept/)).toBeInTheDocument()
 
     fireEvent.click(within(row).getByRole('button', { name: 'Archive metric' }))
     await waitFor(() => expect(api.archiveMetric).toHaveBeenCalledWith('meditate'))

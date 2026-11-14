@@ -4,7 +4,7 @@ def ok(response, status: int = 200):
 
 
 def _setup(client) -> dict[str, int]:
-    ok(client.post("/habits", json={"slug": "read", "kind": "check", "period": "day"}), 201)
+    ok(client.post("/habits", json={"name": "Read", "rule": {"frequency": "every_day"}}), 201)
     ambition = ok(client.post("/ambitions", json={"title": "Grow"}), 201)
     goal = ok(client.post("/goals", json={"title": "Ship", "ambition_id": ambition["id"]}), 201)
     milestone = ok(client.post("/milestones", json={"title": "Beta", "goal_id": goal["id"]}), 201)

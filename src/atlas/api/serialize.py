@@ -4,11 +4,9 @@ from sqlmodel import Session
 
 from atlas.api.schemas import (
     EntryOut,
-    HabitBreakOut,
-    HabitCheckInOut,
-    HabitDetailOut,
+    HabitFreezeOut,
     HabitOut,
-    HabitStatusOut,
+    HabitRuleOut,
     LibraryTitleOut,
     LibraryTopicOut,
     LibraryTopicRefOut,
@@ -25,7 +23,10 @@ from atlas.domain import (
     Aggregation,
     Comparator,
     Direction,
-    HabitKind,
+    HabitCheck,
+    HabitFrequency,
+    HabitSource,
+    HabitThreshold,
     MetricOrigin,
     Period,
     ScreenBudgetTargetKind,
@@ -35,6 +36,8 @@ from atlas.domain import (
     ValueType,
 )
 from atlas.services import (
+    freeze_habit_slug,
+    habit_view,
     list_metrics,
     list_screen_apps,
     list_screen_categories,
@@ -85,36 +88,42 @@ def entry_out_for(session: Session, entry: Any) -> EntryOut:
     return entry_out(entry, metric_slug_by_id(session)[entry.metric_id])
 
 
-def habit_out(habit: Any, metric: Any) -> HabitOut:
-    return HabitOut(
-        id=habit.id,
-        slug=habit.slug,
-        metric=metric.slug,
-        name=habit.name,
-        kind=HabitKind(habit.kind),
-        period=Period(habit.period),
-        target_value=habit.target_value,
-        comparator=Comparator(habit.comparator),
-        unit=metric.unit,
-        weekdays=list(habit.weekdays) if habit.weekdays is not None else None,
-        time_of_day=TimeOfDay(habit.time_of_day),
-        active_from=habit.active_from,
-        active_to=habit.active_to,
-        archived_at=habit.archived_at,
+def habit_rule_out(rule: Any, source_ref_name: str | None) -> HabitRuleOut:
+    return HabitRuleOut(
+        starts_on=rule.starts_on,
+        frequency=HabitFrequency(rule.frequency),
+        check=HabitCheck(rule.check),
+        weekdays=list(rule.weekdays) if rule.weekdays is not None else None,
+        times=rule.times,
+        source=HabitSource(rule.source) if rule.source is not None else None,
+        source_ref=rule.source_ref,
+        source_ref_name=source_ref_name,
+        threshold=HabitThreshold(rule.threshold) if rule.threshold is not None else None,
+        value=rule.value,
     )
 
 
-def habits_out(session: Session, habits: list[Any]) -> list[HabitOut]:
-    metrics = {metric.id: metric for metric in list_metrics(session, include_archived=True)}
-    return [habit_out(habit, metrics[habit.metric_id]) for habit in habits]
+def habit_out(session: Session, habit: Any) -> HabitOut:
+    view = habit_view(session, habit)
+    return HabitOut(
+        id=habit.id,
+        slug=habit.slug,
+        name=habit.name,
+        time_of_day=TimeOfDay(habit.time_of_day),
+        first_day=habit.first_day,
+        archived_at=habit.archived_at,
+        rule=habit_rule_out(view.rule, view.source_ref_name),
+    )
 
 
-def habit_detail_out(session: Session, detail: Any) -> HabitDetailOut:
-    return HabitDetailOut(
-        habit=habits_out(session, [detail.habit])[0],
-        status=HabitStatusOut.model_validate(detail.status),
-        breaks=[HabitBreakOut.model_validate(row) for row in detail.breaks],
-        recent=[HabitCheckInOut.model_validate(row) for row in detail.recent],
+def habit_freeze_out(session: Session, freeze: Any) -> HabitFreezeOut:
+    return HabitFreezeOut(
+        id=freeze.id,
+        habit=freeze_habit_slug(session, freeze),
+        start_on=freeze.start_on,
+        end_on=freeze.end_on,
+        reason=freeze.reason,
+        created_at=freeze.created_at,
     )
 
 
@@ -171,6 +180,7 @@ def screen_device_out(device: Any) -> ScreenDeviceOut:
         id=device.id,
         slug=device.slug,
         name=device.name,
+        complete_through=device.complete_through,
         archived_at=device.archived_at,
     )
 

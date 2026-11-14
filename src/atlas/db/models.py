@@ -7,7 +7,11 @@ from atlas.domain import (
     Aggregation,
     Comparator,
     Direction,
-    HabitKind,
+    HabitCheck,
+    HabitFrequency,
+    HabitMarkResult,
+    HabitSource,
+    HabitThreshold,
     LibraryKind,
     LibraryStatus,
     MetricOrigin,
@@ -57,31 +61,87 @@ class Entry(SQLModel, table=True):
 
 
 class Habit(SQLModel, table=True):
+    """Something you do again and again. Its schedule and check live in `habit_rule` versions;
+    name and time of day are not versioned (habits brief §5)."""
+
     __tablename__ = "habit"
 
     id: int | None = Field(default=None, primary_key=True)
-    metric_id: int = Field(foreign_key="metric.id")
     slug: str = Field(unique=True, index=True)
     name: str
-    period: Period
-    target_value: float
-    comparator: Comparator
-    weekdays: list[int] | None = Field(default=None, sa_column=Column(JSON, nullable=True))
-    active_from: date
-    active_to: date | None = None
-    kind: HabitKind = HabitKind.COUNT
     time_of_day: TimeOfDay = TimeOfDay.ANYTIME
+    first_day: date
     archived_at: datetime | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class HabitBreak(SQLModel, table=True):
-    __tablename__ = "habit_break"
+class HabitRule(SQLModel, table=True):
+    """One version of a habit's rule. A day is judged by the version with the latest
+    `starts_on` on or before it; there is at most one version per habit and day."""
+
+    __tablename__ = "habit_rule"
+    __table_args__ = (
+        Index("ux_habit_rule_habit_starts_on", "habit_id", "starts_on", unique=True),
+        CheckConstraint(
+            "(\"check\" = 'MANUAL' AND source IS NULL AND source_ref IS NULL"
+            " AND threshold IS NULL AND value IS NULL)"
+            " OR (\"check\" = 'DATA' AND source IS NOT NULL AND threshold IS NOT NULL"
+            " AND value IS NOT NULL)",
+            name="ck_habit_rule_check_fields",
+        ),
+        CheckConstraint(
+            "(frequency = 'EVERY_DAY' AND weekdays IS NULL AND times IS NULL)"
+            " OR (frequency = 'SPECIFIC_DAYS' AND weekdays IS NOT NULL AND times IS NULL)"
+            " OR (frequency IN ('TIMES_A_WEEK', 'TIMES_A_MONTH') AND times IS NOT NULL"
+            " AND weekdays IS NULL)",
+            name="ck_habit_rule_frequency_fields",
+        ),
+    )
 
     id: int | None = Field(default=None, primary_key=True)
-    habit_id: int = Field(foreign_key="habit.id", index=True)
+    habit_id: int = Field(foreign_key="habit.id", ondelete="RESTRICT", index=True)
+    starts_on: date
+    frequency: HabitFrequency
+    weekdays: list[int] | None = Field(
+        default=None, sa_column=Column(JSON(none_as_null=True), nullable=True)
+    )
+    times: int | None = None
+    check: HabitCheck
+    source: HabitSource | None = None
+    source_ref: str | None = None
+    threshold: HabitThreshold | None = None
+    value: float | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class HabitMark(SQLModel, table=True):
+    """An answer you gave for one day: a tick on a manual habit, "Set by you" on a data one."""
+
+    __tablename__ = "habit_mark"
+    __table_args__ = (Index("ux_habit_mark_habit_day", "habit_id", "day", unique=True),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    habit_id: int = Field(foreign_key="habit.id", ondelete="RESTRICT", index=True)
+    day: date
+    result: HabitMarkResult
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class HabitFreeze(SQLModel, table=True):
+    """Days that are neither Done nor Not done, for one habit or (no `habit_id`) all habits."""
+
+    __tablename__ = "habit_freeze"
+    __table_args__ = (
+        CheckConstraint("end_on >= start_on", name="ck_habit_freeze_end_after_start"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    habit_id: int | None = Field(
+        default=None, foreign_key="habit.id", ondelete="RESTRICT", index=True
+    )
     start_on: date
     end_on: date
-    note: str | None = None
+    reason: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -128,6 +188,8 @@ class ScreenDevice(SQLModel, table=True):
     slug: str = Field(unique=True, index=True)
     name: str
     archived_at: datetime | None = None
+    complete_through: datetime | None = None
+    """UTC time this device's screen time is complete up to, written by whatever imports it."""
 
 
 class ScreenSession(SQLModel, table=True):

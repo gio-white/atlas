@@ -3,11 +3,12 @@ from datetime import UTC, datetime
 import pytest
 
 from atlas.db import create_memory_engine, init_schema, make_session_factory
-from atlas.domain import HabitKind, ParentKind, Period
+from atlas.domain import HabitFrequency, ParentKind
 from atlas.domain.quests import QuestKind
 from atlas.services import (
     ConflictError,
     NotFoundError,
+    RuleInput,
     ValidationError,
     add_habit_support,
     archive_habit,
@@ -41,7 +42,7 @@ A, G, M, S, C, T = (
 
 
 def _habit(session, slug: str, name: str):
-    return create_habit(session, slug, name=name, kind=HabitKind.CHECK, period=Period.DAY)
+    return create_habit(session, name, RuleInput(frequency=HabitFrequency.EVERY_DAY), slug=slug)
 
 
 def _tree(session) -> dict[QuestKind, int]:
@@ -143,7 +144,7 @@ def test_add_refuses_duplicates_archived_items_and_archived_habits(session):
     with pytest.raises(ValidationError, match="archived"):
         add_habit_support(session, "read", S, ids[S])
     archive_habit(session, "read")
-    with pytest.raises(ValidationError, match="unarchive"):
+    with pytest.raises(ValidationError, match="restore it first"):
         add_habit_support(session, "read", A, ids[A])
     # An archived habit keeps its links and can still drop them.
     remove_habit_support(session, "read", G, ids[G])

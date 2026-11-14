@@ -10,9 +10,11 @@ from datetime import datetime
 from sqlmodel import Session, select
 
 from atlas.db.models import Habit, HabitSupport
-from atlas.domain import HabitKind
+from atlas.domain import HabitCheck
 from atlas.domain.quests import QuestKind
+from atlas.services.clock import resolve_today
 from atlas.services.errors import ConflictError, NotFoundError, ValidationError
+from atlas.services.habits import habit_rules, rule_on
 from atlas.services.lookups import require_habit
 from atlas.services.quests import SUPPORT_COLUMNS, ItemRef, Key, QuestIndex
 from atlas.services.slugs import normalize_slug
@@ -36,7 +38,7 @@ class SupportingHabit:
 
     slug: str
     name: str
-    kind: HabitKind
+    check: HabitCheck
     archived: bool
     linked_to: ItemRef
     direct: bool
@@ -55,7 +57,7 @@ def list_habit_supports(session: Session, slug: str) -> list[SupportedItem]:
 def add_habit_support(session: Session, slug: str, kind: QuestKind, item_id: int) -> SupportedItem:
     habit = require_habit(session, normalize_slug(slug))
     if habit.archived_at is not None:
-        raise ValidationError(f"habit {habit.slug!r} is archived; unarchive it first")
+        raise ValidationError(f"habit {habit.slug!r} is archived; restore it first")
     index = QuestIndex(session)
     row = index.row(kind, item_id)
     if row.archived_at is not None:
@@ -88,6 +90,7 @@ def habits_supporting(session: Session, kind: QuestKind, item_id: int) -> list[S
     index.row(kind, item_id)
     keys = [(kind, item_id), *_descendants(index, kind, item_id)]
     habits = {habit.id: habit for habit in session.exec(select(Habit)).all()}
+    today = resolve_today(None)
     rows: list[SupportingHabit] = []
     for key_kind, key_id in keys:
         column = getattr(HabitSupport, SUPPORT_COLUMNS[key_kind])
@@ -97,7 +100,7 @@ def habits_supporting(session: Session, kind: QuestKind, item_id: int) -> list[S
                 SupportingHabit(
                     slug=habit.slug,
                     name=habit.name,
-                    kind=HabitKind(habit.kind),
+                    check=HabitCheck(rule_on(habit_rules(session, habit), today).check),
                     archived=habit.archived_at is not None,
                     linked_to=index.ref(key_kind, key_id),
                     direct=(key_kind, key_id) == (kind, item_id),

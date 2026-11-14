@@ -30,11 +30,9 @@ end of `as_of`, four of the numbers of Stats → This week (`week_numbers`,
   so is a planned session that has not ended yet; a session marked done before its end counts as
   kept at once. With nothing due the number reads "—". Looking at a past *As of* day, "now" is
   the end of that day, so later answers do not count.
-- **Habits kept** — `pooled_adherence_counts` in `src/atlas/services/habits.py`: satisfied over
-  judged buckets from Monday to `as_of`, pooled over every active (not archived) habit, with the
-  same adherence rule as each habit ([habits](habits.md#adherence)). Only complete buckets are
-  judged, so today does not count for daily habits and the current week does not count for weekly
-  ones; on a Monday the number reads "—". Paused or skipped days are excused, as everywhere.
+- **Habits kept** — *not computed during the habits rebuild*: `habits_kept` and `habits_judged`
+  are 0 and the share is null, so the number reads "—" until brief phase 2 judges each day
+  ([habits](habits.md#day-results-streaks-and-habits-kept)).
 - **Sleep, average** — `average_asleep` of the sleep view over the days from Monday to `as_of`
   ([sleep](sleep.md)): nights without data are left out.
 - **Screen score** — the week's score from the screen dashboard ([screen time](screen-time.md)).
@@ -45,10 +43,10 @@ end of `as_of`, four of the numbers of Stats → This week (`week_numbers`,
 | ------ | ---- | ------- | ------ |
 | `GET` | `/views/week-so-far` | This week so far: `sessions_kept` / `sessions_total`, `habits_kept` / `habits_judged` / `habits_kept_share`, `sleep_average_minutes` / `sleep_nights`, `screen_score`, and `week_start` (`as_of`) | implemented |
 
-Home also calls `GET /views/today`, `GET /views/habits`, `GET /journal`, `GET /views/main-quests`,
+Home also calls `GET /views/today`, `GET /habits`, `GET /journal`, `GET /views/main-quests`,
 `GET /sleep/view`, `GET /screen/dashboard?period=day`, and
 `GET /library/titles?status=in_progress`, and the write endpoints of the controls it
-reuses (session, habit, and journal).
+reuses (session and journal).
 
 ## Screens
 
@@ -69,14 +67,12 @@ Left, in order:
    **Schedule**. Empty: "Nothing due today."
 4. **Up next** — the next action of each active goal and side quest, with **Schedule**. Empty:
    "No next steps yet. Add tasks to your quests."
-5. **Habits** — daily habits scheduled today, then weekly and monthly ones, each as a row with
-   its one-tap control (**Done today?**, quick amounts such as "+10", or **Log a slip**). The line
-   under each row reads in the habit's own words: a quit habit "No slips today" / "1 slip today"
-   (red once there is a slip); a daily amount "10 of 40 today", then "Done"; a daily yes / no
-   habit nothing more; a weekly or monthly habit its progress for the period ("1 of 3", "4 days
-   left" or "Done"). Only amounts get a progress bar. **All habits** goes to `/habit`, where the
-   Monday–Sunday grid lives. Empty: "No habits yet."; with habits but none today: "No habits
-   scheduled today." (`HabitsTodayBlock.tsx`).
+5. **Habits** — read-only *until habits phase 6*: the active habits due today (every day, on
+   today's weekday, or times a week or month), Morning, Afternoon, Evening, then Anytime, each
+   with its name and its rule in plain words (`ruleSummary`, [habits](habits.md#screens)), from
+   `GET /habits`. Nothing can be ticked here yet. **All habits** goes to `/habits`. Empty: "No
+   habits yet."; with habits but none today: "No habits scheduled today."
+   (`HabitsTodayBlock.tsx`).
 6. **Note for today** — one line that grows to four while focused or once it holds more. **Save
    note** (or Ctrl/⌘+Enter) writes today's journal note (`POST /journal` the first time, then
    `PATCH /entries/{id}`) and shows "Saved". **Earlier notes** opens `/journal`
@@ -103,7 +99,7 @@ Note for today, This week so far, Main quests, Last night, Screen time today, In
 column is `display: contents` below 1024px, so its blocks join one list and `order-*` sets the
 sequence; from 1024px the columns are flex columns and the order classes are reset.
 
-Every change made from Home (a session answered, a habit checked in, a note saved) reloads Home,
+Every change made from Home (a session answered, a note saved) reloads Home,
 so the weekly numbers follow. Old addresses: `/today` redirects to `/`.
 
 Route inventory with status: [navigation](../product/navigation.md).
@@ -111,15 +107,14 @@ Route inventory with status: [navigation](../product/navigation.md).
 ## Tests
 
 - `tests/services/test_week.py` — week so far: empty, sessions kept (done, didn't happen,
-  unconfirmed, cancelled, later today, last week), a past *As of* day, habits kept leaving today
-  open, sleep and screen from their own views
+  unconfirmed, cancelled, later today, last week), a past *As of* day, sleep and screen from their own views
 - `tests/domain/test_quests.py` — `sessions_kept`
 - `tests/api/test_views.py` — `GET /views/week-so-far`
 - `web/src/components/home/home.test.tsx` — the four weekly numbers and their "—", a block that
   fails alone, Main quests order and limit, the screen cap shown only for an active daily cap on
   all screen time, In progress, Note for today (first write, then amend; grows when focused),
-  habit rows (a quit habit reads slips today and logs a slip in one tap; daily and weekly
-  amounts)
+  the Habits block (the habits due today, Morning first, each with its rule; archived and
+  unscheduled ones left out; its empty states)
 - `web/src/components/quests/time/execution.test.tsx` — Home's sessions: time range and path,
   Session done never completes the task, Outcome achieved, To confirm answered as done or as
   didn't happen

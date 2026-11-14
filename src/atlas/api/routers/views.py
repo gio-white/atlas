@@ -3,35 +3,10 @@ from datetime import date
 from fastapi import APIRouter
 
 from atlas.api.deps import SessionDep
-from atlas.api.schemas import (
-    HabitsBoardOut,
-    HabitsGridOut,
-    ThisWeekOut,
-    WeekSoFarOut,
-)
-from atlas.domain import Period
-from atlas.services import (
-    habit_grid,
-    habits_board,
-    this_week,
-    week_so_far,
-)
+from atlas.api.schemas import ThisWeekOut, WeekSoFarOut
+from atlas.services import this_week, week_so_far
 
 router = APIRouter(prefix="/views", tags=["views"])
-
-
-@router.get("/habits/grid", response_model=HabitsGridOut)
-def get_habits_grid(
-    session: SessionDep,
-    period: Period = Period.WEEK,
-    as_of: date | None = None,
-) -> HabitsGridOut:
-    return HabitsGridOut.model_validate(habit_grid(session, period=period, as_of=as_of))
-
-
-@router.get("/habits", response_model=HabitsBoardOut)
-def get_habits_board(session: SessionDep, as_of: date | None = None) -> HabitsBoardOut:
-    return HabitsBoardOut.model_validate(habits_board(session, as_of=as_of))
 
 
 @router.get("/week-so-far", response_model=WeekSoFarOut)

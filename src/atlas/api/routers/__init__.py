@@ -1,4 +1,5 @@
 from atlas.api.routers.entries import router as entries_router
+from atlas.api.routers.freezes import router as freezes_router
 from atlas.api.routers.habits import router as habits_router
 from atlas.api.routers.journal import router as journal_router
 from atlas.api.routers.library import router as library_router
@@ -14,6 +15,7 @@ from atlas.api.routers.views import router as views_router
 __all__ = [
     "entries_router",
     "library_router",
+    "freezes_router",
     "habits_router",
     "journal_router",
     "metrics_router",

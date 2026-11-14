@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Metrics define what is measured; entries are the recorded facts every habit and review screen is computed from. (The UI may call a metric a tracker and an entry a record once the navigation discussion settles names; until then the UI uses the API words.)
+Metrics define what is measured; entries are the recorded facts the review screens are computed from. Habits no longer read metrics: a habit is ticked by you or reads its own data sources ([habits](habits.md)). (The UI may call a metric a tracker and an entry a record once the navigation discussion settles names; until then the UI uses the API words.)
 
 ## Concepts
 
@@ -29,7 +29,7 @@ The definition of a measurable thing. A metric says what a value means and how s
 | `origin`      | enum            | `manual | habit | screen | journal` — how the metric came to exist     |
 | `archived_at` | datetime | None | UTC                                                                      |
 
-`origin` replaces the areas metrics used to be grouped into ([decision 0008](../decisions/0008-areas-removed-metrics-carry-an-origin.md)). `manual` is a metric set up by hand in Settings → Metrics (the default). `habit` is one a habit made for itself; deleting that habit archives it when nothing else uses it ([habits](habits.md)). `screen` is the backing metric of a screen app; its entries are written by screen sessions and count as automatic data ([history](history.md)). `journal` is the metric behind the journal ([journal](journal.md)). The API never accepts an origin: it follows from how the metric was created.
+`origin` replaces the areas metrics used to be grouped into ([decision 0008](../decisions/0008-areas-removed-metrics-carry-an-origin.md)). `manual` is a metric set up by hand in Settings → Metrics (the default). `habit` is one a habit made for itself before schema 15; habits no longer make metrics, and the schema 15 conversion archived the metrics habits read, keeping their entries ([habits](habits.md#converting-a-schema-14-habit)). `screen` is the backing metric of a screen app; its entries are written by screen sessions and count as automatic data ([history](history.md)). `journal` is the metric behind the journal ([journal](journal.md)). The API never accepts an origin: it follows from how the metric was created.
 
 `aggregation` is the field that makes one entry table serve everything: pushups sum across a day, bodyweight takes the last reading, mood averages.
 
@@ -106,7 +106,7 @@ Service functions (in `src/atlas/services/`, each taking an explicit `Session` f
 
 ## Screens
 
-Capture is the **New entry** dialog (`LogDialog`), opened from **Add → Entry** in the header, wrapping the log form (`LogForm`, `POST /entries`). Its description is "Log a value for today." (or "for <date>" when *As of* is set). It offers only the metrics you manage (`manual` and `habit`, `isManagedMetric` in `web/src/lib/labels.ts`): screen time comes from devices, and the journal note is written on Home. No metric is preselected: the select starts on "Choose…", except when only one metric is offered (the Home habit grid), which is picked automatically. The value field is empty with a placeholder per value type ("How many?", "Amount", "Minutes", "1 to 10", "Write something") and shows the metric's unit beside it ("min" for a duration without a unit). Yes/no values read "Yes" / "No"; the note is "Optional"; the button is "Save".
+Capture is the **New entry** dialog (`LogDialog`), opened from **Add → Entry** in the header, wrapping the log form (`LogForm`, `POST /entries`). Its description is "Log a value for today." (or "for <date>" when *As of* is set). It offers only the metrics you manage (`manual` and `habit`, `isManagedMetric` in `web/src/lib/labels.ts`): screen time comes from devices, and the journal note is written on Home. No metric is preselected: the select starts on "Choose…", except when only one metric is offered, which is picked automatically. The value field is empty with a placeholder per value type ("How many?", "Amount", "Minutes", "1 to 10", "Write something") and shows the metric's unit beside it ("min" for a duration without a unit). Yes/no values read "Yes" / "No"; the note is "Optional"; the button is "Save".
 
 **Settings → Metrics** (`/settings/metrics`, `web/src/pages/settings/MetricsPage.tsx`) is where metrics are managed; it took over from Catalog.
 
@@ -114,9 +114,9 @@ Capture is the **New entry** dialog (`LogDialog`), opened from **Add → Entry**
 - Each row shows the name and one line in plain words built from `web/src/lib/labels.ts` ("Count · Add up the day · More is better · reps"). No slug or raw value is shown.
 - **New metric** asks for a name, an optional unit, and the same three setup questions as before, in plain words: **What you record** (Yes / no, Count, Measurement, Time spent, Rating, 1 to 10, Note), **Several values in one day** (Add up the day, Keep the latest, Average the day, Keep the highest, Keep the lowest), and **Which way is better** (More is better, Less is better, Neither). The slug is derived from the name by the API. Choosing Note fixes "Keep the latest", since notes cannot be added up.
 - **Edit** changes the name, unit, and which way is better (`PATCH /metrics/{slug}`).
-- **Archive** asks first: the entries are kept, the metric leaves the list, and it can no longer be logged to. When active habits use the metric, the question names them and says they will stop showing in Habits. There is no way to restore an archived metric from the UI yet ([open points](../plans/open-points.md), Settings extras).
+- **Archive** asks first: the entries are kept, the metric leaves the list, and it can no longer be logged to. There is no way to restore an archived metric from the UI yet ([open points](../plans/open-points.md), Settings extras).
 - Errors are in plain words: "A metric with that name already exists.", "That name can't be used. Try letters and numbers.", "Couldn't save. Try again."
-- Empty: "No metrics yet / Add one above, or create a habit: it sets up its own."
+- Empty: "No metrics yet / Add one above."
 
 History of entries: [history](history.md). Route inventory with status: [navigation](../product/navigation.md).
 
@@ -127,7 +127,7 @@ History of entries: [history](history.md). Route inventory with status: [navigat
 - `tests/api/test_metrics.py`, `tests/api/test_entries.py`
 - `web/src/lib/value.test.ts`, `web/src/lib/entries.test.ts`
 - `web/src/components/LogForm.test.tsx`, `web/src/components/LogDialog.test.tsx` (only managed metrics are offered)
-- `web/src/pages/settings/MetricsPage.test.tsx` (only managed metrics are listed, in plain words; create from a name; edit; archive asks first and names the habit), `web/src/lib/labels.test.ts`
+- `web/src/pages/settings/MetricsPage.test.tsx` (only managed metrics are listed, in plain words; create from a name; edit; archive asks first), `web/src/lib/labels.test.ts`
 - `tests/db/test_schema.py` (the schema 12 migration from areas to origins), `tests/services/test_port.py` (exports from before schema 12)
 
 ## Status

@@ -36,6 +36,8 @@ blocked commit should review, so keep it a plain two-column table.
 | `src/atlas/domain/buckets.py` | `docs/domain/trackers-and-entries.md` |
 | `src/atlas/domain/rollup.py` | `docs/domain/trackers-and-entries.md` |
 | `src/atlas/domain/habits.py` | `docs/domain/habits.md` |
+| `src/atlas/domain/habit_sources.py` | `docs/domain/habits.md` |
+| `src/atlas/domain/habit_migration.py` | `docs/domain/habits.md`, `docs/architecture/migrations.md` |
 | `src/atlas/domain/quests.py` | `docs/domain/quests.md`, `docs/domain/time-blocks.md` |
 | `src/atlas/domain/screen.py` | `docs/domain/screen-time.md` |
 | `src/atlas/domain/sleep.py` | `docs/domain/sleep.md` |
@@ -57,7 +59,6 @@ blocked commit should review, so keep it a plain two-column table.
 | `src/atlas/services/screen.py` | `docs/domain/screen-time.md`, `docs/data-sources/screen-time.md` |
 | `src/atlas/services/sleep.py` | `docs/domain/sleep.md`, `docs/data-sources/sleep.md` |
 | `src/atlas/services/library*.py` | `docs/domain/library.md` |
-| `src/atlas/services/views.py` | `docs/domain/habits.md` |
 | `src/atlas/services/port.py` | `docs/architecture/migrations.md` |
 | `src/atlas/services/quest_port.py` | `docs/architecture/migrations.md` |
 | `src/atlas/services/seed.py` | `docs/architecture/cli.md` |
@@ -66,10 +67,11 @@ blocked commit should review, so keep it a plain two-column table.
 | `src/atlas/api/routers/entries.py` | `docs/domain/trackers-and-entries.md` |
 | `src/atlas/api/routers/metrics.py` | `docs/domain/trackers-and-entries.md` |
 | `src/atlas/api/routers/habits.py` | `docs/domain/habits.md` |
+| `src/atlas/api/routers/freezes.py` | `docs/domain/habits.md` |
 | `src/atlas/api/routers/quests.py` | `docs/domain/quests.md` |
 | `src/atlas/api/routers/time_blocks.py` | `docs/domain/time-blocks.md` |
 | `src/atlas/api/routers/quest_views.py` | `docs/domain/quests.md`, `docs/domain/time-blocks.md` |
-| `src/atlas/api/routers/views.py` | `docs/domain/habits.md`, `docs/domain/home.md`, `docs/domain/this-week.md` |
+| `src/atlas/api/routers/views.py` | `docs/domain/home.md`, `docs/domain/this-week.md` |
 | `src/atlas/api/routers/screen.py` | `docs/domain/screen-time.md`, `docs/data-sources/screen-time.md` |
 | `src/atlas/api/routers/sleep.py` | `docs/domain/sleep.md`, `docs/data-sources/sleep.md` |
 | `src/atlas/api/routers/journal.py` | `docs/domain/journal.md` |
@@ -104,7 +106,6 @@ blocked commit should review, so keep it a plain two-column table.
 | `web/src/components/settings/*` | `docs/domain/screen-time.md`, `docs/data-sources/overview.md` |
 | `web/src/lib/freshness.ts` | `docs/domain/sleep.md`, `docs/domain/screen-time.md` |
 | `web/src/lib/habits.ts` | `docs/domain/habits.md` |
-| `web/src/components/WeekGrid.tsx` | `docs/domain/habits.md` |
 | `web/src/pages/HealthPage.tsx` | `docs/product/navigation.md` |
 | `web/src/pages/ThisWeekPage.tsx` | `docs/domain/this-week.md` |
 | `web/src/lib/thisWeek.ts` | `docs/domain/this-week.md` |

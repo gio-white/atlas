@@ -111,12 +111,12 @@ def test_document_navigation_to_shadowed_pages_gets_the_spa(tmp_path):
     (dist / "index.html").write_text("<!doctype html><title>Atlas</title>", encoding="utf-8")
     client = _client(spa_dir=dist)
 
-    for path in ("/journal", "/side-quests", "/side-quests/1"):
+    for path in ("/journal", "/habits", "/side-quests", "/side-quests/1"):
         page = client.get(path, headers={"Accept": "text/html,application/xhtml+xml"})
         assert page.status_code == 200
         assert "text/html" in page.headers["content-type"]
 
-    for path in ("/journal", "/side-quests"):
+    for path in ("/journal", "/habits", "/side-quests"):
         api = client.get(path)
         assert api.status_code == 200
         assert "application/json" in api.headers["content-type"]

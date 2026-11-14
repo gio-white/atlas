@@ -1,56 +1,48 @@
-import { HabitCard } from '@/components/habits/HabitCard'
-import type { HabitsBoard } from '@/lib/api'
-import { periodHabits, todayGroups } from '@/lib/habits'
-import { flattenHabits } from '@/lib/habitsSummary'
+import type { Habit } from '@/lib/api'
+import { dueOn, ruleSummary, timeGroups } from '@/lib/habits'
 
 import { BlockEmpty, HomeBlock } from './HomeBlock'
 
 /**
- * The habits to act on today: daily habits scheduled today, then weekly and monthly ones, which
- * show their progress for the period ("2 of 4 this week"). Each keeps the Habits page's one-tap
- * Mark done or Log value. The Monday–Sunday grid lives on the Habits page.
+ * Today's habits, read-only while the habits rebuild lands (docs/domain/home.md): the active
+ * habits due on `asOf`, Morning to Anytime, each with its rule. Ticking returns with the Day
+ * screen.
  */
 export function HabitsTodayBlock({
-  board,
+  habits,
   asOf,
   search,
-  onChanged,
   className,
 }: {
-  board: HabitsBoard | null
+  habits: Habit[] | null
   asOf: string
   search: string
-  onChanged: () => Promise<void>
   className?: string
 }) {
-  const statuses = board === null ? [] : flattenHabits(board)
-  const daily = todayGroups(statuses).flatMap((group) => group.habits)
-  const periodic = periodHabits(statuses)
-  const due = [...daily, ...periodic]
+  const active = (habits ?? []).filter((habit) => habit.archived_at === null)
+  const weekday = ((new Date(`${asOf}T00:00:00`).getDay() + 6) % 7) + 1
+  const due = timeGroups(active.filter((habit) => dueOn(habit.rule, weekday))).flatMap(
+    (group) => group.habits,
+  )
   return (
     <HomeBlock
       id="habits"
       title="Habits"
-      action={{ label: 'All habits', to: '/habit' }}
+      action={{ label: 'All habits', to: '/habits' }}
       search={search}
-      unavailable={board === null}
+      unavailable={habits === null}
       className={className}
     >
-      {statuses.length === 0 ? (
+      {active.length === 0 ? (
         <BlockEmpty>No habits yet.</BlockEmpty>
       ) : due.length === 0 ? (
         <BlockEmpty>No habits scheduled today.</BlockEmpty>
       ) : (
         <ul className="flex flex-col gap-2">
-          {due.map((status) => (
-            <li key={status.slug}>
-              <HabitCard
-                status={status}
-                asOf={asOf}
-                search={search}
-                onChanged={onChanged}
-                layout="row"
-              />
+          {due.map((habit) => (
+            <li key={habit.slug} className="flex flex-col">
+              <span className="text-sm font-medium text-ink">{habit.name}</span>
+              <span className="text-xs text-muted">{ruleSummary(habit)}</span>
             </li>
           ))}
         </ul>

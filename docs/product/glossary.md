@@ -13,8 +13,12 @@ changes, change it here, in the UI, and in the API together.
 | What you record / Several values in one day / Which way is better | Yes / no, Count, … / Add up the day, … / More is better, … | `value_type`, `aggregation`, `direction`, labelled in `web/src/lib/labels.ts` | [trackers and entries](../domain/trackers-and-entries.md#screens) |
 | Entries written by a device rather than typed | Automatic data | `include_automatic` on `GET /entries` | [history](../domain/history.md) |
 | A recurring commitment | Habit | `Habit`, `/habits` | [habits](../domain/habits.md) |
-| A skip or pause of a habit | Skip / Pause | `HabitBreak`, `/habits/{slug}/breaks` | [habits](../domain/habits.md) |
-| Marking a habit done or logging toward it | Check in | check-in (an `Entry`), `/habits/{slug}/checkins` | [habits](../domain/habits.md) |
+| How often and how a habit is checked, from a given day | Rule ("Every day · You tick it") | `HabitRule` (one version per change), `PATCH /habits/{slug}` with `apply` | [habits](../domain/habits.md#rule-versions) |
+| A habit you answer yourself | You tick it | `check: manual` | [habits](../domain/habits.md#concepts) |
+| A habit Atlas answers from sleep, screen time, or sessions | From your data | `check: data`, `source`, `threshold`, `value` | [habits](../domain/habits.md#sources) |
+| Your answer for one day: a tick, or Done / Not done set by you | Tick, Set by you | `HabitMark` (`result`: `done`, `not_done`), `PUT` / `DELETE /habits/{slug}/days/{day}` | [habits](../domain/habits.md#answering-a-day) |
+| Days that do not count for one habit or all of them (holiday, illness) | Freeze | `HabitFreeze`, `/freezes` | [habits](../domain/habits.md#freezes-archive-restore-delete) |
+| Hiding a finished habit and bringing it back | Archive / Restore | `archived_at`, `POST /habits/{slug}/archive`, `/restore` | [habits](../domain/habits.md#freezes-archive-restore-delete) |
 | A broad direction in life | Ambition | `Ambition`, `/ambitions` | [quests](../domain/quests.md) |
 | A concrete outcome you want | Goal | `Goal`, `/goals` | [quests](../domain/quests.md) |
 | An important step on the way to a goal | Milestone | `Milestone`, `/milestones` | [quests](../domain/quests.md) |
@@ -43,7 +47,7 @@ changes, change it here, in the UI, and in the API together.
 | A session called off ahead of time | Cancel / Cancelled | `TimeBlockStatus.cancelled`, `POST /time-blocks/{id}/cancel` | [time blocks](../domain/time-blocks.md) |
 | Done sessions out of those due an answer this week | Sessions kept | `sessions_kept`, `GET /views/week-so-far` | [home](../domain/home.md) |
 | One week's numbers against the same days last week | This week | `this_week`, `GET /views/this-week`, `ThisWeekPage` | [this week](../domain/this-week.md) |
-| Pooled habit adherence this week | Habits kept | `habits_kept_share` | [home](../domain/home.md) |
+| Habits kept this week (not computed until habits phase 2) | Habits kept | `habits_kept_share` | [home](../domain/home.md) |
 | A cap on all screen time | All screen time | `ScreenBudgetTargetKind.total`, `target_slug: all` | [screen time](../domain/screen-time.md) |
 | Total time planned in sessions | Planned time | `planned_minutes` (never "actual effort") | [time blocks](../domain/time-blocks.md) |
 | A free-text daily note | Note for today; the past ones are Earlier notes | `journal` metric (origin `journal`), `/journal` | [journal](../domain/journal.md) |
@@ -71,7 +75,6 @@ are the same again. The old addresses redirect.
 | ------- | ----------------------------- | --- |
 | Everything watched, read, and heard | Library (`/library`, API `/library/…`, `Library*`, tables `library_*`) | Entertainment |
 | The week of planned sessions | Plan (`/quests/plan`, `GET /views/plan`, `PlanPage`) | Calendar |
-| A habit's day / week / month history grid | Grid (`GET /views/habits/grid`, `habit_grid`) | calendar |
 
 History is shown as **All entries** (Settings → All entries); the API is `GET /entries` as before.
 

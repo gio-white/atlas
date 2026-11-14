@@ -91,7 +91,17 @@ class _Builder:
             },
         )
 
-    def block(self, task_id: int, days: int, start: tuple[int, int], minutes: int, status: str):
+    def block(
+        self,
+        task_id: int,
+        days: int,
+        start: tuple[int, int],
+        minutes: int,
+        status: str,
+        *,
+        planned: tuple[int, int, int] | None = None,
+    ):
+        """`planned` is when the session was put in the calendar: (day offset, hour, minute)."""
         start_at = self.at(days, *start)
         end_at = (datetime.fromisoformat(start_at) + timedelta(minutes=minutes)).isoformat()
         self._add(
@@ -103,6 +113,7 @@ class _Builder:
                 "status": status,
                 "provider": "internal",
                 "external_event_id": None,
+                **({"created_at": self.at(*planned)} if planned else {}),
             },
         )
 
@@ -182,6 +193,13 @@ def demo_quests(as_of: date, zone: tzinfo) -> dict[str, list[dict[str, Any]]]:
     for title in ("Look into climbing gyms", "Idea: write about learning Rust", "Call the dentist"):
         q.task(title, organized=False)
 
+    # Past weekday sessions for the "Plan the day" habit: most planned that morning or the
+    # evening before, every third one only after noon, so the habit misses on those days.
+    for days in range(-13, -1):
+        if (as_of + timedelta(days=days)).isoweekday() > 5:
+            continue
+        planned = (days, 13, 30) if days % 3 == 0 else (days, 7, 45)
+        q.block(csv, days, (16, 0), 60, "completed", planned=planned)
     q.block(csv, -1, (16, 0), 90, "completed")
     q.block(book, -1, (20, 0), 60, "scheduled")
     q.block(dates, -1, (12, 0), 30, "cancelled")

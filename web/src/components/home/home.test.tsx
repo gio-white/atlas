@@ -7,7 +7,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type {
-  HabitStatus,
+  Habit,
   JournalDay,
   LibraryTitle,
   MainQuests,
@@ -17,7 +17,7 @@ import type {
   WeekSoFar,
 } from '@/lib/api'
 
-const api = vi.hoisted(() => ({ logJournal: vi.fn(), amendEntry: vi.fn(), checkInHabit: vi.fn() }))
+const api = vi.hoisted(() => ({ logJournal: vi.fn(), amendEntry: vi.fn() }))
 vi.mock('@/lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api')>()),
   ...api,
@@ -276,102 +276,60 @@ describe('Note for today', () => {
   })
 })
 
-function habit(overrides: Partial<HabitStatus> & Pick<HabitStatus, 'slug'>): HabitStatus {
+function habit(slug: string, overrides: Partial<Habit> = {}): Habit {
   return {
-    name: overrides.slug,
-    metric_slug: overrides.slug,
-    period: 'day',
-    target_value: 1,
-    comparator: 'at_least',
-    current_streak: 0,
-    longest_streak: 0,
-    adherence: null,
-    current_value: null,
-    satisfied: false,
-    scheduled: true,
-    as_of: '2026-11-12',
-    kind: 'check',
+    id: 1,
+    slug,
+    name: slug,
     time_of_day: 'anytime',
-    unit: null,
-    archived: false,
-    bucket_start: '2026-11-12',
-    bucket_end: '2026-11-12',
-    days_left: 0,
-    effective_target: 1,
-    excused: false,
-    skipped_today: false,
-    today_value: null,
-    last_entry_on: null,
-    weekdays: null,
+    first_day: '2026-11-01',
+    archived_at: null,
+    rule: {
+      starts_on: '2026-11-01',
+      frequency: 'every_day',
+      check: 'manual',
+      weekdays: null,
+      times: null,
+      source: null,
+      source_ref: null,
+      source_ref_name: null,
+      threshold: null,
+      value: null,
+    },
     ...overrides,
   }
 }
 
 describe('HabitsTodayBlock', () => {
-  function renderHabits(statuses: HabitStatus[]) {
-    const board = {
-      as_of: '2026-11-12',
-      scheduled: statuses.length,
-      satisfied: 0,
-      fraction: null,
-      completion_7d: null,
-      completion_30d: null,
-      day: statuses.filter((row) => row.period === 'day'),
-      week: statuses.filter((row) => row.period === 'week'),
-      month: statuses.filter((row) => row.period === 'month'),
-    }
-    return renderBlock(
-      <HabitsTodayBlock board={board} asOf="2026-11-12" search="" onChanged={async () => {}} />,
-    )
+  // 2026-11-14 is a Saturday.
+  function renderHabits(habits: Habit[] | null) {
+    return renderBlock(<HabitsTodayBlock habits={habits} asOf="2026-11-14" search="" />)
   }
 
-  it('reads a quit habit as slips today and logs a slip in one tap', async () => {
-    api.checkInHabit.mockResolvedValue({})
+  it('lists the habits due today, Morning first, each with its rule', () => {
+    const weekdays = {
+      ...habit('x').rule,
+      frequency: 'specific_days' as const,
+      weekdays: [1, 2, 3, 4, 5],
+    }
     renderHabits([
-      habit({
-        slug: 'no-doomscrolling',
-        name: 'No doomscrolling',
-        kind: 'quit',
-        comparator: 'at_most',
-        target_value: 0,
-        effective_target: 0,
-        unit: 'slips',
-        satisfied: true,
-      }),
+      habit('read', { name: 'Read' }),
+      habit('wake', { name: 'Wake up early', time_of_day: 'morning' }),
+      habit('pushups', { name: 'Pushups', rule: weekdays }),
+      habit('old', { name: 'Old habit', archived_at: '2026-11-10T20:00:00' }),
     ])
-    expect(screen.getByText('No slips today')).toBeInTheDocument()
-    expect(screen.queryByText(/of 0 slips/)).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Log a slip' }))
-    await waitFor(() =>
-      expect(api.checkInHabit).toHaveBeenCalledWith(
-        'no-doomscrolling',
-        { amount: undefined, on: '2026-11-12', note: null },
-        '2026-11-12',
-      ),
-    )
+    const names = screen.getAllByRole('listitem').map((item) => item.firstChild?.textContent)
+    expect(names).toEqual(['Wake up early', 'Read'])
+    expect(screen.getByText('Every day · You tick it · Morning')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'All habits' })).toHaveAttribute('href', '/habits')
   })
 
-  it('reads a daily amount as today’s progress, and a weekly one as the week’s', () => {
-    renderHabits([
-      habit({
-        slug: 'pushups',
-        kind: 'count',
-        target_value: 40,
-        effective_target: 40,
-        today_value: 10,
-        current_value: 10,
-      }),
-      habit({
-        slug: 'runs',
-        period: 'week',
-        target_value: 3,
-        effective_target: 3,
-        current_value: 1,
-        days_left: 4,
-      }),
-    ])
-    expect(screen.getByText('10 of 40 today')).toBeInTheDocument()
-    expect(screen.getByText('1 of 3')).toBeInTheDocument()
-    expect(screen.getByText('4 days left')).toBeInTheDocument()
+  it('says when nothing is due or nothing exists', () => {
+    const weekdays = { ...habit('x').rule, frequency: 'specific_days' as const, weekdays: [1] }
+    const { unmount } = renderHabits([habit('pushups', { rule: weekdays })])
+    expect(screen.getByText('No habits scheduled today.')).toBeInTheDocument()
+    unmount()
+    renderHabits([])
+    expect(screen.getByText('No habits yet.')).toBeInTheDocument()
   })
 })

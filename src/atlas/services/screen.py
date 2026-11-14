@@ -402,12 +402,14 @@ def create_screen_device(
     slug: str,
     *,
     name: str | None = None,
+    complete_through: datetime | None = None,
 ) -> ScreenDevice:
     slug = normalize_slug(slug)
     ensure_unique_slug(session, ScreenDevice, slug)
     device = ScreenDevice(
         slug=slug,
         name=name if name is not None else display_name(slug),
+        complete_through=_coerce_utc(complete_through),
     )
     session.add(device)
     session.commit()
@@ -431,12 +433,20 @@ def update_screen_device(
     slug: str,
     *,
     name: str | None = None,
+    complete_through: datetime | None = None,
 ) -> ScreenDevice:
+    """`complete_through` is set by whatever sends the device's screen time: everything up to
+    that moment has arrived (habits brief §3). It only moves forward."""
     device = require_screen_device(session, normalize_slug(slug))
     if name is not None:
         if not isinstance(name, str) or not name.strip():
             raise ValidationError("name must be a non-empty string")
         device.name = name
+    if complete_through is not None:
+        through = _coerce_utc(complete_through)
+        current = _coerce_utc(device.complete_through)
+        if current is None or (through is not None and through > current):
+            device.complete_through = through
     session.add(device)
     session.commit()
     session.refresh(device)

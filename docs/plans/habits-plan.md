@@ -2,7 +2,7 @@
 
 The working plan for [habits-brief.md](habits-brief.md). It records what exists today, how each
 habit migrates, which files each phase touches, and the questions that must be answered before
-phase 1. Nothing here is built yet.
+phase 1. Phase 1 (the model, schema 15, the API, and the demo data) is built; the rest is not.
 
 ## What exists today
 
@@ -100,8 +100,8 @@ adding one entry and one reader.
 | Docs, every phase | 1–7 | `docs/domain/habits.md` (rewritten), `docs/domain/home.md`, `docs/domain/this-week.md`, `docs/domain/screen-time.md`, `docs/domain/sleep.md`, `docs/domain/time-blocks.md`, `docs/domain/trackers-and-entries.md`, `docs/product/navigation.md`, `docs/product/glossary.md`, `docs/product/ux-writing.md`, `docs/architecture/data-model.md`, `docs/architecture/migrations.md`, the code → doc map, decision 0010 (D21–D40), the changelog |
 
 **API after the rebuild.** `GET`/`POST /habits`, `GET`/`PATCH`/`DELETE /habits/{slug}` (`PATCH`
-takes `apply`: `from_today` or `all_days`), archive and unarchive,
-`PUT /habits/{slug}/days/{day}` (`done` or `not_done`), `DELETE /habits/{slug}/days/{day}`
+takes `apply`: `from_today` or `all_days`), archive and restore,
+`PUT /habits/{slug}/days/{day}` (body `{"result": "done"}` or `"not_done"`), `DELETE /habits/{slug}/days/{day}`
 (untick, or Use data again), `GET`/`POST /freezes` and `DELETE /freezes/{id}`,
 `GET /habits/sources` (the picker: sources, categories, apps), and the views
 `GET /views/habits/day`, `GET /views/habits/week`, `GET /views/habits/{slug}`. Removed:
@@ -109,7 +109,8 @@ takes `apply`: `from_today` or `all_days`), archive and unarchive,
 
 **Addresses.** Day tab `/habits`, Week tab `/habits/week`, a habit `/habit/:slug`. The old
 `/habit` and `/week` redirect to `/habits`. (Keeping `/habit` for the tabs would make a habit
-called "week" unreachable.)
+called "week" unreachable.) `GET /habits/{slug}` also matches `/habits/week`, so phase 4 adds
+it to `SPA_PATHS_SHADOWED_BY_API` (`src/atlas/api/spa.py`), as phase 1 did for `/habits`.
 
 ## Assumptions I will make unless you say otherwise
 

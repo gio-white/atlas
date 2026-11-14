@@ -1,7 +1,7 @@
 from datetime import date
 
-from atlas.domain import Aggregation, Comparator, Direction, Period, ValueType
-from atlas.services import create_habit, create_metric, log_entry
+from atlas.domain import Aggregation, Direction, HabitFrequency, ValueType
+from atlas.services import RuleInput, create_habit, create_metric, log_entry
 
 
 def seed_health(session):
@@ -31,16 +31,13 @@ def seed_health(session):
     return pushups, weight, meditated
 
 
-def seed_daily_pushups(session, *, active_from: date = date(2026, 8, 1)):
-    seed_health(session)
+def seed_daily_pushups(session, *, first_day: date = date(2026, 8, 1)):
     return create_habit(
         session,
-        "pushups-daily",
-        metric_slug="pushups",
-        period=Period.DAY,
-        target_value=1.0,
-        comparator=Comparator.AT_LEAST,
-        active_from=active_from,
+        "Morning pushups",
+        RuleInput(frequency=HabitFrequency.EVERY_DAY),
+        slug="pushups-daily",
+        first_day=first_day,
     )
 
 

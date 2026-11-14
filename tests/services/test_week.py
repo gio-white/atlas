@@ -3,21 +3,20 @@ from datetime import UTC, date, datetime, timedelta
 import pytest
 
 from atlas.domain import (
-    Comparator,
-    HabitKind,
+    HabitFrequency,
     LibraryKind,
     LibraryStatus,
-    Period,
     ScreenJudgment,
     TaskStatus,
 )
 from atlas.domain.quests import QuestKind
 from atlas.services import (
+    RuleInput,
+    archive_habit,
     create_habit,
     create_library_title,
     create_screen_app,
     create_screen_category,
-    log_entry,
     log_screen_session,
     log_sleep_session,
     this_week,
@@ -85,26 +84,6 @@ def test_looking_back_at_a_past_day_only_counts_answers_due_by_then(session):
 
     assert monday.week_start == date(2026, 8, 10)
     assert (monday.sessions_kept, monday.sessions_total) == (0, 1)
-
-
-def test_habits_kept_reuses_adherence_and_leaves_today_open(session):
-    create_habit(
-        session,
-        name="Read",
-        kind=HabitKind.CHECK,
-        period=Period.DAY,
-        comparator=Comparator.AT_LEAST,
-        active_from=date(2026, 8, 1),
-    )
-    for day in (date(2026, 8, 10), date(2026, 8, 12), TODAY):
-        log_entry(session, "read", True, occurred_on=day)
-
-    week = week_so_far(session, as_of=TODAY, now=NOW)
-
-    # Mon, Tue, Wed are judged (2 kept); Thursday is still in progress.
-    assert (week.habits_kept, week.habits_judged) == (2, 3)
-    assert week.habits_kept_share == pytest.approx(2 / 3)
-    assert week_so_far(session, as_of=date(2026, 8, 10), now=NOW).habits_kept_share is None
 
 
 def test_sleep_and_screen_come_from_their_own_views(session):
@@ -183,36 +162,19 @@ def test_tasks_milestones_and_titles_finished_in_the_window(session):
     assert week.current.titles_finished == 1
 
 
-def test_each_habit_shows_its_progress_for_the_week(session):
-    create_habit(
-        session,
-        name="Read",
-        kind=HabitKind.CHECK,
-        period=Period.DAY,
-        comparator=Comparator.AT_LEAST,
-        active_from=date(2026, 8, 1),
-    )
-    create_habit(
-        session,
-        name="Run",
-        kind=HabitKind.CHECK,
-        period=Period.WEEK,
-        target_value=3,
-        comparator=Comparator.AT_LEAST,
-        active_from=date(2026, 8, 1),
-    )
-    for day in (date(2026, 8, 10), date(2026, 8, 12)):
-        log_entry(session, "read", True, occurred_on=day)
-    log_entry(session, "run", True, occurred_on=date(2026, 8, 11))
+def test_this_week_lists_active_habits_and_judges_none_yet(session):
+    """Habits kept returns with the habits calculations (habits brief phase 2)."""
+    every_day = RuleInput(frequency=HabitFrequency.EVERY_DAY)
+    create_habit(session, "Run", every_day, first_day=date(2026, 8, 1))
+    create_habit(session, "Read", every_day, first_day=date(2026, 8, 1))
+    create_habit(session, "Old habit", every_day, first_day=date(2026, 8, 1))
+    archive_habit(session, "old-habit")
 
     week = this_week(session, as_of=TODAY, now=NOW)
 
-    rows = {row.slug: row for row in week.habits}
-    assert (rows["read"].kept, rows["read"].judged) == (2, 3)
-    assert (rows["run"].judged, rows["run"].value, rows["run"].target) == (0, 1, 3)
-    assert rows["run"].satisfied is False
-    # The pooled number is the sum of the habits' own counts.
-    assert (week.current.habits_kept, week.current.habits_judged) == (2, 3)
+    assert [(row.slug, row.name) for row in week.habits] == [("read", "Read"), ("run", "Run")]
+    assert (week.current.habits_kept, week.current.habits_judged) == (0, 0)
+    assert week.current.habits_kept_share is None
 
 
 def test_screen_split_and_sleep_times(session):

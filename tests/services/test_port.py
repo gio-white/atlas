@@ -4,16 +4,17 @@ import pytest
 
 from atlas.db import CURRENT_SCHEMA_VERSION, create_memory_engine, init_schema, make_session_factory
 from atlas.domain import (
-    Comparator,
-    Period,
+    HabitFrequency,
+    HabitMarkResult,
     ScreenJudgment,
     SleepStage,
     SleepStageSpan,
     Source,
 )
 from atlas.services import (
+    RuleInput,
     ValidationError,
-    create_habit,
+    add_freeze,
     create_screen_app,
     create_screen_category,
     create_screen_device,
@@ -24,21 +25,36 @@ from atlas.services import (
     log_entry,
     log_screen_session,
     log_sleep_session,
+    set_habit_day,
+    update_habit,
 )
-from tests.services.helpers import log_pushups, seed_health
+from tests.services.helpers import log_pushups, seed_daily_pushups, seed_health
+
+LEGACY_HABIT = {
+    "slug": "pushups-daily",
+    "metric": "pushups",
+    "name": "Pushups",
+    "period": "day",
+    "target_value": 30.0,
+    "comparator": "at_least",
+    "weekdays": None,
+    "active_from": "2026-08-01",
+    "active_to": None,
+}
 
 
 def _populated(session):
     seed_health(session)
-    create_habit(
+    seed_daily_pushups(session)
+    update_habit(
         session,
         "pushups-daily",
-        metric_slug="pushups",
-        period=Period.DAY,
-        target_value=1.0,
-        comparator=Comparator.AT_LEAST,
-        active_from=date(2026, 8, 1),
+        rule=RuleInput(frequency=HabitFrequency.TIMES_A_WEEK, times=3),
+        today=date(2026, 8, 8),
     )
+    set_habit_day(session, "pushups-daily", date(2026, 8, 10), HabitMarkResult.DONE)
+    add_freeze(session, start_on=date(2026, 8, 5), habit_slug="pushups-daily", reason="Sick")
+    add_freeze(session, start_on=date(2026, 8, 6), end_on=date(2026, 8, 7))
     log_pushups(session, date(2026, 8, 10), 40)
     log_entry(
         session,
@@ -49,6 +65,14 @@ def _populated(session):
         source=Source.CLI,
     )
     return export_all(session)
+
+
+def _legacy(payload: dict, version: int) -> dict:
+    """The payload as an export before schema 15 wrote it: habits on a metric, no freezes."""
+    payload["schema_version"] = version
+    payload["habits"] = [dict(LEGACY_HABIT)]
+    payload.pop("habit_freezes")
+    return payload
 
 
 def test_export_round_trips_through_a_fresh_database(session):
@@ -70,6 +94,10 @@ def test_export_round_trips_through_a_fresh_database(session):
 
     assert restored["metrics"] == payload["metrics"]
     assert restored["habits"] == payload["habits"]
+    assert [rule["times"] for rule in restored["habits"][0]["rules"]] == [None, 3]
+    assert restored["habits"][0]["marks"] == [{"day": "2026-08-10", "result": "done"}]
+    assert restored["habit_freezes"] == payload["habit_freezes"]
+    assert {row["habit"] for row in restored["habit_freezes"]} == {"pushups-daily", None}
     assert restored["screen_categories"] == payload["screen_categories"]
     assert restored["screen_apps"] == payload["screen_apps"]
     assert restored["screen_budgets"] == payload["screen_budgets"]
@@ -95,14 +123,63 @@ def test_import_replace_clears_existing_rows(session):
     assert len(exported["entries"]) == 2
 
 
+def test_import_of_a_v14_habit_converts_it_like_the_migration(session):
+    payload = _legacy(_populated(session), 14)
+    payload["habits"][0].update(
+        kind="count",
+        time_of_day="morning",
+        breaks=[{"start_on": "2026-08-04", "end_on": "2026-08-05", "note": "Travel"}],
+    )
+    engine = create_memory_engine()
+    init_schema(engine)
+    with make_session_factory(engine)() as other:
+        import_all(other, payload)
+        restored = export_all(other)
+        active = {metric.slug for metric in list_metrics(other)}
+
+    [habit] = restored["habits"]
+    assert (habit["name"], habit["time_of_day"], habit["first_day"]) == (
+        "Pushups",
+        "morning",
+        "2026-08-01",
+    )
+    [rule] = habit["rules"]
+    assert (rule["frequency"], rule["check"], rule["source"]) == ("every_day", "manual", None)
+    # 40 pushups on 10 August met the old target of 30.
+    assert habit["marks"] == [{"day": "2026-08-10", "result": "done"}]
+    assert restored["habit_freezes"] == [
+        {
+            "habit": "pushups-daily",
+            "start_on": "2026-08-04",
+            "end_on": "2026-08-05",
+            "reason": "Travel",
+        }
+    ]
+    # The metric the habit read is archived; its entries stay.
+    assert "pushups" not in active
+    assert any(entry["metric"] == "pushups" for entry in restored["entries"])
+
+
+def test_export_round_trips_a_device_s_complete_through(session):
+    through = datetime(2026, 8, 14, 22, 0, tzinfo=UTC)
+    create_screen_device(session, "iphone", complete_through=through)
+    payload = export_all(session)
+    assert payload["screen_devices"][0]["complete_through"] == through.isoformat()
+
+    engine = create_memory_engine()
+    init_schema(engine)
+    with make_session_factory(engine)() as other:
+        import_all(other, payload)
+        assert export_all(other)["screen_devices"] == payload["screen_devices"]
+
+
 def test_import_rejects_unknown_schema_version(session):
     with pytest.raises(ValidationError, match="schema_version"):
         import_all(session, {"schema_version": 99})
 
 
 def test_import_accepts_schema_version_1(session):
-    payload = _populated(session)
-    payload["schema_version"] = 1
+    payload = _legacy(_populated(session), 1)
     payload.pop("screen_categories")
     payload.pop("screen_apps")
     payload.pop("screen_budgets")
@@ -118,8 +195,7 @@ def test_import_accepts_schema_version_1(session):
 
 
 def test_import_accepts_schema_version_2(session):
-    payload = _populated(session)
-    payload["schema_version"] = 2
+    payload = _legacy(_populated(session), 2)
     payload.pop("screen_devices", None)
     payload.pop("screen_sessions", None)
     engine = create_memory_engine()
@@ -131,8 +207,7 @@ def test_import_accepts_schema_version_2(session):
 
 
 def test_import_accepts_schema_version_4(session):
-    payload = _populated(session)
-    payload["schema_version"] = 4
+    payload = _legacy(_populated(session), 4)
     payload.pop("screen_devices", None)
     payload.pop("screen_sessions", None)
     engine = create_memory_engine()
@@ -157,8 +232,7 @@ def test_import_accepts_schema_version_5(session):
         occurred_on=date(2026, 8, 14),
         device_slug="iphone",
     )
-    payload = export_all(session)
-    payload["schema_version"] = 5
+    payload = _legacy(export_all(session), 5)
     engine = create_memory_engine()
     init_schema(engine)
     with make_session_factory(engine)() as other:
@@ -171,8 +245,7 @@ def test_import_accepts_schema_version_5(session):
 
 
 def test_import_accepts_schema_version_6(session):
-    payload = _populated(session)
-    payload["schema_version"] = 6
+    payload = _legacy(_populated(session), 6)
     engine = create_memory_engine()
     init_schema(engine)
     with make_session_factory(engine)() as other:
@@ -182,8 +255,7 @@ def test_import_accepts_schema_version_6(session):
 
 
 def test_import_accepts_schema_version_7(session):
-    payload = _populated(session)
-    payload["schema_version"] = 7
+    payload = _legacy(_populated(session), 7)
     engine = create_memory_engine()
     init_schema(engine)
     with make_session_factory(engine)() as other:
@@ -239,8 +311,7 @@ V10_LEGACY_SECTIONS = {
 
 
 def test_import_of_a_v10_export_ignores_old_goals_and_tasks(session):
-    payload = _populated(session)
-    payload["schema_version"] = 10
+    payload = _legacy(_populated(session), 10)
     for section in ("ambitions", "side_quests", "chapters", "time_blocks"):
         payload.pop(section)
     payload.update(V10_LEGACY_SECTIONS)
@@ -263,8 +334,7 @@ def test_import_of_a_v10_export_ignores_old_goals_and_tasks(session):
 
 
 def test_import_of_a_v10_export_without_old_sections_reports_nothing(session):
-    payload = _populated(session)
-    payload["schema_version"] = 10
+    payload = _legacy(_populated(session), 10)
     engine = create_memory_engine()
     init_schema(engine)
     with make_session_factory(engine)() as other:

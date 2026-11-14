@@ -13,8 +13,6 @@ import {
   archiveMetric,
   createMetric,
   type Direction,
-  type Habit,
-  listHabits,
   listMetrics,
   type Metric,
   updateMetric,
@@ -48,13 +46,11 @@ function saveError(caught: unknown): string {
  */
 export function MetricsPage() {
   const [metrics, setMetrics] = useState<Metric[] | null>(null)
-  const [habits, setHabits] = useState<Habit[]>([])
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
-    const [metricRows, habitRows] = await Promise.all([listMetrics(), listHabits()])
+    const metricRows = await listMetrics()
     setMetrics(metricRows.filter(isManagedMetric).sort((a, b) => a.name.localeCompare(b.name)))
-    setHabits(habitRows.filter((habit) => habit.archived_at === null))
   }, [])
 
   useEffect(() => {
@@ -81,19 +77,12 @@ export function MetricsPage() {
         <>
           <NewMetric onCreated={load} />
           {metrics.length === 0 ? (
-            <EmptyState
-              title="No metrics yet"
-              hint="Add one above, or create a habit: it sets up its own."
-            />
+            <EmptyState title="No metrics yet" hint="Add one above." />
           ) : (
             <ul className="flex flex-col gap-3">
               {metrics.map((metric) => (
                 <li key={metric.slug}>
-                  <MetricRow
-                    metric={metric}
-                    usedBy={habits.filter((habit) => habit.metric === metric.slug)}
-                    onChanged={load}
-                  />
+                  <MetricRow metric={metric} onChanged={load} />
                 </li>
               ))}
             </ul>
@@ -229,15 +218,7 @@ function NewMetric({ onCreated }: { onCreated: () => Promise<void> }) {
 
 type Mode = 'view' | 'edit' | 'archive'
 
-function MetricRow({
-  metric,
-  usedBy,
-  onChanged,
-}: {
-  metric: Metric
-  usedBy: Habit[]
-  onChanged: () => Promise<void>
-}) {
+function MetricRow({ metric, onChanged }: { metric: Metric; onChanged: () => Promise<void> }) {
   const [mode, setMode] = useState<Mode>('view')
   const [name, setName] = useState(metric.name)
   const [unit, setUnit] = useState(metric.unit ?? '')
@@ -356,10 +337,6 @@ function MetricRow({
           <p className="text-sm text-ink">
             Archive {metric.name}? Its entries are kept, but it leaves this list and you can no
             longer log to it.
-            {usedBy.length > 0 &&
-              ` ${usedBy.map((habit) => habit.name).join(', ')} ${
-                usedBy.length === 1 ? 'uses' : 'use'
-              } it and will stop showing in Habits.`}
           </p>
           <div className="flex gap-2">
             <Button

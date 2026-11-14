@@ -2,7 +2,7 @@
 
 Topics raised in the design session of 13–14 Nov 2026 that are **not decided**. Nothing here should be built until it is discussed. Each point gives the context, the current leaning, and what is left to decide.
 
-The Habits redesign (including checking habits automatically from device data) is being discussed next and is not listed here.
+The Habits rebuild is decided in the [habits brief](habits-brief.md) and [decision 0010](../decisions/0010-habits-rebuilt-as-rules-marks-and-freezes.md); what it leaves open is point 15.
 
 ## 1. Reaching Atlas from the phone and the internet
 
@@ -80,3 +80,12 @@ The Habits redesign (including checking habits automatically from device data) i
 
 - **Context.** Atlas is built for its owner first. If it matures, it might be opened to others.
 - **To decide.** Nothing now. Avoid choices that only work for one person where an equally simple general choice exists.
+
+## 15. Habits after the rebuild
+
+- **Context.** The habits rebuild (brief phases 1–7) ships one tick per day (done or not done) and judges data habits from whatever data has arrived. A data habit whose data is missing or incomplete at the end of the day is Not done, "No data received" ([habits](../domain/habits.md)). The owner raised these while answering the brief's questions (14 Nov 2026).
+- **Partial logging.** Log part of a habit (half the pushups, 20 of 30 minutes) instead of a single tick. Leaning: later, once the single tick has been used for a while.
+- **Swipe to complete.** On the phone, swipe a habit row to mark it done. Leaning: with the phone work (point 1).
+- **Getting the data in time.** Ask a device for its data on demand ("force a data request"), or fetch it once at the end of the day, so a data habit is not judged on a day whose data simply has not arrived yet. Depends on the device pipeline (point 4).
+- **When the day ends.** Today switches at midnight (brief D27). Alternatives: end the day when you go to sleep (from sleep data), or at a time you set.
+- **To decide.** Whether and how each of these changes the day result, streaks, and Habits kept.

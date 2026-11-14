@@ -1,83 +1,135 @@
-def test_create_habit_and_read_status(client, seed_health):
-    created = client.post(
-        "/habits",
-        json={
-            "slug": "pushups-daily",
-            "metric": "pushups",
-            "period": "day",
-            "target_value": 1,
-            "comparator": "at_least",
-            "active_from": "2026-08-01",
-        },
+EVERY_DAY = {"frequency": "every_day"}
+
+
+def _create(client, name="Morning pushups", rule=None, **fields):
+    body = {"name": name, "rule": rule or EVERY_DAY, "first_day": "2026-08-01", **fields}
+    response = client.post("/habits", json=body)
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def test_create_and_read_a_manual_habit(client):
+    created = _create(
+        client,
+        rule={"frequency": "specific_days", "weekdays": [5, 1]},
+        time_of_day="morning",
     )
-    assert created.status_code == 201
-    assert created.json()["metric"] == "pushups"
-    assert created.json()["period"] == "day"
 
-    client.post("/entries", json={"metric": "pushups", "value": 10, "occurred_on": "2026-08-11"})
-    client.post("/entries", json={"metric": "pushups", "value": 10, "occurred_on": "2026-08-12"})
-    client.post("/entries", json={"metric": "pushups", "value": 10, "occurred_on": "2026-08-13"})
+    assert created["slug"] == "morning-pushups"
+    assert created["time_of_day"] == "morning"
+    assert created["first_day"] == "2026-08-01"
+    assert created["archived_at"] is None
+    rule = created["rule"]
+    assert (rule["frequency"], rule["weekdays"], rule["check"]) == (
+        "specific_days",
+        [1, 5],
+        "manual",
+    )
+    assert rule["starts_on"] == "2026-08-01"
 
-    status = client.get("/habits/pushups-daily/status", params={"as_of": "2026-08-13"})
-    assert status.status_code == 200
-    body = status.json()
-    assert body["current_streak"] == 3
-    assert body["longest_streak"] == 3
-    assert body["satisfied"] is True
-    assert body["scheduled"] is True
-    assert body["metric_slug"] == "pushups"
+    assert client.get("/habits/morning-pushups").json() == created
+    assert [habit["slug"] for habit in client.get("/habits").json()] == ["morning-pushups"]
 
 
-def test_list_habits_can_filter_by_metric(client, seed_health):
+def test_a_data_habit_takes_the_source_defaults_and_names_its_app(client):
+    client.post("/screen/categories", json={"slug": "social", "judgment": "waste"})
     client.post(
-        "/habits",
-        json={
-            "slug": "pushups-daily",
-            "metric": "pushups",
-            "period": "day",
-            "target_value": 1,
-            "comparator": "at_least",
-            "active_from": "2026-08-01",
+        "/screen/apps", json={"slug": "instagram", "category": "social", "name": "Instagram"}
+    )
+
+    wake = _create(
+        client,
+        "Wake up early",
+        rule={"frequency": "every_day", "check": "data", "source": "wake_time"},
+    )
+    insta = _create(
+        client,
+        "Instagram short",
+        rule={
+            "frequency": "every_day",
+            "check": "data",
+            "source": "screen_app",
+            "source_ref": "instagram",
         },
     )
 
-    listed = client.get("/habits", params={"metric": "pushups"})
-    assert listed.status_code == 200
-    assert [habit["slug"] for habit in listed.json()] == ["pushups-daily"]
+    assert (wake["rule"]["threshold"], wake["rule"]["value"]) == ("before", 420)
+    assert insta["rule"]["source_ref_name"] == "Instagram"
+    assert (insta["rule"]["threshold"], insta["rule"]["value"]) == ("at_most", 30)
 
 
-def test_unknown_habit_status_is_not_found(client):
-    response = client.get("/habits/missing/status")
-
-    assert response.status_code == 404
-    assert "habit" in response.json()["detail"]
-
-
-def test_put_habit_day_marks_and_clears_a_bool_habit(client, seed_health):
-    created = client.post(
-        "/habits",
-        json={
-            "slug": "meditate-daily",
-            "metric": "meditated",
-            "period": "day",
-            "target_value": 1,
-            "comparator": "at_least",
-            "active_from": "2026-08-01",
-        },
+def test_a_rule_that_does_not_fit_is_refused(client):
+    response = client.post(
+        "/habits", json={"name": "Run", "rule": {"frequency": "times_a_week", "times": 9}}
     )
-    assert created.status_code == 201, created.text
+    assert response.status_code == 400
+    assert "times must be 1 to 7" in response.json()["detail"]
 
-    marked = client.put(
-        "/habits/meditate-daily/days/2026-08-12",
-        params={"as_of": "2026-08-12"},
-        json={"done": True},
-    )
-    assert marked.status_code == 200, marked.text
-    assert marked.json()["satisfied"] is True
 
-    cleared = client.put(
-        "/habits/meditate-daily/days/2026-08-12",
-        params={"as_of": "2026-08-12"},
-        json={"done": False},
+def test_patch_changes_the_rule_from_today_or_for_all_days(client):
+    _create(client)
+
+    renamed = client.patch("/habits/morning-pushups", json={"name": "Pushups"})
+    assert renamed.json()["name"] == "Pushups"
+
+    changed = client.patch(
+        "/habits/morning-pushups",
+        json={"rule": {"frequency": "times_a_week", "times": 3}, "apply": "all_days"},
     )
-    assert cleared.json()["satisfied"] is False
+    assert changed.status_code == 200, changed.text
+    assert changed.json()["rule"]["times"] == 3
+    assert changed.json()["rule"]["starts_on"] == "2026-08-01"
+
+
+def test_a_day_is_ticked_and_unticked(client):
+    _create(client)
+
+    done = client.put("/habits/morning-pushups/days/2026-08-12", json={"result": "done"})
+    assert done.status_code == 200, done.text
+    assert done.json() == {"day": "2026-08-12", "result": "done"}
+
+    not_done = client.put("/habits/morning-pushups/days/2026-08-12", json={"result": "not_done"})
+    assert not_done.json() == {"day": "2026-08-12", "result": None}
+
+    client.put("/habits/morning-pushups/days/2026-08-13", json={"result": "done"})
+    assert client.delete("/habits/morning-pushups/days/2026-08-13").status_code == 204
+
+    early = client.put("/habits/morning-pushups/days/2026-07-31", json={"result": "done"})
+    assert early.status_code == 400
+
+
+def test_archive_restore_and_delete(client):
+    _create(client)
+
+    archived = client.post("/habits/morning-pushups/archive")
+    assert archived.json()["archived_at"] is not None
+    assert client.get("/habits", params={"include_archived": False}).json() == []
+
+    restored = client.post("/habits/morning-pushups/restore")
+    assert restored.json()["archived_at"] is None
+
+    assert client.delete("/habits/morning-pushups").status_code == 204
+    missing = client.get("/habits/morning-pushups")
+    assert missing.status_code == 404
+    assert "habit" in missing.json()["detail"]
+
+
+def test_freezes_for_one_habit_or_all(client):
+    _create(client)
+
+    one = client.post(
+        "/freezes", json={"habit": "morning-pushups", "start_on": "2026-08-05", "reason": "Sick"}
+    )
+    assert one.status_code == 201, one.text
+    assert one.json()["end_on"] == "2026-08-05"
+    every = client.post(
+        "/freezes", json={"start_on": "2026-08-10", "end_on": "2026-08-12", "reason": "Holiday"}
+    )
+    assert every.json()["habit"] is None
+
+    listed = client.get("/freezes", params={"habit": "morning-pushups"}).json()
+    assert [row["reason"] for row in listed] == ["Holiday", "Sick"]
+
+    assert client.delete(f"/freezes/{one.json()['id']}").status_code == 204
+    assert [row["reason"] for row in client.get("/freezes").json()] == ["Holiday"]
+    assert client.delete(f"/freezes/{one.json()['id']}").status_code == 404

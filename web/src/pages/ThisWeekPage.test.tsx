@@ -83,32 +83,8 @@ const WEEK: ThisWeek = {
     titles_finished: 1,
   }),
   habits: [
-    {
-      slug: 'read',
-      name: 'Read',
-      kind: 'check',
-      period: 'day',
-      comparator: 'at_least',
-      unit: null,
-      kept: 5,
-      judged: 7,
-      value: 1,
-      target: 1,
-      satisfied: true,
-    },
-    {
-      slug: 'run',
-      name: 'Run',
-      kind: 'check',
-      period: 'week',
-      comparator: 'at_least',
-      unit: null,
-      kept: 1,
-      judged: 1,
-      value: 3,
-      target: 3,
-      satisfied: true,
-    },
+    { slug: 'read', name: 'Read' },
+    { slug: 'run', name: 'Run' },
   ],
 }
 
@@ -134,8 +110,8 @@ describe('ThisWeekPage', () => {
     const habits = screen.getByRole('region', { name: 'Habits' })
     expect(within(habits).getByText('82%')).toBeInTheDocument()
     expect(within(habits).getByText('+5 points vs last week')).toBeInTheDocument()
-    expect(within(habits).getByText('5 of 7 days')).toBeInTheDocument()
-    expect(within(habits).getByText('3 of 3 · Done')).toBeInTheDocument()
+    expect(within(habits).getByText('Read')).toBeInTheDocument()
+    expect(within(habits).getByText('Run')).toBeInTheDocument()
     const sleep = screen.getByRole('region', { name: 'Sleep' })
     expect(within(sleep).getByText('+35m vs last week')).toBeInTheDocument()
     expect(within(sleep).getByText('23:40')).toBeInTheDocument()

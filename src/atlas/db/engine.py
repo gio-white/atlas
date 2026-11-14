@@ -1,4 +1,6 @@
+import json
 from collections.abc import Callable
+from datetime import UTC, date, datetime, time
 from pathlib import Path
 
 from sqlalchemy import Connection, event, inspect, text
@@ -8,9 +10,46 @@ from sqlalchemy.schema import CreateIndex, CreateTable
 from sqlmodel import Session, SQLModel, col, create_engine, select
 
 from atlas.db.models import Entry, Habit, Metric, SchemaVersion, ScreenApp, ScreenSession
-from atlas.domain import MetricOrigin
+from atlas.domain import Aggregation, Comparator, EntryView, MetricOrigin, Period
+from atlas.domain.habit_migration import LegacyHabit, convert_legacy_habit
+from atlas.settings import load_settings
 
-CURRENT_SCHEMA_VERSION = 14
+CURRENT_SCHEMA_VERSION = 15
+
+# The habit table as schema 14 left it. Migrations older than 15 rebuild this shape, not the
+# current model, so a database from any version reaches schema 15's conversion intact.
+_HABIT_V14_SQL = """CREATE TABLE habit__new (
+\tid INTEGER NOT NULL,
+\tmetric_id INTEGER NOT NULL,
+\tslug VARCHAR NOT NULL,
+\tname VARCHAR NOT NULL,
+\tperiod VARCHAR(5) NOT NULL,
+\ttarget_value FLOAT NOT NULL,
+\tcomparator VARCHAR(8) NOT NULL,
+\tweekdays JSON,
+\tactive_from DATE NOT NULL,
+\tactive_to DATE,
+\tkind VARCHAR(8) NOT NULL,
+\ttime_of_day VARCHAR(9) NOT NULL,
+\tarchived_at DATETIME,
+\tPRIMARY KEY (id),
+\tFOREIGN KEY(metric_id) REFERENCES metric (id)
+)"""
+_HABIT_V14_COLUMNS = (
+    "id",
+    "metric_id",
+    "slug",
+    "name",
+    "period",
+    "target_value",
+    "comparator",
+    "weekdays",
+    "active_from",
+    "active_to",
+    "kind",
+    "time_of_day",
+    "archived_at",
+)
 
 # Tables of the goal/milestone/task model that schema 11 replaced, keyed by a column only the
 # old shape has, so the drop is idempotent and never touches the new quest tables.
@@ -48,7 +87,8 @@ def make_session_factory(engine: Engine) -> Callable[[], Session]:
     return factory
 
 
-def init_schema(engine: Engine) -> None:
+def init_schema(engine: Engine, *, today: date | None = None) -> None:
+    """Create or upgrade the schema. `today` (local) dates the schema 15 habit conversion."""
     previous = _stored_version(engine)
     if previous is not None and previous < 11:
         _drop_legacy_goal_tables(engine)
@@ -69,6 +109,8 @@ def init_schema(engine: Engine) -> None:
                 _drop_habit_goal_link(engine)
             if previous < 12:
                 _replace_areas_with_metric_origin(engine)
+            if previous < 15:
+                _rebuild_habits(engine, today or load_settings().today())
             session.expire_all()
             row = session.get(SchemaVersion, 1)
         if row is None:
@@ -117,19 +159,15 @@ def _drop_habit_goal_link(engine: Engine) -> None:
     old_columns = [column["name"] for column in inspector.get_columns("habit")]
     if "goal_id" not in old_columns:
         return
-    kept = [column.name for column in Habit.__table__.columns if column.name in old_columns]
+    kept = [name for name in _HABIT_V14_COLUMNS if name in old_columns]
     quoted = ", ".join(kept)
 
     def rebuild(connection: Connection) -> None:
-        create = str(CreateTable(Habit.__table__).compile(connection))
-        connection.execute(
-            text(create.replace("CREATE TABLE habit ", "CREATE TABLE habit__new ", 1))
-        )
+        connection.execute(text(_HABIT_V14_SQL))
         connection.execute(text(f"INSERT INTO habit__new ({quoted}) SELECT {quoted} FROM habit"))
         connection.execute(text("DROP TABLE habit"))
         connection.execute(text("ALTER TABLE habit__new RENAME TO habit"))
-        for index in Habit.__table__.indexes:
-            connection.execute(CreateIndex(index, if_not_exists=True))
+        connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_habit_slug ON habit (slug)"))
 
     _without_foreign_keys(engine, rebuild)
 
@@ -191,6 +229,177 @@ def _replace_areas_with_metric_origin(engine: Engine) -> None:
             connection.execute(text("DROP TABLE area"))
 
     _without_foreign_keys(engine, rebuild)
+
+
+def _rebuild_habits(engine: Engine, today: date) -> None:
+    """Schema 15: the habits rebuild (habits brief §11).
+
+    Each habit loses its metric, kind, and target. Its schedule becomes its first rule version
+    from its first day; its past becomes Done marks (`convert_legacy_habit`); its skips and
+    pauses become freezes. A habit that had ended is archived. The metrics it read are archived
+    too, unless they back a screen app, so they leave the New entry list while their entries
+    stay. All of it happens in one transaction.
+    """
+    inspector = inspect(engine)
+    if "habit" not in inspector.get_table_names():
+        return
+    if "metric_id" not in {column["name"] for column in inspector.get_columns("habit")}:
+        return
+    tables = set(inspector.get_table_names())
+    now = _sql_datetime(datetime.now(UTC))
+
+    def rebuild(connection: Connection) -> None:
+        rows = connection.execute(
+            text(
+                "SELECT h.id, h.metric_id, h.slug, h.name, h.period, h.target_value,"
+                " h.comparator, h.weekdays, h.active_from, h.active_to, h.kind, h.time_of_day,"
+                " h.archived_at, m.aggregation FROM habit h JOIN metric m ON m.id = h.metric_id"
+            )
+        ).all()
+        breaks: dict[int, list[tuple[date, date, str | None]]] = {}
+        if "habit_break" in tables:
+            for habit_id, start_on, end_on, note in connection.execute(
+                text("SELECT habit_id, start_on, end_on, note FROM habit_break ORDER BY id")
+            ):
+                breaks.setdefault(habit_id, []).append(
+                    (date.fromisoformat(start_on), date.fromisoformat(end_on), note)
+                )
+        app_slugs = (
+            dict(connection.execute(text("SELECT metric_id, slug FROM screen_app")).all())
+            if "screen_app" in tables
+            else {}
+        )
+        converted = []
+        for row in rows:
+            entries = [
+                EntryView(
+                    occurred_on=date.fromisoformat(occurred_on),
+                    value_num=value_num,
+                    value_bool=None if value_bool is None else bool(value_bool),
+                    id=entry_id,
+                )
+                for entry_id, occurred_on, value_num, value_bool in connection.execute(
+                    text(
+                        "SELECT id, occurred_on, value_num, value_bool FROM entry"
+                        " WHERE metric_id = :metric"
+                    ),
+                    {"metric": row.metric_id},
+                )
+            ]
+            weekdays = json.loads(row.weekdays) if row.weekdays else None
+            legacy = LegacyHabit(
+                kind=row.kind.lower(),
+                period=Period[row.period],
+                comparator=Comparator[row.comparator],
+                target_value=row.target_value,
+                active_from=date.fromisoformat(row.active_from),
+                active_to=date.fromisoformat(row.active_to) if row.active_to else None,
+                aggregation=Aggregation[row.aggregation],
+                weekdays=frozenset(weekdays) if weekdays else None,
+                breaks=tuple((start, end) for start, end, _ in breaks.get(row.id, [])),
+                screen_app_slug=app_slugs.get(row.metric_id),
+            )
+            converted.append((row, legacy, convert_legacy_habit(legacy, entries, today)))
+
+        create = str(CreateTable(Habit.__table__).compile(connection))
+        connection.execute(
+            text(create.replace("CREATE TABLE habit ", "CREATE TABLE habit__new ", 1))
+        )
+        for row, legacy, _ in converted:
+            ended = legacy.active_to is not None and legacy.active_to < today
+            archived_at = row.archived_at or (
+                _sql_datetime(datetime.combine(legacy.active_to, time(23, 59), tzinfo=UTC))
+                if ended and legacy.active_to is not None
+                else None
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO habit__new (id, slug, name, time_of_day, first_day, archived_at,"
+                    " created_at) VALUES (:id, :slug, :name, :time_of_day, :first_day,"
+                    " :archived_at, :created_at)"
+                ),
+                {
+                    "id": row.id,
+                    "slug": row.slug,
+                    "name": row.name,
+                    "time_of_day": row.time_of_day,
+                    "first_day": row.active_from,
+                    "archived_at": archived_at,
+                    "created_at": now,
+                },
+            )
+        connection.execute(text("DROP TABLE habit"))
+        connection.execute(text("ALTER TABLE habit__new RENAME TO habit"))
+        for index in Habit.__table__.indexes:
+            connection.execute(CreateIndex(index, if_not_exists=True))
+
+        for row, legacy, result in converted:
+            rule = result.rule
+            connection.execute(
+                text(
+                    "INSERT INTO habit_rule (habit_id, starts_on, frequency, weekdays, times,"
+                    ' "check", source, source_ref, threshold, value, created_at) VALUES'
+                    " (:habit, :starts_on, :frequency, :weekdays, :times, :check, :source,"
+                    " :source_ref, :threshold, :value, :created_at)"
+                ),
+                {
+                    "habit": row.id,
+                    "starts_on": row.active_from,
+                    "frequency": rule.frequency.name,
+                    "weekdays": json.dumps(list(rule.weekdays)) if rule.weekdays else None,
+                    "times": rule.times,
+                    "check": rule.check.name,
+                    "source": rule.source.name if rule.source else None,
+                    "source_ref": rule.source_ref,
+                    "threshold": rule.threshold.name if rule.threshold else None,
+                    "value": rule.value,
+                    "created_at": now,
+                },
+            )
+            for day in result.done_days:
+                connection.execute(
+                    text(
+                        "INSERT INTO habit_mark (habit_id, day, result, created_at)"
+                        " VALUES (:habit, :day, 'DONE', :created_at)"
+                    ),
+                    {"habit": row.id, "day": day.isoformat(), "created_at": now},
+                )
+            for start_on, end_on, note in breaks.get(row.id, []):
+                connection.execute(
+                    text(
+                        "INSERT INTO habit_freeze (habit_id, start_on, end_on, reason, created_at)"
+                        " VALUES (:habit, :start_on, :end_on, :reason, :created_at)"
+                    ),
+                    {
+                        "habit": row.id,
+                        "start_on": start_on.isoformat(),
+                        "end_on": end_on.isoformat(),
+                        "reason": note,
+                        "created_at": now,
+                    },
+                )
+            if legacy.screen_app_slug is None:
+                connection.execute(
+                    text(
+                        "UPDATE metric SET archived_at = :now WHERE id = :metric"
+                        " AND archived_at IS NULL AND origin IN (:manual, :habit)"
+                    ),
+                    {
+                        "now": now,
+                        "metric": row.metric_id,
+                        "manual": MetricOrigin.MANUAL.name,
+                        "habit": MetricOrigin.HABIT.name,
+                    },
+                )
+        if "habit_break" in tables:
+            connection.execute(text("DROP TABLE habit_break"))
+
+    _without_foreign_keys(engine, rebuild)
+
+
+def _sql_datetime(value: datetime) -> str:
+    """A datetime as SQLAlchemy stores it in SQLite (naive UTC text)."""
+    return value.astimezone(UTC).replace(tzinfo=None).isoformat(sep=" ", timespec="microseconds")
 
 
 def _without_foreign_keys(engine: Engine, work: Callable[[Connection], None]) -> None:
@@ -299,6 +508,9 @@ def _add_habit_kind_and_schedule(engine: Engine) -> None:
     if "habit" not in inspector.get_table_names():
         return
     columns = {column["name"] for column in inspector.get_columns("habit")}
+    if "metric_id" not in columns:
+        # A database that never had habits gets today's table from create_all; nothing to add.
+        return
     with engine.begin() as connection:
         if "kind" not in columns:
             connection.execute(

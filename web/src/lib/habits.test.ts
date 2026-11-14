@@ -1,140 +1,116 @@
 import { describe, expect, it } from 'vitest'
 
-import type { HabitStatus } from './api'
+import type { Habit, HabitRule } from './api'
 import {
-  formatAmount,
+  checkLabel,
+  dueOn,
   frequencyLabel,
-  goalLabel,
-  isOverLimit,
-  periodHabits,
-  progressOf,
-  quickAmounts,
-  streakCount,
-  streakLabel,
-  todayGroups,
-  todaySummary,
+  ruleSummary,
+  sourceLine,
+  timeGroups,
+  weekdaysLabel,
 } from './habits'
 
-function status(overrides: Partial<HabitStatus> & Pick<HabitStatus, 'slug'>): HabitStatus {
+function rule(overrides: Partial<HabitRule> = {}): HabitRule {
   return {
-    name: overrides.slug,
-    metric_slug: overrides.slug,
-    period: 'day',
-    target_value: 1,
-    comparator: 'at_least',
-    current_streak: 0,
-    longest_streak: 0,
-    adherence: null,
-    current_value: null,
-    satisfied: false,
-    scheduled: true,
-    as_of: '2026-08-13',
-    kind: 'check',
-    time_of_day: 'anytime',
-    unit: null,
-    archived: false,
-    bucket_start: '2026-08-13',
-    bucket_end: '2026-08-13',
-    days_left: 0,
-    effective_target: 1,
-    excused: false,
-    skipped_today: false,
-    today_value: null,
-    last_entry_on: null,
+    starts_on: '2026-08-01',
+    frequency: 'every_day',
+    check: 'manual',
     weekdays: null,
+    times: null,
+    source: null,
+    source_ref: null,
+    source_ref_name: null,
+    threshold: null,
+    value: null,
     ...overrides,
   }
 }
 
-describe('todayGroups', () => {
-  it('groups daily habits due today by time of day, in day order', () => {
-    const groups = todayGroups([
-      status({ slug: 'read', time_of_day: 'evening' }),
-      status({ slug: 'stretch', time_of_day: 'morning' }),
-      status({ slug: 'runs', period: 'week' }),
-      status({ slug: 'gym', scheduled: false }),
-    ])
-    expect(groups.map((group) => [group.id, group.habits.map((h) => h.slug)])).toEqual([
-      ['morning', ['stretch']],
-      ['evening', ['read']],
-    ])
-    expect(periodHabits([status({ slug: 'runs', period: 'week' })])).toHaveLength(1)
+function habit(slug: string, overrides: Partial<Habit> = {}): Habit {
+  return {
+    id: 1,
+    slug,
+    name: slug,
+    time_of_day: 'anytime',
+    first_day: '2026-08-01',
+    archived_at: null,
+    rule: rule(),
+    ...overrides,
+  }
+}
+
+describe('frequencyLabel', () => {
+  it('names each way a habit can repeat', () => {
+    expect(frequencyLabel(rule())).toBe('Every day')
+    expect(frequencyLabel(rule({ frequency: 'specific_days', weekdays: [5, 1, 3] }))).toBe(
+      'Mon, Wed, Fri',
+    )
+    expect(frequencyLabel(rule({ frequency: 'times_a_week', times: 3 }))).toBe('3× a week')
+    expect(frequencyLabel(rule({ frequency: 'times_a_month', times: 2 }))).toBe('2× a month')
   })
 
-  it('counts done out of due, leaving skipped habits out', () => {
-    expect(
-      todaySummary([
-        status({ slug: 'a', satisfied: true }),
-        status({ slug: 'b' }),
-        status({ slug: 'c', excused: true }),
-      ]),
-    ).toEqual({ due: 2, done: 1 })
+  it('shortens weekdays and weekends', () => {
+    expect(weekdaysLabel([1, 2, 3, 4, 5])).toBe('Weekdays')
+    expect(weekdaysLabel([7, 6])).toBe('Weekends')
+    expect(weekdaysLabel(null)).toBe('Every day')
   })
 })
 
-describe('progress and labels', () => {
-  it('measures progress against the scaled target', () => {
-    const runs = status({
-      slug: 'runs',
-      kind: 'count',
-      period: 'week',
-      target_value: 3,
-      effective_target: 2,
-      current_value: 1,
+describe('sourceLine', () => {
+  it('reads a data rule as one line, in minutes or as a time of day', () => {
+    const wake = rule({ check: 'data', source: 'wake_time', threshold: 'before', value: 420 })
+    expect(sourceLine(wake)).toBe('Wake time before 07:00')
+    const bad = { source: 'screen_bad_apps', threshold: 'at_most', value: 90 } as const
+    expect(sourceLine(rule({ check: 'data', ...bad }))).toBe('Bad apps at most 1h 30m')
+    const planned = { source: 'sessions_planned', threshold: 'before', value: 720 } as const
+    expect(sourceLine(rule({ check: 'data', ...planned }))).toBe('A session planned before 12:00')
+  })
+
+  it('names the app or category a screen rule is on', () => {
+    const app = rule({
+      check: 'data',
+      source: 'screen_app',
+      source_ref: 'instagram',
+      source_ref_name: 'Instagram',
+      threshold: 'at_most',
+      value: 30,
     })
-    expect(progressOf(runs)).toBe(0.5)
-    expect(progressOf(status({ slug: 'quit', kind: 'quit', comparator: 'at_most' }))).toBeNull()
-    const coffee = status({
-      slug: 'coffee',
-      kind: 'count',
-      comparator: 'at_most',
-      current_value: 2,
-      satisfied: false,
-    })
-    expect(progressOf(coffee)).toBe(1)
-    expect(isOverLimit(coffee)).toBe(true)
+    expect(sourceLine(app)).toBe('Screen time in Instagram at most 30m')
   })
 
-  it('formats amounts by kind', () => {
-    expect(formatAmount(90, 'duration', 'min')).toBe('1h 30m')
-    expect(formatAmount(12, 'count', 'pages')).toBe('12 pages')
-    expect(formatAmount(null, 'count', null)).toBe('0')
+  it('is empty for a habit you tick', () => {
+    expect(sourceLine(rule())).toBeNull()
   })
+})
 
-  it('offers quick amounts that fit the target', () => {
-    expect(quickAmounts({ kind: 'count', target_value: 40 })).toEqual([1, 10])
-    expect(quickAmounts({ kind: 'count', target_value: 3 })).toEqual([1])
-    expect(quickAmounts({ kind: 'duration', target_value: 60 })).toEqual([5, 15, 30])
-    expect(quickAmounts({ kind: 'check', target_value: 1 })).toEqual([])
-  })
-
-  it('describes frequency, goal, and streak in plain words', () => {
-    const base = { comparator: 'at_least' as const }
-    expect(
-      frequencyLabel({
-        ...base,
-        kind: 'check',
-        period: 'day',
-        target_value: 1,
-        weekdays: [1, 2, 3, 4, 5],
-      }),
-    ).toBe('Weekdays')
-    expect(
-      frequencyLabel({ ...base, kind: 'check', period: 'day', target_value: 1, weekdays: [1, 3] }),
-    ).toBe('Mon, Wed')
-    expect(
-      frequencyLabel({ ...base, kind: 'check', period: 'week', target_value: 3, weekdays: null }),
-    ).toBe('3× a week')
-    expect(goalLabel(status({ slug: 'p', kind: 'count', target_value: 40, unit: 'reps' }))).toBe(
-      '40 reps',
+describe('ruleSummary', () => {
+  it('joins how often, how it is checked, and the time of day', () => {
+    const wake = rule({ check: 'data', source: 'wake_time', threshold: 'before', value: 420 })
+    expect(ruleSummary(habit('wake', { rule: wake, time_of_day: 'morning' }))).toBe(
+      'Every day · From your data: wake time before 07:00 · Morning',
     )
-    expect(
-      goalLabel(status({ slug: 'c', kind: 'count', comparator: 'at_most', unit: 'cups' })),
-    ).toBe('At most 1 cups')
-    expect(streakLabel(status({ slug: 'q', kind: 'quit', current_streak: 1 }))).toBe('1 day clean')
-    expect(streakCount({ kind: 'check', period: 'day' }, 19)).toBe('19 days')
-    expect(streakLabel(status({ slug: 'r', period: 'week', current_streak: 4 }))).toBe(
-      '4-week streak',
-    )
+    expect(ruleSummary(habit('read'))).toBe('Every day · You tick it')
+    expect(checkLabel(rule())).toBe('You tick it')
+    const bad = rule({ check: 'data', source: 'screen_bad_apps', threshold: 'at_most', value: 90 })
+    expect(checkLabel(bad)).toBe('From your data: Bad apps at most 1h 30m')
+  })
+})
+
+describe('dueOn and timeGroups', () => {
+  it('shows a specific-days habit only on its days', () => {
+    const weekdays = rule({ frequency: 'specific_days', weekdays: [1, 2, 3, 4, 5] })
+    expect(dueOn(weekdays, 1)).toBe(true)
+    expect(dueOn(weekdays, 6)).toBe(false)
+    expect(dueOn(rule({ frequency: 'times_a_week', times: 3 }), 6)).toBe(true)
+  })
+
+  it('groups habits Morning to Anytime and drops empty groups', () => {
+    const groups = timeGroups([
+      habit('read', { time_of_day: 'evening' }),
+      habit('run'),
+      habit('wake', { time_of_day: 'morning' }),
+    ])
+    expect(groups.map((group) => group.id)).toEqual(['morning', 'evening', 'anytime'])
   })
 })

@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import type { HabitWeekProgress } from './api'
 import {
   clockChange,
   countChange,
-  habitWeekLabel,
   minutesChange,
   shareChange,
   weekRangeLine,
@@ -46,35 +44,5 @@ describe('changes from last week', () => {
     expect(shareChange(0.5, 0.51)).toBe('−1 point vs last week')
     expect(clockChange(-20, -40)).toBe('20m later than last week')
     expect(clockChange(400, 430)).toBe('30m earlier than last week')
-  })
-})
-
-function row(overrides: Partial<HabitWeekProgress>): HabitWeekProgress {
-  return {
-    slug: 'read',
-    name: 'Read',
-    kind: 'check',
-    period: 'day',
-    comparator: 'at_least',
-    unit: null,
-    kept: 0,
-    judged: 0,
-    value: null,
-    target: 1,
-    satisfied: false,
-    ...overrides,
-  }
-}
-
-describe('habitWeekLabel', () => {
-  it('counts days for daily habits and amounts for weekly and monthly ones', () => {
-    expect(habitWeekLabel(row({ kept: 5, judged: 6 }))).toBe('5 of 6 days')
-    expect(habitWeekLabel(row({ kind: 'quit', kept: 1, judged: 1 }))).toBe('1 of 1 day clean')
-    expect(habitWeekLabel(row({}))).toBe('No full days yet')
-    expect(habitWeekLabel(row({ period: 'week', value: 1, target: 3 }))).toBe('1 of 3')
-    expect(habitWeekLabel(row({ period: 'month', kind: 'duration', value: 45, target: 120 }))).toBe(
-      '45m of 2h this month',
-    )
-    expect(habitWeekLabel(row({ period: 'week', target: null }))).toBe('On a break')
   })
 })
