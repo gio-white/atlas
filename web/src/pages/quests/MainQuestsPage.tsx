@@ -25,7 +25,7 @@ export function MainQuestsPage() {
   }, [reload])
 
   if (error !== null && data === null) {
-    return <PageUnavailable title="Main quests" message={error} />
+    return <PageUnavailable tab title="Main quests" message={error} />
   }
   if (data === null) return <PageLoading />
 
@@ -36,6 +36,7 @@ export function MainQuestsPage() {
       <div className="flex flex-col gap-8">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <PageHeader
+            tab
             title="Main quests"
             description="Your ambitions and the goals that move them forward."
           />
@@ -50,7 +51,7 @@ export function MainQuestsPage() {
             </Button>
             <Button
               type="button"
-              className="bg-iris hover:bg-iris/90"
+              className="bg-accent hover:bg-accent/90"
               onClick={() => setCreating({ kind: 'goal', ambitionId: null })}
             >
               <Plus className="size-4" aria-hidden />

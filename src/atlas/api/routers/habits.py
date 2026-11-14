@@ -3,6 +3,7 @@ from datetime import date
 from fastapi import APIRouter
 
 from atlas.api.deps import SessionDep
+from atlas.api.quest_schemas import HabitSupportCreate, HabitSupportOut
 from atlas.api.schemas import (
     HabitBreakCreate,
     HabitBreakOut,
@@ -16,8 +17,10 @@ from atlas.api.schemas import (
 )
 from atlas.api.serialize import habit_detail_out, habits_out
 from atlas.domain import Source
+from atlas.domain.quests import QuestKind
 from atlas.services import (
     add_habit_break,
+    add_habit_support,
     archive_habit,
     check_in,
     create_habit,
@@ -27,7 +30,9 @@ from atlas.services import (
     habit_detail,
     habit_status,
     list_habit_breaks,
+    list_habit_supports,
     list_habits,
+    remove_habit_support,
     set_habit_day,
     unarchive_habit,
     undo_check_in,
@@ -63,7 +68,6 @@ def post_habit(session: SessionDep, body: HabitCreate) -> HabitOut:
         time_of_day=body.time_of_day,
         active_from=body.active_from,
         active_to=body.active_to,
-        area_slug=body.area,
     )
     return habits_out(session, [habit])[0]
 
@@ -141,6 +145,22 @@ def post_break(session: SessionDep, slug: str, body: HabitBreakCreate) -> HabitB
 @router.delete("/{slug}/breaks/{break_id}", status_code=204)
 def delete_break(session: SessionDep, slug: str, break_id: int) -> None:
     delete_habit_break(session, slug, break_id)
+
+
+@router.get("/{slug}/supports", response_model=list[HabitSupportOut])
+def get_supports(session: SessionDep, slug: str) -> list[HabitSupportOut]:
+    return [HabitSupportOut.model_validate(item) for item in list_habit_supports(session, slug)]
+
+
+@router.post("/{slug}/supports", response_model=HabitSupportOut, status_code=201)
+def post_support(session: SessionDep, slug: str, body: HabitSupportCreate) -> HabitSupportOut:
+    item = add_habit_support(session, slug, body.kind, body.id)
+    return HabitSupportOut.model_validate(item)
+
+
+@router.delete("/{slug}/supports/{kind}/{item_id}", status_code=204)
+def delete_support(session: SessionDep, slug: str, kind: QuestKind, item_id: int) -> None:
+    remove_habit_support(session, slug, kind, item_id)
 
 
 @router.post("/{slug}/archive", response_model=HabitOut)

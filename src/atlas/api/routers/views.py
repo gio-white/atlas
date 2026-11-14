@@ -4,27 +4,29 @@ from fastapi import APIRouter
 
 from atlas.api.deps import SessionDep
 from atlas.api.schemas import (
-    AreaViewOut,
     HabitsBoardOut,
-    HabitsCalendarOut,
+    HabitsGridOut,
+    ThisWeekOut,
+    WeekSoFarOut,
 )
 from atlas.domain import Period
 from atlas.services import (
-    area_view,
-    habit_calendar,
+    habit_grid,
     habits_board,
+    this_week,
+    week_so_far,
 )
 
 router = APIRouter(prefix="/views", tags=["views"])
 
 
-@router.get("/habits/calendar", response_model=HabitsCalendarOut)
-def get_habits_calendar(
+@router.get("/habits/grid", response_model=HabitsGridOut)
+def get_habits_grid(
     session: SessionDep,
     period: Period = Period.WEEK,
     as_of: date | None = None,
-) -> HabitsCalendarOut:
-    return HabitsCalendarOut.model_validate(habit_calendar(session, period=period, as_of=as_of))
+) -> HabitsGridOut:
+    return HabitsGridOut.model_validate(habit_grid(session, period=period, as_of=as_of))
 
 
 @router.get("/habits", response_model=HabitsBoardOut)
@@ -32,6 +34,11 @@ def get_habits_board(session: SessionDep, as_of: date | None = None) -> HabitsBo
     return HabitsBoardOut.model_validate(habits_board(session, as_of=as_of))
 
 
-@router.get("/areas/{slug}", response_model=AreaViewOut)
-def get_area_view(session: SessionDep, slug: str, as_of: date | None = None) -> AreaViewOut:
-    return AreaViewOut.model_validate(area_view(session, slug, as_of=as_of))
+@router.get("/week-so-far", response_model=WeekSoFarOut)
+def get_week_so_far(session: SessionDep, as_of: date | None = None) -> WeekSoFarOut:
+    return WeekSoFarOut.model_validate(week_so_far(session, as_of=as_of))
+
+
+@router.get("/this-week", response_model=ThisWeekOut)
+def get_this_week(session: SessionDep, as_of: date | None = None) -> ThisWeekOut:
+    return ThisWeekOut.model_validate(this_week(session, as_of=as_of))

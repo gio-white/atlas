@@ -4,7 +4,6 @@ from datetime import UTC, date, datetime
 from sqlmodel import Session, col, func, select
 
 from atlas.db.models import (
-    Area,
     Entry,
     Metric,
     ScreenApp,
@@ -16,6 +15,7 @@ from atlas.db.models import (
 from atlas.domain import (
     Aggregation,
     Comparator,
+    MetricOrigin,
     Period,
     ScreenAppSpec,
     ScreenBudgetSpec,
@@ -70,8 +70,9 @@ from atlas.services.lookups import (
 from atlas.services.slugs import display_name, normalize_slug
 from atlas.settings import load_settings
 
-SCREEN_AREA_SLUG = "screen"
 _UNSET = object()
+TOTAL_TARGET_SLUG = "all"
+"""The `target_slug` of a cap on all screen time."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,7 +179,6 @@ def create_screen_category(
     slug = normalize_slug(slug)
     ensure_unique_slug(session, ScreenCategory, slug)
     judgment = ScreenJudgment(judgment)
-    _ensure_screen_area(session)
     category = ScreenCategory(
         slug=slug,
         name=name if name is not None else display_name(slug),
@@ -244,15 +244,14 @@ def create_screen_app(
     category = require_screen_category(session, normalize_slug(category_slug))
     if category.archived_at is not None:
         raise ValidationError(f"screen_category {category.slug!r} is archived")
-    area = _ensure_screen_area(session)
     display = name if name is not None else display_name(slug)
     metric = Metric(
-        area_id=area.id,
         slug=slug,
         name=display,
         value_type=ValueType.DURATION,
         unit="min",
         aggregation=Aggregation.SUM,
+        origin=MetricOrigin.SCREEN,
         direction=direction_for_judgment(ScreenJudgment(category.judgment)),
     )
     session.add(metric)
@@ -312,7 +311,7 @@ def create_screen_budget(
     slug: str,
     *,
     target_kind: ScreenBudgetTargetKind,
-    target_slug: str,
+    target_slug: str = TOTAL_TARGET_SLUG,
     period: Period,
     target_value: float,
     comparator: Comparator,
@@ -738,18 +737,6 @@ def latest_screen_recorded_at(session: Session) -> datetime | None:
     return _coerce_utc(latest)
 
 
-def _ensure_screen_area(session: Session) -> Area:
-    existing = session.exec(select(Area).where(Area.slug == SCREEN_AREA_SLUG)).first()
-    if existing is not None:
-        if existing.archived_at is not None:
-            raise ValidationError(f"area {SCREEN_AREA_SLUG!r} is archived")
-        return existing
-    area = Area(slug=SCREEN_AREA_SLUG, name="Screen", description="Apps, categories, and budgets.")
-    session.add(area)
-    session.flush()
-    return area
-
-
 def _apps_for_category(session: Session, category_id: int | None) -> list[ScreenApp]:
     return list(
         session.exec(
@@ -765,6 +752,8 @@ def _validate_budget_target(
     target_kind: ScreenBudgetTargetKind,
     target_slug: str,
 ) -> str:
+    if target_kind is ScreenBudgetTargetKind.TOTAL:
+        return TOTAL_TARGET_SLUG
     if target_kind is ScreenBudgetTargetKind.JUDGMENT:
         try:
             return str(ScreenJudgment(target_slug))

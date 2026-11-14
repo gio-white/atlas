@@ -9,7 +9,7 @@ backfilled or corrected at any time.
 
 ## Decision
 
-Entries (and the dedicated fact stores for screen sessions, sleep, and the entertainment
+Entries (and the dedicated fact stores for screen sessions, sleep, and the library
 library) are the stored facts. Every derived value is a pure function of those facts plus
 configuration and an explicit `as_of` date. Derived columns are never persisted.
 

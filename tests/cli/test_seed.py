@@ -5,7 +5,7 @@ from tests.cli.conftest import invoke
 def test_seed_loads_demo(runner):
     result = invoke(runner, ["seed"])
     assert "seeded demo as of" in result.output
-    assert "areas" in result.output
+    assert "metrics" in result.output
     assert "entries" in result.output
     assert "screen sessions" in result.output
 

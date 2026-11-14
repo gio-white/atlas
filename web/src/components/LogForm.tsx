@@ -36,7 +36,7 @@ export function LogForm({ metrics, occurredOn, initialMetric, onLogged }: LogFor
   const unit = metric?.unit ?? (metric?.value_type === 'duration' ? 'min' : null)
 
   if (metrics.length === 0) {
-    return <p className="text-sm text-muted">No metrics yet. Add one in Catalog.</p>
+    return <p className="text-sm text-muted">No metrics yet. Add one in Settings, under Metrics.</p>
   }
 
   async function onSubmit(event: FormEvent) {

@@ -110,6 +110,8 @@ def member_apps(
     budget: ScreenBudgetSpec,
 ) -> list[ScreenAppSpec]:
     by_slug = {category.slug: category for category in categories}
+    if budget.target_kind is ScreenBudgetTargetKind.TOTAL:
+        return list(apps)
     if budget.target_kind is ScreenBudgetTargetKind.JUDGMENT:
         judgment = ScreenJudgment(budget.target_slug)
         return [app for app in apps if by_slug[app.category_slug].judgment is judgment]

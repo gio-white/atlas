@@ -1,6 +1,6 @@
-import { ChevronDown, ChevronLeft, ChevronRight, Settings2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Settings2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 
 import { Sparkline } from '@/components/home/Charts'
 import { EmptyState, PageHeader, PageLoading, PageUnavailable } from '@/components/PageState'
@@ -15,8 +15,6 @@ import {
   ShareDonut,
   StackedJudgmentBars,
 } from '@/components/screen/Charts'
-import { DataSourcesSettings } from '@/components/settings/DataSourcesSettings'
-import { ScreenTimeSettings } from '@/components/settings/ScreenTimeSettings'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -85,7 +83,7 @@ export function ScreenPage() {
   }
 
   if (error !== null) {
-    return <PageUnavailable title="Screen Time" message={error} />
+    return <PageUnavailable tab title="Screen time" message={error} />
   }
   if (dash === null) return <PageLoading />
 
@@ -97,9 +95,9 @@ export function ScreenPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
           <PageHeader
-            title="Screen Time"
+            tab
+            title="Screen time"
             description={`${shortDateLabel(dash.range_start)} – ${shortDateLabel(dash.range_end)}`}
-            homeLink
           />
           {updated !== null && <p className="text-xs text-muted">{updated}</p>}
         </div>
@@ -114,7 +112,7 @@ export function ScreenPage() {
                   aria-selected={period === item.id}
                   className={cn(
                     'rounded-full px-3 py-1 text-sm motion-safe:transition-colors',
-                    period === item.id ? 'bg-screen/20 text-ink' : 'text-muted hover:text-ink',
+                    period === item.id ? 'bg-accent/12 text-ink' : 'text-muted hover:text-ink',
                   )}
                   onClick={() => setPeriod(item.id)}
                 >
@@ -158,7 +156,7 @@ export function ScreenPage() {
         />
       )}
 
-      <ConfigureSection onChanged={refresh} />
+      <SetupLink />
     </div>
   )
 }
@@ -232,7 +230,7 @@ function ScreenDisplay({
                 <CardTitle className="text-base">Each day</CardTitle>
                 <button
                   type="button"
-                  className="text-xs font-medium text-screen hover:underline"
+                  className="text-xs font-medium text-accent hover:underline"
                   onClick={onToggleBreakdown}
                 >
                   {breakdown ? 'Show total only' : 'Split by Good / Bad'}
@@ -344,7 +342,7 @@ function ScreenDisplay({
                 <CardTitle className="text-base">8-week trend</CardTitle>
                 <CardDescription>Daily average</CardDescription>
               </CardHeader>
-              <div className="text-screen">
+              <div className="text-series-1">
                 <Sparkline
                   values={dash.trend.map((point) => point.daily_average ?? 0)}
                   className="h-16 w-full"
@@ -356,7 +354,7 @@ function ScreenDisplay({
                 <CardTitle className="text-base">Caps</CardTitle>
               </CardHeader>
               {dash.budgets.length === 0 ? (
-                <p className="text-sm text-muted">No caps set. Add one under Configure below.</p>
+                <p className="text-sm text-muted">No caps set. Add one in Settings.</p>
               ) : (
                 <ul className="flex flex-col gap-2 text-sm">
                   {dash.budgets.map((budget) => (
@@ -377,47 +375,20 @@ function ScreenDisplay({
   )
 }
 
-/**
- * Configuration, not data: kept collapsed and apart from the display until a Settings page
- * exists. Each panel is self-contained so it can move to Settings unchanged.
- */
-function ConfigureSection({ onChanged }: { onChanged: () => Promise<void> }) {
-  const [open, setOpen] = useState(false)
+/** Configuration lives in Settings, apart from the data shown here. This is the way to it. */
+function SetupLink() {
+  const [params] = useSearchParams()
+  const on = params.get('on')
+  const search = on === null ? '' : new URLSearchParams({ on }).toString()
   return (
-    <section
-      className="mt-4 flex flex-col gap-4 border-t border-line pt-6"
-      aria-labelledby="screen-configure"
-    >
-      <button
-        type="button"
-        className="flex items-start gap-3 text-left"
-        aria-expanded={open}
-        aria-controls="screen-configure-panel"
-        onClick={() => setOpen((value) => !value)}
+    <p className="border-t border-line pt-5">
+      <Link
+        to={{ pathname: '/settings/screen-time', search }}
+        className="inline-flex items-center gap-2 text-sm font-medium text-accent hover:underline"
       >
-        <Settings2 className="mt-0.5 size-5 text-muted" aria-hidden />
-        <span className="flex-1">
-          <span id="screen-configure" className="block text-lg font-semibold text-ink">
-            Configure
-          </span>
-          <span className="block text-sm text-muted">
-            Which categories count as Good or Bad, app categories, caps, and devices.
-          </span>
-        </span>
-        <ChevronDown
-          className={cn(
-            'mt-1 size-4 text-muted motion-safe:transition-transform',
-            open && 'rotate-180',
-          )}
-          aria-hidden
-        />
-      </button>
-      {open && (
-        <div id="screen-configure-panel" className="flex flex-col gap-4">
-          <ScreenTimeSettings onChanged={onChanged} />
-          <DataSourcesSettings onChanged={onChanged} />
-        </div>
-      )}
-    </section>
+        <Settings2 className="size-4" aria-hidden />
+        Set up apps, categories and caps
+      </Link>
+    </p>
   )
 }

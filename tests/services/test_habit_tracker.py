@@ -3,18 +3,23 @@ from datetime import date
 import pytest
 from sqlmodel import select
 
-from atlas.db import Area, Metric
-from atlas.domain import Comparator, Direction, HabitKind, Period, TimeOfDay, ValueType
+from atlas.db import Metric
+from atlas.domain import (
+    Comparator,
+    Direction,
+    HabitKind,
+    MetricOrigin,
+    Period,
+    TimeOfDay,
+    ValueType,
+)
 from atlas.services import (
-    HABITS_AREA_SLUG,
     AlreadyExistsError,
     NotFoundError,
     ValidationError,
     add_habit_break,
-    archive_area,
     archive_habit,
     check_in,
-    create_area,
     create_habit,
     delete_habit,
     delete_habit_break,
@@ -29,6 +34,7 @@ from atlas.services import (
     undo_check_in,
     update_habit,
 )
+from tests.services.helpers import seed_health
 
 START = date(2026, 8, 3)
 
@@ -37,7 +43,7 @@ def _metric(session, slug: str) -> Metric:
     return session.exec(select(Metric).where(Metric.slug == slug)).one()
 
 
-def test_habit_first_create_makes_the_metric_in_the_habits_area(session):
+def test_habit_first_create_makes_a_habit_made_metric(session):
     habit = create_habit(
         session,
         name="Read 20 pages",
@@ -55,8 +61,7 @@ def test_habit_first_create_makes_the_metric_in_the_habits_area(session):
     assert ValueType(metric.value_type) is ValueType.COUNT
     assert metric.unit == "pages"
     assert Direction(metric.direction) is Direction.HIGHER_IS_BETTER
-    area = session.get(Area, metric.area_id)
-    assert area.slug == HABITS_AREA_SLUG
+    assert MetricOrigin(metric.origin) is MetricOrigin.HABIT
 
     with pytest.raises(AlreadyExistsError):
         create_habit(session, name="Read 20 pages", period=Period.DAY, target_value=1)
@@ -240,36 +245,14 @@ def test_export_import_round_trips_habit_fields(session):
     assert list_habit_breaks(session, "stretch") == []
 
 
-def test_habit_first_create_puts_the_metric_in_a_chosen_area(session):
-    create_area(session, "health", name="Health")
-    habit = create_habit(
-        session, name="Meditate", kind=HabitKind.CHECK, period=Period.DAY, area_slug="health"
+def test_deleting_a_habit_keeps_a_metric_that_was_set_up_by_hand(session):
+    seed_health(session)
+    create_habit(
+        session, "pushups-daily", metric_slug="pushups", period=Period.DAY, target_value=20
     )
-    assert habit.name == "Meditate"
-    metric = _metric(session, habit.slug)
-    assert metric.name == "Meditate"
-    assert session.get(Area, metric.area_id).slug == "health"
-    assert session.exec(select(Area).where(Area.slug == HABITS_AREA_SLUG)).first() is None
 
+    delete_habit(session, "pushups-daily")
 
-def test_habit_area_must_exist_be_active_and_not_clash_with_a_metric(session):
-    with pytest.raises(NotFoundError):
-        create_habit(
-            session, name="Stretch", kind=HabitKind.CHECK, period=Period.DAY, area_slug="nope"
-        )
-    create_area(session, "career", name="Career")
-    archive_area(session, "career")
-    with pytest.raises(ValidationError):
-        create_habit(
-            session, name="Stretch", kind=HabitKind.CHECK, period=Period.DAY, area_slug="career"
-        )
-    create_area(session, "health", name="Health")
-    create_habit(session, name="Stretch", kind=HabitKind.CHECK, period=Period.DAY)
-    with pytest.raises(ValidationError):
-        create_habit(
-            session,
-            name="Stretch again",
-            period=Period.DAY,
-            metric_slug="stretch",
-            area_slug="health",
-        )
+    metric = _metric(session, "pushups")
+    assert MetricOrigin(metric.origin) is MetricOrigin.MANUAL
+    assert metric.archived_at is None

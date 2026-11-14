@@ -11,10 +11,9 @@ pipeline built later. Until then the demo seed (`uv run atlas seed`) fills both 
 data. The reasoning is recorded in [decision 0004](../decisions/0004-device-data-is-display-only.md).
 
 What is *configuration* rather than data — which category an app belongs to, whether a
-category counts as good or bad, daily caps, device names — stays editable. Today it lives in a
-collapsed **Configure** section at the bottom of the Screen Time page
-(`web/src/components/settings/ScreenTimeSettings.tsx` and `DataSourcesSettings.tsx`), and it
-moves into a Settings page once one exists.
+category counts as good or bad, daily caps, device names — stays editable. It lives in Settings, apart from the display:
+**Screen time setup** (`web/src/components/settings/ScreenTimeSettings.tsx`) and **Devices**
+(`DataSourcesSettings.tsx`). The Screen time page only links there.
 
 The web app has no client function that writes a night or a session. Each page shows
 **Last updated** from the newest record's `created_at`, and an empty state ("… will appear here

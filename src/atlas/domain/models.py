@@ -4,8 +4,8 @@ from datetime import UTC, date, datetime
 from atlas.domain.enums import (
     Aggregation,
     Comparator,
-    EntertainmentKind,
-    EntertainmentStatus,
+    LibraryKind,
+    LibraryStatus,
     Period,
     ScreenBudgetTargetKind,
     ScreenJudgment,
@@ -143,17 +143,17 @@ class ScreenBudgetSpec:
 
 
 @dataclass(frozen=True, slots=True)
-class EntertainmentTopicRef:
+class LibraryTopicRef:
     slug: str
     name: str
 
 
 @dataclass(frozen=True, slots=True)
-class EntertainmentTitleView:
+class LibraryTitleView:
     slug: str
     name: str
-    kind: EntertainmentKind
-    status: EntertainmentStatus
+    kind: LibraryKind
+    status: LibraryStatus
     creator: str | None = None
     recommended_by: str | None = None
     started_on: date | None = None
@@ -162,7 +162,7 @@ class EntertainmentTitleView:
     note: str | None = None
     rating: int | None = None
     link: str | None = None
-    topics: tuple[EntertainmentTopicRef, ...] = ()
+    topics: tuple[LibraryTopicRef, ...] = ()
     image: str | None = None
     created_at: datetime | None = None
 

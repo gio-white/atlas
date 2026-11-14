@@ -1,5 +1,5 @@
 """Read models for the quest screens: Main quests, Ambition, Goal, Side quests, Side quest,
-Inbox, Today, and Calendar. Every number comes from `atlas.domain.quests` via `QuestIndex`."""
+Inbox, Today, and Plan. Every number comes from `atlas.domain.quests` via `QuestIndex`."""
 
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
@@ -89,10 +89,11 @@ class TodayView:
 
 
 @dataclass(frozen=True, slots=True)
-class CalendarView:
+class PlanView:
     start: datetime
     end: datetime
     blocks: list[ScheduledBlock]
+    not_scheduled: list[TaskView]
 
 
 def main_quests_view(
@@ -224,17 +225,7 @@ def today_view(
     ]
     due.sort(key=lambda row: (row.due_on, row.position, row.id))
     scheduled_today = {item.task.id for item in blocks}
-    up_next: list[TaskView] = []
-    seen: set[int] = set()
-    for kind in (QuestKind.GOAL, QuestKind.SIDE_QUEST):
-        for row in _sorted(index.rows[kind].values()):
-            if QuestStatus(row.status) is not QuestStatus.ACTIVE:
-                continue
-            action = index.container_view(kind, row.id, now).next_action
-            if action is None or action.id in seen or action.id in scheduled_today:
-                continue
-            seen.add(action.id)
-            up_next.append(action)
+    up_next = [action for action in _next_actions(index, now) if action.id not in scheduled_today]
     return TodayView(
         date=day,
         blocks=blocks,
@@ -244,10 +235,12 @@ def today_view(
     )
 
 
-def calendar_view(
+def plan_view(
     session: Session, *, start: datetime, end: datetime, now: datetime | None = None
-) -> CalendarView:
-    """Every block overlapping [start, end) with its task and parent path; overlaps marked."""
+) -> PlanView:
+    """Every block overlapping [start, end) with its task and parent path, overlaps marked; and
+    Not scheduled yet: each active goal's and side quest's Next action with no upcoming session
+    (a planned one that has not ended), in Up next order. That list ignores [start, end)."""
     now = _now(now)
     start, end = as_utc(start), as_utc(end)
     index = QuestIndex(session)
@@ -259,11 +252,36 @@ def calendar_view(
     ]
     rows.sort(key=lambda row: (as_utc(row.start_at), row.id))
     overlaps = overlapping_ids([block_view(row) for row in rows])
-    return CalendarView(
+    return PlanView(
         start=start,
         end=end,
         blocks=[_scheduled(index, row, now, overlaps=row.id in overlaps) for row in rows],
+        not_scheduled=[
+            action
+            for action in _next_actions(index, now)
+            if not any(_upcoming(row, now) for row in index.blocks.get(action.id, []))
+        ],
     )
+
+
+def _next_actions(index: QuestIndex, now: datetime) -> list[TaskView]:
+    """The Next action of each active goal, then each active side quest, once per task."""
+    actions: list[TaskView] = []
+    seen: set[int] = set()
+    for kind in (QuestKind.GOAL, QuestKind.SIDE_QUEST):
+        for row in _sorted(index.rows[kind].values()):
+            if QuestStatus(row.status) is not QuestStatus.ACTIVE:
+                continue
+            action = index.container_view(kind, row.id, now).next_action
+            if action is None or action.id in seen:
+                continue
+            seen.add(action.id)
+            actions.append(action)
+    return actions
+
+
+def _upcoming(row, now: datetime) -> bool:
+    return TimeBlockStatus(row.status) is TimeBlockStatus.SCHEDULED and as_utc(row.end_at) > now
 
 
 def local_day_bounds(day: date) -> tuple[datetime, datetime]:
@@ -352,7 +370,7 @@ def _now(now: datetime | None) -> datetime:
 
 __all__ = [
     "AmbitionSection",
-    "CalendarView",
+    "PlanView",
     "ChapterTree",
     "GoalTree",
     "InboxView",
@@ -364,7 +382,7 @@ __all__ = [
     "SideQuestsView",
     "TodayView",
     "ambition_view",
-    "calendar_view",
+    "plan_view",
     "goal_view",
     "inbox_view",
     "main_quests_view",

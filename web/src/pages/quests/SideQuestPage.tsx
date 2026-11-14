@@ -36,14 +36,14 @@ export function SideQuestPage() {
     <TaskDrawerProvider onChanged={refresh}>
       <div className="flex flex-col gap-6">
         <QuestBreadcrumb
-          root={{ label: 'Side quests', to: '/side-quests' }}
+          root={{ label: 'Side quests', to: '/quests/side-quests' }}
           path={[]}
           current={quest.title}
         />
         <header className="flex flex-wrap items-start gap-4">
           <QuestRing value={quest.progress} completed={quest.status === 'completed'} />
           <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-1.5 text-xs font-medium text-iris">
+            <p className="flex items-center gap-1.5 text-xs font-medium text-accent">
               <LevelIcon kind="side_quest" className="size-3.5" />
               Side quest
             </p>

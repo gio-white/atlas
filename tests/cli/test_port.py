@@ -11,7 +11,7 @@ def test_export_and_import_round_trip(runner, tmp_path):
     exported = invoke(runner, ["export"])
     payload = json.loads(exported.output)
     assert payload["schema_version"] == CURRENT_SCHEMA_VERSION
-    assert payload["areas"]
+    assert payload["metrics"]
     assert payload["entries"]
 
     path = tmp_path / "atlas.json"
@@ -20,7 +20,6 @@ def test_export_and_import_round_trip(runner, tmp_path):
     assert "replaced and imported" in imported.output
 
     restored = json.loads(invoke(runner, ["export"]).output)
-    assert restored["areas"] == payload["areas"]
     assert restored["metrics"] == payload["metrics"]
     assert restored["habits"] == payload["habits"]
     assert len(restored["entries"]) == len(payload["entries"])

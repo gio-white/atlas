@@ -18,7 +18,7 @@ How to install and run Atlas is in the root [README](../README.md).
 | [development/](development/) | Setup, workflow, parallel branches, testing, the docs gate | [workflow](development/workflow.md) |
 | [decisions/](decisions/) | Short records of choices that should not be re-argued | [0001](decisions/0001-local-first-single-user.md) |
 | [changelog/](changelog/) | What landed, per cycle | [how fragments work](changelog/README.md) |
-| [plans/](plans/) | Active plans and discussion briefs | — |
+| [plans/](plans/) | Active plans and discussion briefs | [redesign brief](plans/redesign-brief.md), [open points](plans/open-points.md) |
 
 Every `domain/*.md` file uses the same headings: **Purpose · Concepts · Data model · Rules and
 calculations · API · Screens · Tests · Status**. For any feature you know where to look, and a
@@ -39,24 +39,25 @@ blocked commit should review, so keep it a plain two-column table.
 | `src/atlas/domain/quests.py` | `docs/domain/quests.md`, `docs/domain/time-blocks.md` |
 | `src/atlas/domain/screen.py` | `docs/domain/screen-time.md` |
 | `src/atlas/domain/sleep.py` | `docs/domain/sleep.md` |
-| `src/atlas/domain/entertainment*.py` | `docs/domain/entertainment.md` |
+| `src/atlas/domain/library*.py` | `docs/domain/library.md` |
 | `src/atlas/domain/*` | `docs/architecture/overview.md` |
 | `src/atlas/db/models.py` | `docs/architecture/data-model.md`, the feature's `docs/domain/*.md` (Data model) |
 | `src/atlas/db/engine.py` | `docs/architecture/migrations.md` |
 | `src/atlas/db/*` | `docs/architecture/overview.md` |
-| `src/atlas/services/areas.py` | `docs/domain/life-areas.md` |
 | `src/atlas/services/metrics.py` | `docs/domain/trackers-and-entries.md` |
 | `src/atlas/services/entries.py` | `docs/domain/trackers-and-entries.md`, `docs/domain/history.md` |
 | `src/atlas/services/habits.py` | `docs/domain/habits.md` |
+| `src/atlas/services/habit_supports.py` | `docs/domain/habits.md`, `docs/domain/quests.md` |
 | `src/atlas/services/quests.py` | `docs/domain/quests.md` |
 | `src/atlas/services/time_blocks.py` | `docs/domain/time-blocks.md` |
+| `src/atlas/services/week.py` | `docs/domain/this-week.md`, `docs/domain/home.md` |
 | `src/atlas/services/quest_views.py` | `docs/domain/quests.md`, `docs/domain/time-blocks.md` |
 | `src/atlas/services/journal.py` | `docs/domain/journal.md` |
 | `src/atlas/services/life.py` | `docs/domain/journal.md` |
 | `src/atlas/services/screen.py` | `docs/domain/screen-time.md`, `docs/data-sources/screen-time.md` |
 | `src/atlas/services/sleep.py` | `docs/domain/sleep.md`, `docs/data-sources/sleep.md` |
-| `src/atlas/services/entertainment*.py` | `docs/domain/entertainment.md` |
-| `src/atlas/services/views.py` | `docs/domain/habits.md`, `docs/domain/life-areas.md` |
+| `src/atlas/services/library*.py` | `docs/domain/library.md` |
+| `src/atlas/services/views.py` | `docs/domain/habits.md` |
 | `src/atlas/services/port.py` | `docs/architecture/migrations.md` |
 | `src/atlas/services/quest_port.py` | `docs/architecture/migrations.md` |
 | `src/atlas/services/seed.py` | `docs/architecture/cli.md` |
@@ -64,16 +65,15 @@ blocked commit should review, so keep it a plain two-column table.
 | `src/atlas/services/*` | `docs/architecture/overview.md` |
 | `src/atlas/api/routers/entries.py` | `docs/domain/trackers-and-entries.md` |
 | `src/atlas/api/routers/metrics.py` | `docs/domain/trackers-and-entries.md` |
-| `src/atlas/api/routers/areas.py` | `docs/domain/life-areas.md` |
 | `src/atlas/api/routers/habits.py` | `docs/domain/habits.md` |
 | `src/atlas/api/routers/quests.py` | `docs/domain/quests.md` |
 | `src/atlas/api/routers/time_blocks.py` | `docs/domain/time-blocks.md` |
 | `src/atlas/api/routers/quest_views.py` | `docs/domain/quests.md`, `docs/domain/time-blocks.md` |
-| `src/atlas/api/routers/views.py` | `docs/domain/habits.md`, `docs/domain/life-areas.md` |
+| `src/atlas/api/routers/views.py` | `docs/domain/habits.md`, `docs/domain/home.md`, `docs/domain/this-week.md` |
 | `src/atlas/api/routers/screen.py` | `docs/domain/screen-time.md`, `docs/data-sources/screen-time.md` |
 | `src/atlas/api/routers/sleep.py` | `docs/domain/sleep.md`, `docs/data-sources/sleep.md` |
 | `src/atlas/api/routers/journal.py` | `docs/domain/journal.md` |
-| `src/atlas/api/routers/entertainment.py` | `docs/domain/entertainment.md` |
+| `src/atlas/api/routers/library.py` | `docs/domain/library.md` |
 | `src/atlas/api/routers/port.py` | `docs/architecture/cli.md`, `docs/architecture/migrations.md` |
 | `src/atlas/api/spa.py` | `docs/architecture/frontend.md` |
 | `src/atlas/api/*` | `docs/architecture/api-conventions.md` |
@@ -81,13 +81,13 @@ blocked commit should review, so keep it a plain two-column table.
 | `src/atlas/settings.py` | `docs/architecture/configuration.md` |
 | `web/src/App.tsx` | `docs/product/navigation.md` |
 | `web/src/components/Layout.tsx` | `docs/product/navigation.md` |
-| `web/src/lib/sections.ts` | `docs/product/navigation.md` |
+| `web/src/lib/nav.ts` | `docs/product/navigation.md` |
+| `web/src/components/shell/*` | `docs/product/navigation.md`, `docs/product/design-system.md` |
 | `web/src/pages/HomePage.tsx` | `docs/domain/home.md` |
 | `web/src/components/home/*` | `docs/domain/home.md` |
 | `web/src/pages/Habit*.tsx` | `docs/domain/habits.md` |
 | `web/src/components/habits/*` | `docs/domain/habits.md` |
-| `web/src/pages/quests/TodayPage.tsx` | `docs/domain/time-blocks.md`, `docs/product/navigation.md` |
-| `web/src/pages/quests/CalendarPage.tsx` | `docs/domain/time-blocks.md`, `docs/product/navigation.md` |
+| `web/src/pages/quests/PlanPage.tsx` | `docs/domain/time-blocks.md`, `docs/product/navigation.md` |
 | `web/src/pages/quests/*` | `docs/domain/quests.md`, `docs/product/navigation.md` |
 | `web/src/components/quests/time/*` | `docs/domain/time-blocks.md` |
 | `web/src/components/quests/*` | `docs/domain/quests.md` |
@@ -96,24 +96,31 @@ blocked commit should review, so keep it a plain two-column table.
 | `web/src/pages/SleepPage.tsx` | `docs/domain/sleep.md` |
 | `web/src/pages/ScreenPage.tsx` | `docs/domain/screen-time.md` |
 | `web/src/components/screen/*` | `docs/domain/screen-time.md` |
-| `web/src/pages/Entertainment*.tsx` | `docs/domain/entertainment.md` |
-| `web/src/components/entertainment/*` | `docs/domain/entertainment.md` |
+| `web/src/pages/Library*.tsx` | `docs/domain/library.md` |
+| `web/src/components/library/*` | `docs/domain/library.md` |
 | `web/src/pages/EntriesPage.tsx` | `docs/domain/history.md` |
-| `web/src/pages/AreaPage.tsx` | `docs/domain/life-areas.md` |
-| `web/src/pages/CatalogPage.tsx` | `docs/product/navigation.md` |
 | `web/src/components/sleep/*` | `docs/domain/sleep.md` |
 | `web/src/lib/sleep.ts` | `docs/domain/sleep.md` |
 | `web/src/components/settings/*` | `docs/domain/screen-time.md`, `docs/data-sources/overview.md` |
 | `web/src/lib/freshness.ts` | `docs/domain/sleep.md`, `docs/domain/screen-time.md` |
 | `web/src/lib/habits.ts` | `docs/domain/habits.md` |
 | `web/src/components/WeekGrid.tsx` | `docs/domain/habits.md` |
-| `web/src/pages/SectionPage.tsx` | `docs/product/navigation.md` |
+| `web/src/pages/HealthPage.tsx` | `docs/product/navigation.md` |
+| `web/src/pages/ThisWeekPage.tsx` | `docs/domain/this-week.md` |
+| `web/src/lib/thisWeek.ts` | `docs/domain/this-week.md` |
+| `web/src/pages/settings/MetricsPage.tsx` | `docs/domain/trackers-and-entries.md` |
+| `web/src/pages/settings/ScreenTimeSetupPage.tsx` | `docs/domain/screen-time.md` |
+| `web/src/pages/settings/DevicesPage.tsx` | `docs/domain/screen-time.md`, `docs/data-sources/overview.md` |
+| `web/src/pages/settings/*` | `docs/product/navigation.md` |
+| `web/src/lib/labels.ts` | `docs/product/ux-writing.md`, `docs/domain/trackers-and-entries.md` |
 | `web/src/components/LogDialog.tsx` | `docs/domain/trackers-and-entries.md` |
 | `web/src/components/LogForm.tsx` | `docs/domain/trackers-and-entries.md` |
 | `web/src/components/ui/*` | `docs/product/design-system.md` |
 | `web/src/index.css` | `docs/product/design-system.md` |
+| `web/src/lib/chartColors.ts` | `docs/product/design-system.md` |
 | `web/src/lib/theme.ts` | `docs/product/design-system.md` |
 | `web/src/lib/timeBlocks.ts` | `docs/domain/time-blocks.md` |
+| `web/src/lib/library.ts` | `docs/domain/library.md` |
 | `web/src/lib/api.ts` | `docs/architecture/frontend.md` |
 | `web/src/*` | `docs/architecture/frontend.md`, `docs/product/ux-writing.md` (any user-facing text) |
 | `src/*` | `docs/architecture/overview.md` |

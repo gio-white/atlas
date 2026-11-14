@@ -2,37 +2,20 @@ from datetime import date
 
 from atlas.domain import Comparator, Direction, Period
 from atlas.services import (
-    archive_area,
     archive_metric,
-    create_area,
     create_habit,
     create_metric,
-    get_area,
     get_habit,
     get_metric,
-    list_areas,
-    update_area,
     update_habit,
     update_metric,
 )
 
 
-def test_update_and_archive_area(session):
-    create_area(session, "health", name="Health")
-    updated = update_area(session, "health", name="Wellness", description="body")
-    assert updated.name == "Wellness"
-    assert updated.description == "body"
-    archived = archive_area(session, "health")
-    assert archived.archived_at is not None
-    assert list_areas(session) == []
-
-
 def test_update_metric_display_fields(session):
-    create_area(session, "health")
     create_metric(
         session,
         "weight",
-        area_slug="health",
         value_type="quantity",
         aggregation="last",
         unit="kg",
@@ -47,8 +30,7 @@ def test_update_metric_display_fields(session):
 
 
 def test_update_habit_target_and_end_date(session):
-    create_area(session, "health")
-    create_metric(session, "pushups", area_slug="health", value_type="count", aggregation="sum")
+    create_metric(session, "pushups", value_type="count", aggregation="sum")
     create_habit(
         session,
         "pushups-daily",
@@ -71,9 +53,7 @@ def test_update_habit_target_and_end_date(session):
     assert get_habit(session, "pushups-daily").name == "Pushups Daily"
 
 
-def test_get_area_and_archive_metric(session):
-    create_area(session, "health")
-    create_metric(session, "pushups", area_slug="health", value_type="count", aggregation="sum")
-    assert get_area(session, "health").slug == "health"
+def test_archive_metric(session):
+    create_metric(session, "pushups", value_type="count", aggregation="sum")
     archived = archive_metric(session, "pushups")
     assert archived.archived_at is not None

@@ -9,6 +9,7 @@ from atlas.services import (
     export_all,
     habit_statuses,
     list_entries,
+    list_habit_supports,
     screen_dashboard,
     seed_demo,
     sleep_view,
@@ -27,7 +28,6 @@ def test_seed_demo_loads_the_demo_dataset(session):
     summary = seed_demo(session, as_of=as_of)
 
     assert summary.as_of == as_of
-    assert summary.areas == 6
     assert summary.metrics == 18
     assert summary.habits == 7
     assert summary.entries > 0
@@ -35,19 +35,17 @@ def test_seed_demo_loads_the_demo_dataset(session):
     assert summary.screen_apps == 6
     assert summary.screen_devices == 2
     assert summary.screen_sessions >= 28
-    assert summary.entertainment_topics == 4
-    assert summary.entertainment_titles == 9
+    assert summary.library_topics == 4
+    assert summary.library_titles == 9
 
     payload = export_all(session)
     assert payload["schema_version"] == CURRENT_SCHEMA_VERSION
-    assert {area["slug"] for area in payload["areas"]} == {
-        "career",
-        "finance",
-        "health",
-        "relationships",
-        "screen",
-        "habits",
-    }
+    assert "areas" not in payload
+    origins = {metric["slug"]: metric["origin"] for metric in payload["metrics"]}
+    assert origins["pushups"] == "manual"
+    assert origins["no-doomscrolling"] == "habit"
+    assert origins["journal"] == "journal"
+    assert sorted(origins.values()).count("screen") == summary.screen_apps
     assert {habit["slug"] for habit in payload["habits"]} == {
         "coffee-daily",
         "deep-work-weekdays",
@@ -84,14 +82,14 @@ def test_seed_demo_loads_the_demo_dataset(session):
     assert {row["slug"] for row in payload["screen_devices"]} == {"iphone", "macbook"}
     assert payload["screen_budgets"][0]["target_slug"] == "waste"
     assert len(payload["screen_sessions"]) >= 28
-    assert {row["slug"] for row in payload["entertainment_topics"]} == {
+    assert {row["slug"] for row in payload["library_topics"]} == {
         "finance",
         "math",
         "physics",
         "programming",
     }
-    assert len(payload["entertainment_titles"]) == 9
-    assert {row["kind"] for row in payload["entertainment_titles"]} >= {
+    assert len(payload["library_titles"]) == 9
+    assert {row["kind"] for row in payload["library_titles"]} >= {
         "book",
         "film",
         "series",
@@ -213,3 +211,17 @@ def test_seed_demo_covers_every_quest_structure(session, monkeypatch):
     ]
     assert [task.title for task in today.due_today] == ["Renew passport"]
     assert today.up_next
+
+
+def test_demo_habits_support_quest_items_at_several_levels(session):
+    seed_demo(session, as_of=date(2026, 11, 14))
+
+    assert [
+        (item.kind.value, item.title) for item in list_habit_supports(session, "runs-weekly")
+    ] == [
+        ("goal", "Run a half marathon"),
+        ("milestone", "Run 10 km without stopping"),
+    ]
+    kinds = {item.kind.value for item in list_habit_supports(session, "deep-work-weekdays")}
+    assert kinds == {"chapter", "task"}
+    assert list_habit_supports(session, "meditated-daily")[0].title == "Live a calmer life"

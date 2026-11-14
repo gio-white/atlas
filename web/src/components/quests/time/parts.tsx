@@ -1,6 +1,5 @@
-// Small shared pieces for the execution screens (Today, Calendar, Home, the task's sessions).
-// The quest accent is the theme's `iris` (shared with the quest screens), kept to borders,
-// icons, and the now line so the screens stay mostly neutral.
+// Small shared pieces for the execution screens (Home, Plan, the task's sessions).
+// The app accent is kept to borders, icons, and the now line so the screens stay mostly neutral.
 
 import { Circle, CircleCheckBig, CircleDashed, Compass, Flag, Scroll } from 'lucide-react'
 
@@ -19,7 +18,7 @@ export function TaskMark({ status, className }: { status: TaskStatus; className?
         status === 'completed'
           ? 'text-good'
           : status === 'in_progress'
-            ? 'text-iris'
+            ? 'text-accent'
             : 'text-muted',
         className,
       )}

@@ -7,13 +7,13 @@ from sqlmodel import Session, select
 
 from atlas.db import CURRENT_SCHEMA_VERSION
 from atlas.db.models import (
-    Area,
-    EntertainmentTitle,
-    EntertainmentTitleTopic,
-    EntertainmentTopic,
     Entry,
     Habit,
     HabitBreak,
+    HabitSupport,
+    LibraryTitle,
+    LibraryTitleTopic,
+    LibraryTopic,
     Metric,
     ScreenApp,
     ScreenBudget,
@@ -27,9 +27,10 @@ from atlas.domain import (
     Aggregation,
     Comparator,
     Direction,
-    EntertainmentKind,
-    EntertainmentStatus,
     HabitKind,
+    LibraryKind,
+    LibraryStatus,
+    MetricOrigin,
     Period,
     ScreenBudgetTargetKind,
     ScreenJudgment,
@@ -38,10 +39,11 @@ from atlas.domain import (
     TimeOfDay,
     ValueType,
 )
+from atlas.domain.quests import QuestKind
 from atlas.services.errors import ValidationError
 from atlas.services.lookups import (
-    require_area,
-    require_entertainment_topic,
+    require_habit,
+    require_library_topic,
     require_metric,
     require_screen_app,
     require_screen_category,
@@ -54,9 +56,18 @@ from atlas.services.quest_port import (
     export_quests,
     import_quests,
 )
+from atlas.services.quests import SUPPORT_COLUMNS
 from atlas.services.slugs import normalize_slug
 
 QUESTS_SCHEMA_VERSION = 11
+ORIGIN_SCHEMA_VERSION = 12
+LIBRARY_SCHEMA_VERSION = 13
+SUPPORTS_SCHEMA_VERSION = 14
+AREAS_SECTION = "areas"
+
+# What an export older than schema 12 says about a metric through its area.
+_ORIGIN_BY_LEGACY_AREA = {"habits": MetricOrigin.HABIT, "screen": MetricOrigin.SCREEN}
+_JOURNAL_METRIC_SLUG = "journal"
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,17 +77,22 @@ class ImportSummary:
 
     @property
     def notes(self) -> list[str]:
-        if not self.ignored_sections:
-            return []
-        names = ", ".join(self.ignored_sections)
-        return [
-            f"Skipped {names} from this version {self.schema_version} export: "
-            "quests replaced the old goals and tasks."
-        ]
+        notes: list[str] = []
+        legacy = [name for name in self.ignored_sections if name != AREAS_SECTION]
+        if legacy:
+            notes.append(
+                f"Skipped {', '.join(legacy)} from this version {self.schema_version} export: "
+                "quests replaced the old goals and tasks."
+            )
+        if AREAS_SECTION in self.ignored_sections:
+            notes.append(
+                f"Skipped areas from this version {self.schema_version} export: Atlas no longer "
+                "groups metrics into areas. Every metric and habit was kept."
+            )
+        return notes
 
 
 def export_all(session: Session) -> dict[str, Any]:
-    areas = list(session.exec(select(Area).order_by(Area.slug)).all())
     metrics = list(session.exec(select(Metric).order_by(Metric.slug)).all())
     habits = list(session.exec(select(Habit).order_by(Habit.slug)).all())
     breaks_by_habit: dict[int | None, list[HabitBreak]] = {}
@@ -89,27 +105,22 @@ def export_all(session: Session) -> dict[str, Any]:
     screen_budgets = list(session.exec(select(ScreenBudget).order_by(ScreenBudget.slug)).all())
     screen_devices = list(session.exec(select(ScreenDevice).order_by(ScreenDevice.slug)).all())
     screen_sessions = list(session.exec(select(ScreenSession).order_by(ScreenSession.id)).all())
-    entertainment_topics = list(
-        session.exec(select(EntertainmentTopic).order_by(EntertainmentTopic.slug)).all()
-    )
-    entertainment_titles = list(
-        session.exec(select(EntertainmentTitle).order_by(EntertainmentTitle.slug)).all()
-    )
-    entertainment_links = list(session.exec(select(EntertainmentTitleTopic)).all())
+    library_topics = list(session.exec(select(LibraryTopic).order_by(LibraryTopic.slug)).all())
+    library_titles = list(session.exec(select(LibraryTitle).order_by(LibraryTitle.slug)).all())
+    library_links = list(session.exec(select(LibraryTitleTopic)).all())
     sleep_sessions = list(session.exec(select(SleepSession).order_by(SleepSession.id)).all())
     sleep_stage_rows = list(
         session.exec(select(SleepSessionStage).order_by(SleepSessionStage.started_at)).all()
     )
     entries = list(session.exec(select(Entry).order_by(Entry.occurred_on, Entry.id)).all())
 
-    area_by_id = {area.id: area.slug for area in areas}
     metric_by_id = {metric.id: metric.slug for metric in metrics}
     category_by_id = {category.id: category.slug for category in screen_categories}
     device_by_id = {device.id: device.slug for device in screen_devices}
     app_by_id = {app.id: app.slug for app in screen_apps}
-    topic_by_id = {topic.id: topic.slug for topic in entertainment_topics}
+    topic_by_id = {topic.id: topic.slug for topic in library_topics}
     topics_by_title: dict[int | None, list[str]] = {}
-    for link in entertainment_links:
+    for link in library_links:
         slug = topic_by_id.get(link.topic_id)
         if slug is None:
             continue
@@ -122,8 +133,7 @@ def export_all(session: Session) -> dict[str, Any]:
 
     return {
         "schema_version": CURRENT_SCHEMA_VERSION,
-        "areas": [_export_area(area) for area in areas],
-        "metrics": [_export_metric(metric, area_by_id) for metric in metrics],
+        "metrics": [_export_metric(metric) for metric in metrics],
         "habits": [
             _export_habit(habit, metric_by_id, breaks_by_habit.get(habit.id, []))
             for habit in habits
@@ -137,15 +147,15 @@ def export_all(session: Session) -> dict[str, Any]:
         "screen_sessions": [
             _export_screen_session(row, app_by_id, device_by_id) for row in screen_sessions
         ],
-        "entertainment_topics": [_export_entertainment_topic(row) for row in entertainment_topics],
-        "entertainment_titles": [
-            _export_entertainment_title(row, topics_by_title.get(row.id, []))
-            for row in entertainment_titles
+        "library_topics": [_export_library_topic(row) for row in library_topics],
+        "library_titles": [
+            _export_library_title(row, topics_by_title.get(row.id, [])) for row in library_titles
         ],
         "sleep_sessions": [
             _export_sleep_session(row, stages_by_sleep.get(row.id, [])) for row in sleep_sessions
         ],
         **export_quests(session),
+        "habit_supports": _export_habit_supports(session),
         "entries": [_export_entry(entry, metric_by_id) for entry in entries],
     }
 
@@ -161,14 +171,19 @@ def import_all(
         )
     has_quests = version >= QUESTS_SCHEMA_VERSION
     ignored = () if has_quests else tuple(key for key in LEGACY_SECTIONS if payload.get(key))
+    legacy_areas = payload.get(AREAS_SECTION, []) if version < ORIGIN_SCHEMA_VERSION else []
+    if legacy_areas:
+        ignored = (*ignored, AREAS_SECTION)
+    archived_areas = {
+        normalize_slug(_require(raw, "slug")): _parse_datetime(raw.get("archived_at"))
+        for raw in legacy_areas
+        if raw.get("archived_at")
+    }
     try:
         if replace:
             _clear_user_data(session)
-        for raw in payload.get("areas", []):
-            _import_area(session, raw)
-        session.flush()
         for raw in payload.get("metrics", []):
-            _import_metric(session, raw)
+            _import_metric(session, raw, archived_areas)
         session.flush()
         for raw in payload.get("habits", []):
             _import_habit(session, raw)
@@ -198,15 +213,22 @@ def import_all(
                 _import_screen_session(session, raw)
         else:
             _backfill_imported_sessions(session)
-        for raw in payload.get("entertainment_topics", []):
-            _import_entertainment_topic(session, raw)
+        # Exports before schema 13 name the Library sections after Entertainment.
+        prefix = "library" if version >= LIBRARY_SCHEMA_VERSION else "entertainment"
+        for raw in payload.get(f"{prefix}_topics", []):
+            _import_library_topic(session, raw)
         session.flush()
-        for raw in payload.get("entertainment_titles", []):
-            _import_entertainment_title(session, raw)
+        for raw in payload.get(f"{prefix}_titles", []):
+            _import_library_title(session, raw)
         for raw in payload.get("sleep_sessions", []):
             _import_sleep_session(session, raw)
         if has_quests:
-            import_quests(session, {key: payload.get(key, []) for key in QUEST_SECTIONS})
+            quest_ids = import_quests(
+                session, {key: payload.get(key, []) for key in QUEST_SECTIONS}
+            )
+            if version >= SUPPORTS_SCHEMA_VERSION:
+                for raw in payload.get("habit_supports", []):
+                    _import_habit_support(session, raw, quest_ids)
         session.commit()
     except Exception:
         session.rollback()
@@ -215,14 +237,17 @@ def import_all(
 
 
 def _clear_user_data(session: Session) -> None:
+    for link in session.exec(select(HabitSupport)).all():
+        session.delete(link)
+    session.flush()
     clear_quests(session)
     for model in (
         HabitBreak,
         SleepSessionStage,
         SleepSession,
-        EntertainmentTitleTopic,
-        EntertainmentTitle,
-        EntertainmentTopic,
+        LibraryTitleTopic,
+        LibraryTitle,
+        LibraryTopic,
         ScreenSession,
         Entry,
         Habit,
@@ -231,26 +256,73 @@ def _clear_user_data(session: Session) -> None:
         ScreenDevice,
         ScreenCategory,
         Metric,
-        Area,
     ):
         for row in session.exec(select(model)).all():
             session.delete(row)
     session.flush()
 
 
-def _export_area(area: Area) -> dict[str, Any]:
-    return {
-        "slug": area.slug,
-        "name": area.name,
-        "description": area.description,
-        "archived_at": _iso_dt(area.archived_at),
-    }
+# The quest section whose file ids a habit link's `id` refers to, per kind.
+_SUPPORT_SECTIONS = {
+    "ambition": "ambitions",
+    "goal": "goals",
+    "milestone": "milestones",
+    "side_quest": "side_quests",
+    "chapter": "chapters",
+    "task": "tasks",
+}
 
 
-def _export_metric(metric: Metric, area_by_id: dict[int | None, str]) -> dict[str, Any]:
+def _export_habit_supports(session: Session) -> list[dict[str, Any]]:
+    habit_slugs = {habit.id: habit.slug for habit in session.exec(select(Habit)).all()}
+    rows: list[dict[str, Any]] = []
+    for link in session.exec(select(HabitSupport).order_by(HabitSupport.id)).all():
+        kind, item_id = next(
+            (kind, getattr(link, column))
+            for kind, column in SUPPORT_COLUMNS.items()
+            if getattr(link, column) is not None
+        )
+        rows.append(
+            {
+                "habit": habit_slugs[link.habit_id],
+                "kind": kind.value,
+                "id": item_id,
+                "created_at": _iso_dt(link.created_at),
+            }
+        )
+    return rows
+
+
+def _import_habit_support(
+    session: Session, raw: dict[str, Any], quest_ids: dict[str, dict[int, int]]
+) -> None:
+    habit = require_habit(session, normalize_slug(_require(raw, "habit")))
+    kind = str(_require(raw, "kind"))
+    section = _SUPPORT_SECTIONS.get(kind)
+    if section is None:
+        raise ValidationError(f"import habit link kind {kind!r} is not a quest item")
+    file_id = int(_require(raw, "id"))
+    item_id = quest_ids[section].get(file_id)
+    if item_id is None:
+        raise ValidationError(f"import habit link id {file_id!r} is not in {section}")
+    column = getattr(HabitSupport, SUPPORT_COLUMNS[QuestKind(kind)])
+    exists = session.exec(
+        select(HabitSupport).where(HabitSupport.habit_id == habit.id, column == item_id)
+    ).first()
+    if exists is None:
+        session.add(
+            HabitSupport(
+                habit_id=habit.id,
+                created_at=_parse_datetime(raw.get("created_at")) or datetime.now(UTC),
+                **{SUPPORT_COLUMNS[QuestKind(kind)]: item_id},
+            )
+        )
+
+
+def _export_metric(metric: Metric) -> dict[str, Any]:
     return {
         "slug": metric.slug,
-        "area": area_by_id[metric.area_id],
+        "origin": str(metric.origin),
         "name": metric.name,
         "value_type": str(metric.value_type),
         "unit": metric.unit,
@@ -407,7 +479,7 @@ def _import_sleep_session(session: Session, raw: dict[str, Any]) -> None:
         )
 
 
-def _export_entertainment_topic(topic: EntertainmentTopic) -> dict[str, Any]:
+def _export_library_topic(topic: LibraryTopic) -> dict[str, Any]:
     return {
         "slug": topic.slug,
         "name": topic.name,
@@ -415,7 +487,7 @@ def _export_entertainment_topic(topic: EntertainmentTopic) -> dict[str, Any]:
     }
 
 
-def _export_entertainment_title(title: EntertainmentTitle, topics: list[str]) -> dict[str, Any]:
+def _export_library_title(title: LibraryTitle, topics: list[str]) -> dict[str, Any]:
     return {
         "slug": title.slug,
         "name": title.name,
@@ -440,36 +512,32 @@ def _export_entertainment_title(title: EntertainmentTitle, topics: list[str]) ->
     }
 
 
-def _import_entertainment_topic(session: Session, raw: dict[str, Any]) -> None:
+def _import_library_topic(session: Session, raw: dict[str, Any]) -> None:
     slug = normalize_slug(_require(raw, "slug"))
-    existing = session.exec(
-        select(EntertainmentTopic).where(EntertainmentTopic.slug == slug)
-    ).first()
+    existing = session.exec(select(LibraryTopic).where(LibraryTopic.slug == slug)).first()
     if existing is None:
-        existing = EntertainmentTopic(slug=slug, name=_require(raw, "name"))
+        existing = LibraryTopic(slug=slug, name=_require(raw, "name"))
         session.add(existing)
     existing.name = raw.get("name", existing.name)
     existing.archived_at = _parse_datetime(raw.get("archived_at"))
 
 
-def _import_entertainment_title(session: Session, raw: dict[str, Any]) -> None:
+def _import_library_title(session: Session, raw: dict[str, Any]) -> None:
     slug = normalize_slug(_require(raw, "slug"))
-    existing = session.exec(
-        select(EntertainmentTitle).where(EntertainmentTitle.slug == slug)
-    ).first()
+    existing = session.exec(select(LibraryTitle).where(LibraryTitle.slug == slug)).first()
     if existing is None:
-        existing = EntertainmentTitle(
+        existing = LibraryTitle(
             slug=slug,
             name=_require(raw, "name"),
-            kind=EntertainmentKind(_require(raw, "kind")),
+            kind=LibraryKind(_require(raw, "kind")),
         )
         session.add(existing)
         session.flush()
     existing.name = raw.get("name", existing.name)
-    existing.kind = EntertainmentKind(raw.get("kind", existing.kind))
+    existing.kind = LibraryKind(raw.get("kind", existing.kind))
     existing.creator = raw.get("creator")
     existing.recommended_by = raw.get("recommended_by")
-    existing.status = EntertainmentStatus(raw.get("status", existing.status))
+    existing.status = LibraryStatus(raw.get("status", existing.status))
     started_on = raw.get("started_on")
     existing.started_on = _parse_date(started_on) if started_on else None
     finished_on = raw.get("finished_on")
@@ -495,11 +563,9 @@ def _import_entertainment_title(session: Session, raw: dict[str, Any]) -> None:
     _import_title_topics(session, existing, raw.get("topics") or [])
 
 
-def _import_title_topics(session: Session, title: EntertainmentTitle, slugs: list[Any]) -> None:
+def _import_title_topics(session: Session, title: LibraryTitle, slugs: list[Any]) -> None:
     existing = list(
-        session.exec(
-            select(EntertainmentTitleTopic).where(EntertainmentTitleTopic.title_id == title.id)
-        ).all()
+        session.exec(select(LibraryTitleTopic).where(LibraryTitleTopic.title_id == title.id)).all()
     )
     for link in existing:
         session.delete(link)
@@ -510,42 +576,45 @@ def _import_title_topics(session: Session, title: EntertainmentTitle, slugs: lis
         if slug in seen:
             continue
         seen.add(slug)
-        topic = require_entertainment_topic(session, slug)
-        session.add(EntertainmentTitleTopic(title_id=title.id, topic_id=topic.id))
+        topic = require_library_topic(session, slug)
+        session.add(LibraryTitleTopic(title_id=title.id, topic_id=topic.id))
 
 
-def _import_area(session: Session, raw: dict[str, Any]) -> None:
+def _metric_origin(raw: dict[str, Any], slug: str) -> MetricOrigin:
+    """The origin a metric is imported with. Exports from before schema 12 carry an `area`
+    instead: the internal habits and screen areas, and the journal metric, map onto origins."""
+    if "origin" in raw:
+        return MetricOrigin(raw["origin"])
+    if slug == _JOURNAL_METRIC_SLUG:
+        return MetricOrigin.JOURNAL
+    return _ORIGIN_BY_LEGACY_AREA.get(raw.get("area", ""), MetricOrigin.MANUAL)
+
+
+def _import_metric(
+    session: Session, raw: dict[str, Any], archived_areas: dict[str, datetime | None]
+) -> None:
     slug = normalize_slug(_require(raw, "slug"))
-    existing = session.exec(select(Area).where(Area.slug == slug)).first()
-    if existing is None:
-        existing = Area(slug=slug, name=_require(raw, "name"))
-        session.add(existing)
-    existing.name = raw.get("name", existing.name)
-    existing.description = raw.get("description")
-    existing.archived_at = _parse_datetime(raw.get("archived_at"))
-
-
-def _import_metric(session: Session, raw: dict[str, Any]) -> None:
-    slug = normalize_slug(_require(raw, "slug"))
-    area = require_area(session, normalize_slug(_require(raw, "area")))
+    origin = _metric_origin(raw, slug)
     existing = session.exec(select(Metric).where(Metric.slug == slug)).first()
     if existing is None:
         existing = Metric(
             slug=slug,
-            area_id=area.id,
             name=_require(raw, "name"),
             value_type=ValueType(_require(raw, "value_type")),
             aggregation=Aggregation(_require(raw, "aggregation")),
             direction=Direction(raw.get("direction", Direction.NEUTRAL)),
         )
         session.add(existing)
-    existing.area_id = area.id
+    existing.origin = origin
     existing.name = raw.get("name", existing.name)
     existing.value_type = ValueType(raw.get("value_type", existing.value_type))
     existing.unit = raw.get("unit")
     existing.aggregation = Aggregation(raw.get("aggregation", existing.aggregation))
     existing.direction = Direction(raw.get("direction", existing.direction))
-    existing.archived_at = _parse_datetime(raw.get("archived_at"))
+    # A metric in an archived area counted as archived, so it stays that way without the area.
+    existing.archived_at = _parse_datetime(raw.get("archived_at")) or archived_areas.get(
+        raw.get("area", "")
+    )
 
 
 def _import_habit(session: Session, raw: dict[str, Any]) -> None:
@@ -630,6 +699,8 @@ def _import_screen_app(session: Session, raw: dict[str, Any]) -> None:
     existing.name = raw.get("name", existing.name)
     existing.category_id = category.id
     existing.metric_id = metric.id
+    metric.origin = MetricOrigin.SCREEN
+    session.add(metric)
     existing.archived_at = _parse_datetime(raw.get("archived_at"))
 
 

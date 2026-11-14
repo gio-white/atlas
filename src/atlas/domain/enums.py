@@ -36,6 +36,19 @@ class Comparator(StrEnum):
     EXACTLY = "exactly"
 
 
+class MetricOrigin(StrEnum):
+    """How a metric came to exist. Only `manual` ones are set up by hand."""
+
+    MANUAL = "manual"
+    HABIT = "habit"
+    SCREEN = "screen"
+    JOURNAL = "journal"
+
+
+AUTOMATIC_METRIC_ORIGINS = frozenset({MetricOrigin.SCREEN})
+"""Origins whose entries are written by device data, never typed."""
+
+
 class Source(StrEnum):
     CLI = "cli"
     API = "api"
@@ -51,6 +64,8 @@ class ScreenJudgment(StrEnum):
 class ScreenBudgetTargetKind(StrEnum):
     JUDGMENT = "judgment"
     CATEGORY = "category"
+    TOTAL = "total"
+    """All screen time, whatever the app. Its `target_slug` is always `all`."""
 
 
 class ScreenScoreBand(StrEnum):
@@ -82,7 +97,7 @@ class TimeOfDay(StrEnum):
     ANYTIME = "anytime"
 
 
-class EntertainmentKind(StrEnum):
+class LibraryKind(StrEnum):
     FILM = "film"
     SERIES = "series"
     ANIME = "anime"
@@ -93,7 +108,7 @@ class EntertainmentKind(StrEnum):
     OTHER = "other"
 
 
-class EntertainmentStatus(StrEnum):
+class LibraryStatus(StrEnum):
     QUEUED = "queued"
     IN_PROGRESS = "in_progress"
     DONE = "done"
@@ -136,6 +151,9 @@ class TimeBlockStatus(StrEnum):
     SCHEDULED = "scheduled"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
+    MISSED = "missed"
+    """The session's time came and it did not happen (shown as "Didn't happen"). Unlike
+    `cancelled`, which is called off ahead of time, it still counts against "Sessions kept"."""
 
 
 class TimeBlockProvider(StrEnum):

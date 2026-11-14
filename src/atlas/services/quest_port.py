@@ -106,7 +106,8 @@ def export_quests(session: Session) -> dict[str, list[dict[str, Any]]]:
     }
 
 
-def import_quests(session: Session, payload: dict[str, Any]) -> None:
+def import_quests(session: Session, payload: dict[str, Any]) -> dict[str, dict[int, int]]:
+    """Insert the quest sections; returns each section's file id → new row id."""
     ids: dict[str, dict[int, int]] = {section: {} for section in QUEST_SECTIONS}
 
     def insert(section: str, raw: dict[str, Any], row: Any) -> None:
@@ -212,6 +213,7 @@ def import_quests(session: Session, payload: dict[str, Any]) -> None:
                 updated_at=_parse_datetime(raw.get("updated_at")) or datetime.now(UTC),
             ),
         )
+    return ids
 
 
 def clear_quests(session: Session) -> None:

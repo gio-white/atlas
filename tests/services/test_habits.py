@@ -93,7 +93,6 @@ def test_habits_cannot_target_text_metrics(session):
     create_metric(
         session,
         "journal",
-        area_slug="health",
         value_type=ValueType.TEXT,
         aggregation=Aggregation.LAST,
     )

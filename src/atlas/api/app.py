@@ -9,11 +9,10 @@ from sqlmodel import Session
 
 from atlas.api.errors import register_exception_handlers
 from atlas.api.routers import (
-    areas_router,
-    entertainment_router,
     entries_router,
     habits_router,
     journal_router,
+    library_router,
     metrics_router,
     port_router,
     quest_views_router,
@@ -53,8 +52,7 @@ def create_app(
         app.state.session_factory = session_factory
     register_exception_handlers(app)
     app.include_router(entries_router)
-    app.include_router(entertainment_router)
-    app.include_router(areas_router)
+    app.include_router(library_router)
     app.include_router(metrics_router)
     app.include_router(habits_router)
     app.include_router(views_router)

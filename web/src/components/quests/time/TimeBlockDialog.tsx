@@ -18,6 +18,7 @@ import {
   createTimeBlock,
   deleteTimeBlock,
   listQuestTasks,
+  missTimeBlock,
   type QuestTask,
   type TimeBlock,
   updateTimeBlock,
@@ -26,6 +27,7 @@ import {
   addMinutesToTime,
   BLOCK_STATUS_LABELS,
   formatDuration,
+  hasStarted,
   inputMinutes,
   localToUtc,
   nextHalfHour,
@@ -49,7 +51,7 @@ export type TimeBlockDialogProps = {
   block?: TimeBlock | null
   /** The task the session is for. Omit to let the person pick one. */
   task?: DialogTask | null
-  /** Where a new session starts (local date and time), e.g. the clicked calendar slot. */
+  /** Where a new session starts (local date and time), e.g. the clicked slot on Plan. */
   initial?: { date: string; start: string; end?: string } | null
   /** Called after any change is saved (create, edit, done, cancel, delete). */
   onSaved: () => void | Promise<void>
@@ -79,7 +81,7 @@ function initialWindow(
   }
 }
 
-/** Plan or edit one session. Shared by Today, Calendar, and a task's sessions list. */
+/** Plan or edit one session. Shared by Home, Plan, and a task's sessions list. */
 export function TimeBlockDialog(props: TimeBlockDialogProps) {
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
@@ -230,18 +232,31 @@ function TimeBlockForm({ onOpenChange, block, task, initial, onSaved }: TimeBloc
                   <CalendarCheck className="size-4" aria-hidden />
                   Session done
                 </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={saving}
-                  onClick={() =>
-                    run(() => cancelTimeBlock(block.id), 'Couldn’t cancel the session.')
-                  }
-                >
-                  <Ban className="size-4" aria-hidden />
-                  Cancel session
-                </Button>
+                {hasStarted(block) ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={saving}
+                    onClick={() => run(() => missTimeBlock(block.id), 'Couldn’t mark the session.')}
+                  >
+                    <Ban className="size-4" aria-hidden />
+                    Didn’t happen
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={saving}
+                    onClick={() =>
+                      run(() => cancelTimeBlock(block.id), 'Couldn’t cancel the session.')
+                    }
+                  >
+                    <Ban className="size-4" aria-hidden />
+                    Cancel session
+                  </Button>
+                )}
               </>
             )}
             {confirmDelete ? (

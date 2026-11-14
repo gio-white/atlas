@@ -64,7 +64,7 @@ def test_day_minutes_sums_one_day():
     assert day_minutes(entries, date(2026, 8, 15)) is None
 
 
-def test_instagram_and_youtube_roll_into_entertainment_waste():
+def test_instagram_and_youtube_roll_into_library_waste():
     apps = [_app("instagram", "entertainment"), _app("youtube", "entertainment")]
     categories = [
         _category("entertainment", ScreenJudgment.WASTE),
@@ -84,7 +84,7 @@ def test_instagram_and_youtube_roll_into_entertainment_waste():
     assert by_judgment[ScreenJudgment.USEFUL] is None
 
 
-def test_reclassifying_entertainment_moves_minutes_out_of_waste():
+def test_reclassifying_library_moves_minutes_out_of_waste():
     apps = [_app("instagram", "entertainment")]
     waste = [_category("entertainment", ScreenJudgment.WASTE)]
     useful = [_category("entertainment", ScreenJudgment.USEFUL)]

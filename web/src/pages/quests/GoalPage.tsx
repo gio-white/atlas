@@ -88,7 +88,7 @@ export function GoalPage() {
         <header className="flex flex-wrap items-start gap-4">
           <QuestRing value={goal.progress} completed={goal.status === 'completed'} size={64} />
           <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-1.5 text-xs font-medium text-iris">
+            <p className="flex items-center gap-1.5 text-xs font-medium text-accent">
               <LevelIcon kind="goal" className="size-3.5" />
               Goal
             </p>
@@ -112,9 +112,9 @@ export function GoalPage() {
         {goal.success_description !== null && (
           <section
             aria-label="What success looks like"
-            className="rounded-2xl border border-iris/25 bg-iris/6 px-4 py-3"
+            className="rounded-2xl border border-accent/25 bg-accent/6 px-4 py-3"
           >
-            <p className="text-xs font-medium text-iris">What success looks like</p>
+            <p className="text-xs font-medium text-accent">What success looks like</p>
             <p className="mt-1 font-serif text-[15px] text-ink">{goal.success_description}</p>
           </section>
         )}
@@ -162,7 +162,7 @@ export function GoalPage() {
                 className="inline-flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm text-muted hover:bg-raised hover:text-ink"
                 onClick={() => setAddingMilestone(true)}
               >
-                <Diamond className="size-3.5 text-iris" aria-hidden />
+                <Diamond className="size-3.5 text-accent" aria-hidden />
                 {milestones.length === 0 ? 'Add the first milestone' : 'Add a milestone'}
               </button>
             </li>
@@ -241,7 +241,7 @@ function MilestoneNode({
         aria-hidden
         className={cn(
           'absolute top-2 -left-9 inline-flex size-8 sm:-left-10 items-center justify-center',
-          completed ? 'text-good' : 'text-iris',
+          completed ? 'text-good' : 'text-accent',
         )}
       >
         <Diamond
@@ -296,7 +296,7 @@ function MilestoneNode({
             )}
             {share !== null && (
               <span
-                className="rounded-full bg-iris/10 px-2 py-0.5 text-xs font-medium tabular-nums text-iris"
+                className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium tabular-nums text-accent"
                 title={`How much this milestone counts toward ${goalTitle}`}
               >
                 <span className="sr-only">Counts </span>

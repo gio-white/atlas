@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { LIFE_SECTIONS } from '@/lib/sections'
 import NAVIGATION from '../../docs/product/navigation.md?raw'
 import APP from './App.tsx?raw'
 
@@ -9,10 +8,8 @@ function appRoutes(source: string): string[] {
   for (const match of source.matchAll(/<Route[^>]*\spath="([^"]+)"/g)) {
     if (match[1] !== '*') routes.add(`/${match[1].replace(/^\//, '')}`)
   }
-  // Section pages are generated from LIFE_SECTIONS, so their paths are not literals in App.tsx.
-  if (source.includes('LIFE_SECTIONS')) {
-    for (const section of LIFE_SECTIONS) routes.add(section.path)
-  }
+  // Every route in App.tsx writes its full path as a literal, redirects from old addresses
+  // included, so nothing is generated and nothing escapes this scan.
   return [...routes].sort()
 }
 
@@ -31,9 +28,10 @@ describe('docs drift: SPA routes', () => {
 
   it('catches a route added without docs', () => {
     const withProbe = APP.replace(
-      '<Route path="history"',
-      '<Route path="undocumented-probe" element={null} />\n<Route path="history"',
+      '<Route path="/journal"',
+      '<Route path="/undocumented-probe" element={null} />\n<Route path="/journal"',
     )
+    expect(withProbe, 'the probe must land in App.tsx for this test to mean anything').not.toBe(APP)
     const documented = documentedRoutes(NAVIGATION)
     expect(appRoutes(withProbe).filter((route) => !documented.has(route))).toEqual([
       '/undocumented-probe',

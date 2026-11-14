@@ -112,7 +112,7 @@ export function itemHref(item: ItemRef, path: ItemRef[] = []): string | null {
 function pageHref(ref: ItemRef): string | null {
   if (ref.kind === 'goal') return `/quests/goals/${ref.id}`
   if (ref.kind === 'ambition') return `/quests/ambitions/${ref.id}`
-  if (ref.kind === 'side_quest') return `/side-quests/${ref.id}`
+  if (ref.kind === 'side_quest') return `/quests/side-quests/${ref.id}`
   return null
 }
 

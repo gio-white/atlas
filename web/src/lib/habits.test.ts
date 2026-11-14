@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Area, HabitStatus } from './api'
+import type { HabitStatus } from './api'
 import {
   formatAmount,
   frequencyLabel,
   goalLabel,
-  habitAreaOptions,
   isOverLimit,
   periodHabits,
   progressOf,
@@ -137,27 +136,5 @@ describe('progress and labels', () => {
     expect(streakLabel(status({ slug: 'r', period: 'week', current_streak: 4 }))).toBe(
       '4-week streak',
     )
-  })
-})
-
-describe('habitAreaOptions', () => {
-  const area = (slug: string, name: string, archived = false): Area => ({
-    id: slug.length,
-    slug,
-    name,
-    description: null,
-    archived_at: archived ? '2026-11-01T00:00:00Z' : null,
-  })
-
-  it('offers active user areas by name, never the internal ones', () => {
-    const options = habitAreaOptions([
-      area('health', 'Health'),
-      area('habits', 'Habits'),
-      area('screen', 'Screen time'),
-      area('life', 'Life'),
-      area('career', 'Career'),
-      area('old', 'Old', true),
-    ])
-    expect(options.map((item) => item.slug)).toEqual(['career', 'health'])
   })
 })

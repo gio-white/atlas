@@ -6,9 +6,10 @@ from atlas.domain import (
     Aggregation,
     Comparator,
     Direction,
-    EntertainmentKind,
-    EntertainmentStatus,
     HabitKind,
+    LibraryKind,
+    LibraryStatus,
+    MetricOrigin,
     Period,
     ScreenBudgetTargetKind,
     ScreenInsightKind,
@@ -21,36 +22,10 @@ from atlas.domain import (
 )
 
 
-class AreaCreate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    slug: str
-    name: str | None = None
-    description: str | None = None
-
-
-class AreaUpdate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    name: str | None = None
-    description: str | None = None
-
-
-class AreaOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    slug: str
-    name: str
-    description: str | None
-    archived_at: datetime | None
-
-
 class MetricCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    slug: str
-    area: str
+    slug: str | None = None
     value_type: ValueType
     aggregation: Aggregation
     name: str | None = None
@@ -69,7 +44,7 @@ class MetricUpdate(BaseModel):
 class MetricOut(BaseModel):
     id: int
     slug: str
-    area: str
+    origin: MetricOrigin
     name: str
     value_type: ValueType
     unit: str | None
@@ -125,7 +100,6 @@ class HabitCreate(BaseModel):
     time_of_day: TimeOfDay = TimeOfDay.ANYTIME
     active_from: date | None = None
     active_to: date | None = None
-    area: str | None = None
 
 
 class HabitUpdate(BaseModel):
@@ -263,7 +237,7 @@ class WeekHabitOut(BaseModel):
     weekdays: list[int] | None
 
 
-class HabitsCalendarOut(BaseModel):
+class HabitsGridOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     as_of: date
@@ -271,6 +245,75 @@ class HabitsCalendarOut(BaseModel):
     range_start: date
     range_end: date
     habits: list[WeekHabitOut]
+
+
+class WeekSoFarOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    as_of: date
+    week_start: date
+    sessions_kept: int
+    sessions_total: int
+    habits_kept: int
+    habits_judged: int
+    habits_kept_share: float | None
+    sleep_average_minutes: float | None
+    sleep_nights: int
+    screen_score: int | None
+
+
+class WeekNumbersOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    as_of: date
+    week_start: date
+    sessions_kept: int
+    sessions_total: int
+    tasks_completed: int
+    milestones_completed: int
+    habits_kept: int
+    habits_judged: int
+    habits_kept_share: float | None
+    sleep_average_minutes: float | None
+    sleep_average_bedtime: float | None
+    sleep_average_wake: float | None
+    sleep_nights: int
+    sleep_missing_nights: int
+    screen_total: float | None
+    screen_daily_average: float | None
+    screen_score: int | None
+    screen_good: float | None
+    screen_neutral: float | None
+    screen_bad: float | None
+    titles_finished: int
+
+
+class HabitWeekProgressOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    slug: str
+    name: str
+    kind: HabitKind
+    period: Period
+    comparator: Comparator
+    unit: str | None
+    kept: int
+    judged: int
+    value: float | None
+    target: float | None
+    satisfied: bool
+
+
+class ThisWeekOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    as_of: date
+    week_start: date
+    week_end: date
+    complete: bool
+    current: WeekNumbersOut
+    previous: WeekNumbersOut
+    habits: list[HabitWeekProgressOut]
 
 
 class HabitsBoardOut(BaseModel):
@@ -285,28 +328,6 @@ class HabitsBoardOut(BaseModel):
     day: list[HabitStatusOut]
     week: list[HabitStatusOut]
     month: list[HabitStatusOut]
-
-
-class MetricSnapshotOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    slug: str
-    name: str
-    unit: str | None
-    aggregation: Aggregation
-    latest_on: date | None
-    latest_value: float | None
-
-
-class AreaViewOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    slug: str
-    name: str
-    description: str | None
-    as_of: date
-    metrics: list[MetricSnapshotOut]
-    habits: list[HabitStatusOut]
 
 
 class ScreenCategoryCreate(BaseModel):
@@ -361,7 +382,7 @@ class ScreenBudgetCreate(BaseModel):
 
     slug: str
     target_kind: ScreenBudgetTargetKind
-    target_slug: str
+    target_slug: str = "all"
     period: Period
     target_value: float
     comparator: Comparator
@@ -638,20 +659,20 @@ class JournalDayOut(BaseModel):
     entry_id: int | None
 
 
-class EntertainmentTopicCreate(BaseModel):
+class LibraryTopicCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     slug: str
     name: str | None = None
 
 
-class EntertainmentTopicUpdate(BaseModel):
+class LibraryTopicUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = None
 
 
-class EntertainmentTopicOut(BaseModel):
+class LibraryTopicOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -660,22 +681,22 @@ class EntertainmentTopicOut(BaseModel):
     archived_at: datetime | None
 
 
-class EntertainmentTopicRefOut(BaseModel):
+class LibraryTopicRefOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     slug: str
     name: str
 
 
-class EntertainmentTitleCreate(BaseModel):
+class LibraryTitleCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     slug: str
-    kind: EntertainmentKind
+    kind: LibraryKind
     name: str | None = None
     creator: str | None = None
     recommended_by: str | None = None
-    status: EntertainmentStatus = EntertainmentStatus.QUEUED
+    status: LibraryStatus = LibraryStatus.QUEUED
     started_on: date | None = None
     finished_on: date | None = None
     progress: str | None = None
@@ -686,14 +707,14 @@ class EntertainmentTitleCreate(BaseModel):
     image_url: str | None = None
 
 
-class EntertainmentTitleUpdate(BaseModel):
+class LibraryTitleUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = None
-    kind: EntertainmentKind | None = None
+    kind: LibraryKind | None = None
     creator: str | None = None
     recommended_by: str | None = None
-    status: EntertainmentStatus | None = None
+    status: LibraryStatus | None = None
     started_on: date | None = None
     finished_on: date | None = None
     progress: str | None = None
@@ -704,60 +725,60 @@ class EntertainmentTitleUpdate(BaseModel):
     image_url: str | None = None
 
 
-class EntertainmentTitleOut(BaseModel):
+class LibraryTitleOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     slug: str
     name: str
-    kind: EntertainmentKind
+    kind: LibraryKind
     creator: str | None
     recommended_by: str | None
-    status: EntertainmentStatus
+    status: LibraryStatus
     started_on: date | None
     finished_on: date | None
     progress: str | None
     note: str | None
     rating: int | None
     link: str | None
-    topics: list[EntertainmentTopicRefOut]
+    topics: list[LibraryTopicRefOut]
     image: str | None
     created_at: datetime | None
 
 
-class EntertainmentLinkLookupIn(BaseModel):
+class LibraryLinkLookupIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     url: str
 
 
-class EntertainmentLinkSuggestionOut(BaseModel):
+class LibraryLinkSuggestionOut(BaseModel):
     link: str
     name: str | None
-    kind: EntertainmentKind | None
+    kind: LibraryKind | None
     creator: str | None
     image_url: str | None
     existing: str | None
 
 
-class EntertainmentTitleFromLink(BaseModel):
+class LibraryTitleFromLink(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     url: str
-    kind: EntertainmentKind | None = None
-    status: EntertainmentStatus = EntertainmentStatus.QUEUED
+    kind: LibraryKind | None = None
+    status: LibraryStatus = LibraryStatus.QUEUED
     topics: list[str] = Field(default_factory=list)
     note: str | None = None
 
 
-class EntertainmentKindCountOut(BaseModel):
+class LibraryKindCountOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    kind: EntertainmentKind
+    kind: LibraryKind
     count: int
     share: float
 
 
-class EntertainmentTopicCountOut(BaseModel):
+class LibraryTopicCountOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     slug: str
@@ -766,16 +787,16 @@ class EntertainmentTopicCountOut(BaseModel):
     share: float
 
 
-class EntertainmentLibraryOut(BaseModel):
+class LibraryShelvesOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    queued: list[EntertainmentTitleOut]
-    in_progress: list[EntertainmentTitleOut]
-    done: list[EntertainmentTitleOut]
-    dropped: list[EntertainmentTitleOut]
+    queued: list[LibraryTitleOut]
+    in_progress: list[LibraryTitleOut]
+    done: list[LibraryTitleOut]
+    dropped: list[LibraryTitleOut]
 
 
-class EntertainmentDashboardOut(BaseModel):
+class LibraryDashboardOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     period: Period
@@ -788,10 +809,10 @@ class EntertainmentDashboardOut(BaseModel):
     in_progress: int
     done: int
     dropped: int
-    by_kind: list[EntertainmentKindCountOut]
-    by_topic: list[EntertainmentTopicCountOut]
-    recently_finished: list[EntertainmentTitleOut]
-    library: EntertainmentLibraryOut
+    by_kind: list[LibraryKindCountOut]
+    by_topic: list[LibraryTopicCountOut]
+    recently_finished: list[LibraryTitleOut]
+    library: LibraryShelvesOut
 
 
 class SleepStageIn(BaseModel):

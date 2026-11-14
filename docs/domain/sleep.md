@@ -18,7 +18,7 @@ Where the data comes from: [data sources](../data-sources/sleep.md).
 
 ### SleepSession
 
-One stored night (or nap): when you went to bed and when you woke up. Sleep is a dedicated fact store like entertainment: it does not dual-write entries and has no metric or area. `occurred_on` is the **local wake date** in `ATLAS_TZ`, so last night's sleep belongs to today. Nights arrive through `POST /sleep/sessions`, the ingestion contract for a future pipeline ([data sources](../data-sources/sleep.md)); stages are optional. The web app has no form for it.
+One stored night (or nap): when you went to bed and when you woke up. Sleep is a dedicated fact store like the library: it does not dual-write entries and has no metric or area. `occurred_on` is the **local wake date** in `ATLAS_TZ`, so last night's sleep belongs to today. Nights arrive through `POST /sleep/sessions`, the ingestion contract for a future pipeline ([data sources](../data-sources/sleep.md)); stages are optional. The web app has no form for it.
 
 | Field         | Type        | Notes                                              |
 | ------------- | ----------- | -------------------------------------------------- |
@@ -77,18 +77,18 @@ Service functions (in `src/atlas/services/`, each taking an explicit `Session` f
 
 ## Screens
 
-`/sleep` is read-only and reads `GET /sleep/view?days=N` only:
+`/stats/sleep` (Stats → Sleep) is read-only and reads `GET /sleep/view?days=N` only:
 
 - **Range** — Week / Month / 90 days (7 / 30 / 90 days), kept in the URL as `?range=month` or `?range=quarter` (week is the default and has no parameter).
 - **Last updated** — from `last_recorded_at` ("Last updated today at 08:22").
 - **Stat tiles** — average asleep, average bedtime and average wake each with the consistency label and spread ("Steady · ±30m"), and missing nights.
 - **Time asleep** — one bar per day with the range average as a dashed line; a day without a night is a dashed **No data** column.
-- **Bedtime and wake** — a bed → wake bar per day with dashed average lines; the top time label is padded so it is never clipped.
+- **Bedtime and wake** — a bed → wake bar per day, coloured by stage, with dashed average lines in the muted colour; a night without stages is grey; the top time label is padded so it is never clipped.
 - **Stage split** — average minutes and share per stage over nights with stages.
 - **Nights** — read-only list, newest first; missing days appear as "No data" rows.
 - **Empty state** — with no nights at all: "No sleep data yet. It will appear here once a data source is connected."
 
-There is no capture, edit, or delete control. Charts live in `web/src/components/sleep/SleepCharts.tsx`; range and consistency helpers in `web/src/lib/sleep.ts`; the "Last updated" wording in `web/src/lib/freshness.ts`. The Home Sleep card is described in [home](home.md).
+Colours are the shared chart tokens ([design system](../product/design-system.md#colour)): Asleep is the first series colour and the stages keep their fixed slots. There is no capture, edit, or delete control. Charts live in `web/src/components/sleep/SleepCharts.tsx`; range and consistency helpers in `web/src/lib/sleep.ts`; the "Last updated" wording in `web/src/lib/freshness.ts`. The Home Sleep card is described in [home](home.md).
 
 Route inventory with status: [navigation](../product/navigation.md).
 

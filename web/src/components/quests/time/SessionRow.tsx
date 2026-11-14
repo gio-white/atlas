@@ -2,7 +2,14 @@ import { Ban, CalendarCheck, CircleCheckBig, Pencil } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import type { ScheduledBlock } from '@/lib/api'
-import { formatBlockDay, formatDuration, formatTime, formatTimeRange } from '@/lib/timeBlocks'
+import {
+  BLOCK_STATUS_LABELS,
+  formatBlockDay,
+  formatDuration,
+  formatTime,
+  formatTimeRange,
+  hasStarted,
+} from '@/lib/timeBlocks'
 import { cn } from '@/lib/utils'
 
 import { PathLine, TaskMark } from './parts'
@@ -10,6 +17,8 @@ import { PathLine, TaskMark } from './parts'
 export type SessionActions = {
   onSessionDone: (item: ScheduledBlock) => void
   onCancel: (item: ScheduledBlock) => void
+  /** Didn't happen: for a session whose start has passed. */
+  onMissed: (item: ScheduledBlock) => void
   onOutcome: (item: ScheduledBlock) => void
   onEdit: (item: ScheduledBlock) => void
   busy: boolean
@@ -33,13 +42,15 @@ export function SessionRow({
   const { block, task } = item
   const done = block.status === 'completed'
   const scheduled = block.status === 'scheduled'
+  // Once a session has started, the answer is whether it happened, not whether to call it off.
+  const started = unconfirmed || hasStarted(block)
   const taskDone = task.status === 'completed'
 
   return (
     <li
       className={cn(
         'grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-[5rem_minmax(0,1fr)]',
-        done && 'opacity-80',
+        (done || block.status === 'missed') && 'opacity-80',
       )}
       data-testid={`session-${block.id}`}
     >
@@ -56,7 +67,7 @@ export function SessionRow({
           unconfirmed
             ? 'border-warn/40'
             : scheduled
-              ? 'border-line border-l-4 border-l-iris'
+              ? 'border-line border-l-4 border-l-accent'
               : 'border-line',
         )}
       >
@@ -89,13 +100,22 @@ export function SessionRow({
                 onClick={() => actions.onSessionDone(item)}
                 aria-label={`Session done: ${task.title}`}
               >
-                <CalendarCheck className="size-4 text-iris" aria-hidden />
+                <CalendarCheck className="size-4 text-accent" aria-hidden />
                 Session done
               </Button>
             ) : (
-              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-good">
-                <CalendarCheck className="size-4" aria-hidden />
-                Session done
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1.5 text-xs font-medium',
+                  done ? 'text-good' : 'text-muted',
+                )}
+              >
+                {done ? (
+                  <CalendarCheck className="size-4" aria-hidden />
+                ) : (
+                  <Ban className="size-4" aria-hidden />
+                )}
+                {BLOCK_STATUS_LABELS[block.status]}
               </span>
             )}
             {scheduled && (
@@ -103,11 +123,11 @@ export function SessionRow({
                 size="sm"
                 variant="ghost"
                 disabled={actions.busy}
-                onClick={() => actions.onCancel(item)}
-                aria-label={`${unconfirmed ? 'Didn’t happen' : 'Cancel session'}: ${task.title}`}
+                onClick={() => (started ? actions.onMissed(item) : actions.onCancel(item))}
+                aria-label={`${started ? 'Didn’t happen' : 'Cancel session'}: ${task.title}`}
               >
                 <Ban className="size-4" aria-hidden />
-                {unconfirmed ? 'Didn’t happen' : 'Cancel'}
+                {started ? 'Didn’t happen' : 'Cancel'}
               </Button>
             )}
             <Button

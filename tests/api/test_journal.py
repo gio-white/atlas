@@ -16,12 +16,13 @@ def test_post_and_get_journal(client):
     assert payload["as_of"] == "2026-08-14"
 
 
-def test_get_journal_creates_catalog_when_empty(client):
+def test_get_journal_creates_its_metric_when_empty(client):
     day = client.get("/journal", params={"as_of": "2026-08-14"})
     assert day.status_code == 200, day.text
     assert day.json()["text"] is None
-    areas = client.get("/areas").json()
-    assert "life" in {row["slug"] for row in areas}
+    journal = client.get("/metrics/journal")
+    assert journal.status_code == 200
+    assert journal.json()["origin"] == "journal"
 
 
 def test_post_journal_rejects_blank_text(client):

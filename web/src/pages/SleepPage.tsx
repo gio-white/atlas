@@ -62,7 +62,7 @@ export function SleepPage() {
     setParams(copy, { replace: true })
   }
 
-  if (error !== null) return <PageUnavailable title="Sleep" message={error} />
+  if (error !== null) return <PageUnavailable tab title="Sleep" message={error} />
   if (view === null) return <PageLoading />
 
   const updated = lastUpdatedLabel(view.last_recorded_at)
@@ -73,9 +73,9 @@ export function SleepPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
           <PageHeader
+            tab
             title="Sleep"
             description="Rest and recovery, as recorded by your devices."
-            homeLink
           />
           {updated !== null && <p className="text-xs text-muted">{updated}</p>}
         </div>
@@ -146,7 +146,7 @@ function SleepDisplay({ view }: { view: SleepView }) {
               <AsleepTrend view={view} />
               <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted">
                 <span className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-sm bg-sleep" aria-hidden />
+                  <span className="size-2 rounded-sm bg-series-1" aria-hidden />
                   Asleep
                 </span>
                 <GapLegend />
@@ -256,7 +256,7 @@ function NightRow({ date, night }: { date: string; night: SleepNight | null }) {
 
 function StageBar({ night }: { night: SleepNight }) {
   if (night.segments.length === 0) {
-    return <span className="h-2 flex-1 rounded-full bg-sleep/60" title="No stages recorded" />
+    return <span className="h-2 flex-1 rounded-full bg-data-neutral" title="No stages recorded" />
   }
   const shares = stageShares(night.stages)
   return (

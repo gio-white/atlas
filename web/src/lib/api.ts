@@ -7,18 +7,14 @@ export type HabitKind = 'check' | 'count' | 'duration' | 'quit'
 export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'anytime'
 export type Source = 'cli' | 'api' | 'import'
 
-export type Area = {
-  id: number
-  slug: string
-  name: string
-  description: string | null
-  archived_at: string | null
-}
+/** How a metric came to exist. Only `manual` ones are set up by hand; `screen` ones are written by
+ * device data. */
+export type MetricOrigin = 'manual' | 'habit' | 'screen' | 'journal'
 
 export type Metric = {
   id: number
   slug: string
-  area: string
+  origin: MetricOrigin
   name: string
   value_type: ValueType
   unit: string | null
@@ -131,7 +127,7 @@ export type WeekHabit = {
   weekdays: number[] | null
 }
 
-export type HabitsCalendar = {
+export type HabitsGrid = {
   as_of: string
   period: Period
   range_start: string
@@ -148,7 +144,7 @@ export type ScreenInsightKind =
   | 'improving'
   | 'sequence'
   | 'budget'
-export type ScreenBudgetTargetKind = 'judgment' | 'category'
+export type ScreenBudgetTargetKind = 'judgment' | 'category' | 'total'
 
 export type ScreenJudgmentTotals = {
   useful: number | null
@@ -350,7 +346,7 @@ export type JournalDay = {
   entry_id: number | null
 }
 
-export type EntertainmentKind =
+export type LibraryKind =
   | 'film'
   | 'series'
   | 'anime'
@@ -359,68 +355,68 @@ export type EntertainmentKind =
   | 'book'
   | 'music'
   | 'other'
-export type EntertainmentStatus = 'queued' | 'in_progress' | 'done' | 'dropped'
+export type LibraryStatus = 'queued' | 'in_progress' | 'done' | 'dropped'
 
-export type EntertainmentTopic = {
+export type LibraryTopic = {
   id: number
   slug: string
   name: string
   archived_at: string | null
 }
 
-export type EntertainmentTopicRef = {
+export type LibraryTopicRef = {
   slug: string
   name: string
 }
 
-export type EntertainmentTitle = {
+export type LibraryTitle = {
   slug: string
   name: string
-  kind: EntertainmentKind
+  kind: LibraryKind
   creator: string | null
   recommended_by: string | null
-  status: EntertainmentStatus
+  status: LibraryStatus
   started_on: string | null
   finished_on: string | null
   progress: string | null
   note: string | null
   rating: number | null
   link: string | null
-  topics: EntertainmentTopicRef[]
+  topics: LibraryTopicRef[]
   image: string | null
   created_at: string | null
 }
 
-export type EntertainmentLinkSuggestion = {
+export type LibraryLinkSuggestion = {
   link: string
   name: string | null
-  kind: EntertainmentKind | null
+  kind: LibraryKind | null
   creator: string | null
   image_url: string | null
   existing: string | null
 }
 
-export type EntertainmentKindCount = {
-  kind: EntertainmentKind
+export type LibraryKindCount = {
+  kind: LibraryKind
   count: number
   share: number
 }
 
-export type EntertainmentTopicCount = {
+export type LibraryTopicCount = {
   slug: string
   name: string
   count: number
   share: number
 }
 
-export type EntertainmentLibrary = {
-  queued: EntertainmentTitle[]
-  in_progress: EntertainmentTitle[]
-  done: EntertainmentTitle[]
-  dropped: EntertainmentTitle[]
+export type LibraryShelves = {
+  queued: LibraryTitle[]
+  in_progress: LibraryTitle[]
+  done: LibraryTitle[]
+  dropped: LibraryTitle[]
 }
 
-export type EntertainmentDashboard = {
+export type LibraryDashboard = {
   period: Period
   as_of: string
   range_start: string
@@ -431,28 +427,10 @@ export type EntertainmentDashboard = {
   in_progress: number
   done: number
   dropped: number
-  by_kind: EntertainmentKindCount[]
-  by_topic: EntertainmentTopicCount[]
-  recently_finished: EntertainmentTitle[]
-  library: EntertainmentLibrary
-}
-
-export type MetricSnapshot = {
-  slug: string
-  name: string
-  unit: string | null
-  aggregation: Aggregation
-  latest_on: string | null
-  latest_value: number | null
-}
-
-export type AreaView = {
-  slug: string
-  name: string
-  description: string | null
-  as_of: string
-  metrics: MetricSnapshot[]
-  habits: HabitStatus[]
+  by_kind: LibraryKindCount[]
+  by_topic: LibraryTopicCount[]
+  recently_finished: LibraryTitle[]
+  library: LibraryShelves
 }
 
 export type EntryCreate = {
@@ -524,18 +502,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T
 }
 
-export function listAreas(includeArchived = false): Promise<Area[]> {
-  return request(`/areas${queryString({ include_archived: includeArchived || undefined })}`)
-}
-
-export function listMetrics(area?: string, includeArchived = false): Promise<Metric[]> {
-  return request(`/metrics${queryString({ area, include_archived: includeArchived || undefined })}`)
+export function listMetrics(includeArchived = false): Promise<Metric[]> {
+  return request(`/metrics${queryString({ include_archived: includeArchived || undefined })}`)
 }
 
 export function listEntries(filters?: {
   metric?: string
-  area?: string
-  exclude_area?: string
+  /** `false` leaves out entries written by device data (screen time) rather than typed. */
+  include_automatic?: boolean
   start_on?: string
   end_on?: string
   limit?: number
@@ -551,8 +525,8 @@ export function getHabitsBoard(asOf?: string): Promise<HabitsBoard> {
   return request(`/views/habits${queryString({ as_of: asOf })}`)
 }
 
-export function getHabitsCalendar(period: Period, asOf?: string): Promise<HabitsCalendar> {
-  return request(`/views/habits/calendar${queryString({ period, as_of: asOf })}`)
+export function getHabitsGrid(period: Period, asOf?: string): Promise<HabitsGrid> {
+  return request(`/views/habits/grid${queryString({ period, as_of: asOf })}`)
 }
 
 export function getScreenDashboard(period: Period, asOf?: string): Promise<ScreenDashboard> {
@@ -650,26 +624,23 @@ export function updateScreenBudget(
   })
 }
 
-export function getEntertainmentDashboard(
-  period: Period,
-  asOf?: string,
-): Promise<EntertainmentDashboard> {
-  return request(`/entertainment/dashboard${queryString({ period, as_of: asOf })}`)
+export function getLibraryDashboard(period: Period, asOf?: string): Promise<LibraryDashboard> {
+  return request(`/library/dashboard${queryString({ period, as_of: asOf })}`)
 }
 
-export function listEntertainmentTopics(includeArchived = false): Promise<EntertainmentTopic[]> {
+export function listLibraryTopics(includeArchived = false): Promise<LibraryTopic[]> {
   return request(
-    `/entertainment/topics${queryString({ include_archived: includeArchived || undefined })}`,
+    `/library/topics${queryString({ include_archived: includeArchived || undefined })}`,
   )
 }
 
-export function listEntertainmentTitles(filters?: {
-  kind?: EntertainmentKind
-  status?: EntertainmentStatus
+export function listLibraryTitles(filters?: {
+  kind?: LibraryKind
+  status?: LibraryStatus
   topic?: string
-}): Promise<EntertainmentTitle[]> {
+}): Promise<LibraryTitle[]> {
   return request(
-    `/entertainment/titles${queryString({
+    `/library/titles${queryString({
       kind: filters?.kind,
       status: filters?.status,
       topic: filters?.topic,
@@ -677,13 +648,13 @@ export function listEntertainmentTitles(filters?: {
   )
 }
 
-export function createEntertainmentTitle(body: {
+export function createLibraryTitle(body: {
   slug: string
-  kind: EntertainmentKind
+  kind: LibraryKind
   name?: string | null
   creator?: string | null
   recommended_by?: string | null
-  status?: EntertainmentStatus
+  status?: LibraryStatus
   started_on?: string | null
   finished_on?: string | null
   progress?: string | null
@@ -692,18 +663,18 @@ export function createEntertainmentTitle(body: {
   link?: string | null
   topics?: string[]
   image_url?: string | null
-}): Promise<EntertainmentTitle> {
-  return request('/entertainment/titles', { method: 'POST', body: JSON.stringify(body) })
+}): Promise<LibraryTitle> {
+  return request('/library/titles', { method: 'POST', body: JSON.stringify(body) })
 }
 
-export function updateEntertainmentTitle(
+export function updateLibraryTitle(
   slug: string,
   body: {
     name?: string
-    kind?: EntertainmentKind
+    kind?: LibraryKind
     creator?: string | null
     recommended_by?: string | null
-    status?: EntertainmentStatus
+    status?: LibraryStatus
     started_on?: string | null
     finished_on?: string | null
     progress?: string | null
@@ -713,30 +684,27 @@ export function updateEntertainmentTitle(
     topics?: string[]
     image_url?: string | null
   },
-): Promise<EntertainmentTitle> {
-  return request(`/entertainment/titles/${encodeURIComponent(slug)}`, {
+): Promise<LibraryTitle> {
+  return request(`/library/titles/${encodeURIComponent(slug)}`, {
     method: 'PATCH',
     body: JSON.stringify(body),
   })
 }
 
-export function lookupEntertainmentLink(url: string): Promise<EntertainmentLinkSuggestion> {
-  return request('/entertainment/lookup', { method: 'POST', body: JSON.stringify({ url }) })
+export function lookupLibraryLink(url: string): Promise<LibraryLinkSuggestion> {
+  return request('/library/lookup', { method: 'POST', body: JSON.stringify({ url }) })
 }
 
-export function deleteEntertainmentTitle(slug: string): Promise<void> {
-  return request(`/entertainment/titles/${encodeURIComponent(slug)}`, { method: 'DELETE' })
+export function deleteLibraryTitle(slug: string): Promise<void> {
+  return request(`/library/titles/${encodeURIComponent(slug)}`, { method: 'DELETE' })
 }
 
-export async function uploadEntertainmentImage(
-  slug: string,
-  file: File,
-): Promise<EntertainmentTitle> {
+export async function uploadLibraryImage(slug: string, file: File): Promise<LibraryTitle> {
   const body = new FormData()
   body.append('file', file)
   let response: Response
   try {
-    response = await fetch(`/entertainment/titles/${encodeURIComponent(slug)}/image`, {
+    response = await fetch(`/library/titles/${encodeURIComponent(slug)}/image`, {
       method: 'PUT',
       body,
     })
@@ -747,7 +715,7 @@ export async function uploadEntertainmentImage(
     const payload: unknown = await response.json().catch(() => null)
     throw new ApiError(response.status, errorDetail(payload, response.status, response.statusText))
   }
-  return (await response.json()) as EntertainmentTitle
+  return (await response.json()) as LibraryTitle
 }
 
 export function getSleepView(asOf?: string, days?: number): Promise<SleepView> {
@@ -760,10 +728,6 @@ export function getJournal(asOf?: string): Promise<JournalDay> {
 
 export function logJournal(body: { text: string; occurred_on?: string | null }): Promise<Entry> {
   return request('/journal', { method: 'POST', body: JSON.stringify(body) })
-}
-
-export function getAreaView(slug: string, asOf?: string): Promise<AreaView> {
-  return request(`/views/areas/${encodeURIComponent(slug)}${queryString({ as_of: asOf })}`)
 }
 
 export function setHabitDay(
@@ -793,31 +757,9 @@ export function deleteEntry(id: number): Promise<void> {
   return request(`/entries/${id}`, { method: 'DELETE' })
 }
 
-export function createArea(body: {
-  slug: string
-  name?: string | null
-  description?: string | null
-}): Promise<Area> {
-  return request('/areas', { method: 'POST', body: JSON.stringify(body) })
-}
-
-export function updateArea(
-  slug: string,
-  body: { name?: string; description?: string | null },
-): Promise<Area> {
-  return request(`/areas/${encodeURIComponent(slug)}`, {
-    method: 'PATCH',
-    body: JSON.stringify(body),
-  })
-}
-
-export function archiveArea(slug: string): Promise<Area> {
-  return request(`/areas/${encodeURIComponent(slug)}/archive`, { method: 'POST' })
-}
-
 export function createMetric(body: {
-  slug: string
-  area: string
+  /** Left out, the slug is made from the name. */
+  slug?: string
   value_type: ValueType
   aggregation: Aggregation
   name?: string | null
@@ -854,7 +796,6 @@ export function createHabit(body: {
   time_of_day?: TimeOfDay
   active_from?: string | null
   active_to?: string | null
-  area?: string | null
 }): Promise<Habit> {
   return request('/habits', { method: 'POST', body: JSON.stringify(body) })
 }
@@ -935,7 +876,8 @@ export type QuestStatus = 'active' | 'completed' | 'archived'
 export type TaskStatus = 'todo' | 'in_progress' | 'completed'
 export type TaskPriority = 'low' | 'normal' | 'high'
 export type ChapterState = 'empty' | 'not_started' | 'in_progress' | 'completed'
-export type TimeBlockStatus = 'scheduled' | 'completed' | 'cancelled'
+/** `missed`: the session's time came and it did not happen ("Didn't happen"). */
+export type TimeBlockStatus = 'scheduled' | 'completed' | 'cancelled' | 'missed'
 
 export type ItemRef = { kind: QuestKind; id: number; title: string }
 
@@ -1067,7 +1009,13 @@ export type TodayQuests = {
   due_today: QuestTask[]
   up_next: QuestTask[]
 }
-export type QuestCalendar = { start: string; end: string; blocks: ScheduledBlock[] }
+/** A week of sessions, and the next actions that have no upcoming session (`not_scheduled`). */
+export type Plan = {
+  start: string
+  end: string
+  blocks: ScheduledBlock[]
+  not_scheduled: QuestTask[]
+}
 export type PromoteResult = { kind: PromoteKind; id: number; title: string }
 
 type ContainerFields = {
@@ -1318,6 +1266,11 @@ export function cancelTimeBlock(id: number): Promise<TimeBlock> {
   return send(`/time-blocks/${id}/cancel`, 'POST')
 }
 
+/** Didn't happen: only for a session that has started. Unlike cancel, it counts as not kept. */
+export function missTimeBlock(id: number): Promise<TimeBlock> {
+  return send(`/time-blocks/${id}/miss`, 'POST')
+}
+
 export function getMainQuests(includeArchived?: boolean): Promise<MainQuests> {
   return request(`/views/main-quests${archivedQuery(includeArchived)}`)
 }
@@ -1339,6 +1292,79 @@ export function getInbox(): Promise<Inbox> {
 export function getTodayQuests(asOf?: string): Promise<TodayQuests> {
   return request(`/views/today${queryString({ as_of: asOf })}`)
 }
-export function getQuestCalendar(start: string, end: string): Promise<QuestCalendar> {
-  return request(`/views/calendar${queryString({ start, end })}`)
+export function getPlan(start: string, end: string): Promise<Plan> {
+  return request(`/views/plan${queryString({ start, end })}`)
+}
+
+/** This week so far (local Monday to the end of `as_of`), for Home. Every number is computed
+ * by the API from its section's own rules. */
+export type WeekSoFar = {
+  as_of: string
+  week_start: string
+  sessions_kept: number
+  sessions_total: number
+  habits_kept: number
+  habits_judged: number
+  habits_kept_share: number | null
+  sleep_average_minutes: number | null
+  sleep_nights: number
+  screen_score: number | null
+}
+
+export function getWeekSoFar(asOf?: string): Promise<WeekSoFar> {
+  return request(`/views/week-so-far${queryString({ as_of: asOf })}`)
+}
+
+/** One Monday-to-`as_of` window of This week; minutes for sleep and screen time. */
+export type WeekNumbers = {
+  as_of: string
+  week_start: string
+  sessions_kept: number
+  sessions_total: number
+  tasks_completed: number
+  milestones_completed: number
+  habits_kept: number
+  habits_judged: number
+  habits_kept_share: number | null
+  sleep_average_minutes: number | null
+  /** Minutes from local midnight; negative is the evening before. */
+  sleep_average_bedtime: number | null
+  sleep_average_wake: number | null
+  sleep_nights: number
+  sleep_missing_nights: number
+  screen_total: number | null
+  screen_daily_average: number | null
+  screen_score: number | null
+  screen_good: number | null
+  screen_neutral: number | null
+  screen_bad: number | null
+  titles_finished: number
+}
+
+export type HabitWeekProgress = {
+  slug: string
+  name: string
+  kind: HabitKind
+  period: Period
+  comparator: Comparator
+  unit: string | null
+  kept: number
+  judged: number
+  value: number | null
+  target: number | null
+  satisfied: boolean
+}
+
+export type ThisWeek = {
+  as_of: string
+  week_start: string
+  week_end: string
+  complete: boolean
+  current: WeekNumbers
+  previous: WeekNumbers
+  habits: HabitWeekProgress[]
+}
+
+export function getThisWeek(asOf?: string): Promise<ThisWeek> {
+  return request(`/views/this-week${queryString({ as_of: asOf })}`)
 }

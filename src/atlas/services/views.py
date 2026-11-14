@@ -1,11 +1,9 @@
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from sqlmodel import Session, select
+from sqlmodel import Session
 
-from atlas.db.models import Habit, Metric
 from atlas.domain import (
-    Aggregation,
     Comparator,
     HabitKind,
     Period,
@@ -16,18 +14,14 @@ from atlas.domain import (
 )
 from atlas.services.clock import resolve_today
 from atlas.services.habits import (
-    HabitStatus,
     active_habits,
     habit_status,
     spec_for,
 )
 from atlas.services.lookups import (
     entries_for_metric,
-    not_archived,
-    require_area,
 )
 from atlas.services.mapping import entry_view
-from atlas.services.slugs import normalize_slug
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,7 +50,7 @@ class WeekHabit:
 
 
 @dataclass(frozen=True, slots=True)
-class HabitsCalendar:
+class HabitsGrid:
     as_of: date
     period: Period
     range_start: date
@@ -64,32 +58,12 @@ class HabitsCalendar:
     habits: list[WeekHabit]
 
 
-@dataclass(frozen=True, slots=True)
-class MetricSnapshot:
-    slug: str
-    name: str
-    unit: str | None
-    aggregation: Aggregation
-    latest_on: date | None
-    latest_value: float | None
-
-
-@dataclass(frozen=True, slots=True)
-class AreaView:
-    slug: str
-    name: str
-    description: str | None
-    as_of: date
-    metrics: list[MetricSnapshot]
-    habits: list[HabitStatus]
-
-
-def habit_calendar(
+def habit_grid(
     session: Session,
     *,
     period: Period = Period.WEEK,
     as_of: date | None = None,
-) -> HabitsCalendar:
+) -> HabitsGrid:
     as_of = resolve_today(as_of)
     window = bucket_for(as_of, period)
     habits: list[WeekHabit] = []
@@ -142,68 +116,10 @@ def habit_calendar(
                 weekdays=sorted(habit.weekdays) if habit.weekdays else None,
             )
         )
-    return HabitsCalendar(
+    return HabitsGrid(
         as_of=as_of,
         period=period,
         range_start=window.start,
         range_end=window.end,
         habits=habits,
-    )
-
-
-def area_view(session: Session, slug: str, *, as_of: date | None = None) -> AreaView:
-    as_of = resolve_today(as_of)
-    area = require_area(session, normalize_slug(slug))
-    metrics = list(
-        session.exec(
-            select(Metric)
-            .where(Metric.area_id == area.id)
-            .where(not_archived(Metric.archived_at))
-            .order_by(Metric.slug)
-        ).all()
-    )
-    metric_ids = {metric.id for metric in metrics}
-    snapshots = [_snapshot(session, metric, as_of) for metric in metrics]
-    habits = [
-        habit_status(session, habit.slug, as_of=as_of)
-        for habit in session.exec(select(Habit).order_by(Habit.slug)).all()
-        if habit.metric_id in metric_ids
-    ]
-    return AreaView(
-        slug=area.slug,
-        name=area.name,
-        description=area.description,
-        as_of=as_of,
-        metrics=snapshots,
-        habits=habits,
-    )
-
-
-def _snapshot(session: Session, metric: Metric, as_of: date) -> MetricSnapshot:
-    views = [
-        entry_view(entry)
-        for entry in entries_for_metric(session, metric.id)
-        if entry.occurred_on <= as_of
-    ]
-    if not views:
-        return MetricSnapshot(
-            slug=metric.slug,
-            name=metric.name,
-            unit=metric.unit,
-            aggregation=Aggregation(metric.aggregation),
-            latest_on=None,
-            latest_value=None,
-        )
-    latest_on = max(view.occurred_on for view in views)
-    latest_value = rollup(
-        [view for view in views if view.occurred_on == latest_on],
-        Aggregation(metric.aggregation),
-    )
-    return MetricSnapshot(
-        slug=metric.slug,
-        name=metric.name,
-        unit=metric.unit,
-        aggregation=Aggregation(metric.aggregation),
-        latest_on=latest_on,
-        latest_value=latest_value,
     )

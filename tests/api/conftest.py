@@ -20,12 +20,9 @@ def client(engine):
 
 @pytest.fixture
 def seed_health(client):
-    created = client.post("/areas", json={"slug": "health", "name": "Health"})
-    assert created.status_code == 201, created.text
     for body in (
         {
             "slug": "pushups",
-            "area": "health",
             "value_type": "count",
             "aggregation": "sum",
             "unit": "reps",
@@ -33,7 +30,6 @@ def seed_health(client):
         },
         {
             "slug": "weight",
-            "area": "health",
             "value_type": "quantity",
             "aggregation": "last",
             "unit": "kg",
@@ -41,7 +37,6 @@ def seed_health(client):
         },
         {
             "slug": "meditated",
-            "area": "health",
             "value_type": "bool",
             "aggregation": "sum",
             "direction": "higher_is_better",

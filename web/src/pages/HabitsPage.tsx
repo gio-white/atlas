@@ -11,9 +11,9 @@ import { WeekGrid } from '@/components/WeekGrid'
 import {
   ApiError,
   getHabitsBoard,
-  getHabitsCalendar,
+  getHabitsGrid,
   type HabitsBoard,
-  type HabitsCalendar,
+  type HabitsGrid,
   type Period,
 } from '@/lib/api'
 import { useAsOf } from '@/lib/asOf'
@@ -34,17 +34,17 @@ export function HabitsPage() {
   const search = params.toString()
   const gridPeriod = parseHabitPeriod(params.get('period')) === 'month' ? 'month' : 'week'
   const [board, setBoard] = useState<HabitsBoard | null>(null)
-  const [calendar, setCalendar] = useState<HabitsCalendar | null>(null)
+  const [grid, setGrid] = useState<HabitsGrid | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
 
   const refresh = useCallback(async () => {
-    const [nextBoard, nextCalendar] = await Promise.all([
+    const [nextBoard, nextGrid] = await Promise.all([
       getHabitsBoard(asOf),
-      getHabitsCalendar(gridPeriod, asOf),
+      getHabitsGrid(gridPeriod, asOf),
     ])
     setBoard(nextBoard)
-    setCalendar(nextCalendar)
+    setGrid(nextGrid)
   }, [asOf, gridPeriod])
 
   useEffect(() => {
@@ -78,7 +78,7 @@ export function HabitsPage() {
   }
 
   if (error !== null) return <PageUnavailable title="Habits" message={error} />
-  if (board === null || calendar === null) return <PageLoading />
+  if (board === null || grid === null) return <PageLoading />
 
   const isToday = asOf === todayIso()
   const weekly = periodic.filter((status) => status.period === 'week')
@@ -90,7 +90,6 @@ export function HabitsPage() {
         <PageHeader
           title="Habits"
           description={isToday ? `Today · ${longDateLabel(asOf)}` : longDateLabel(asOf)}
-          homeLink
         />
         <div className="flex items-center gap-1">
           <Button
@@ -216,8 +215,7 @@ export function HabitsPage() {
           <section className="flex min-w-0 flex-col gap-3" aria-label="Overview">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-xs font-semibold tracking-wide text-muted uppercase">
-                Overview · {shortDateLabel(calendar.range_start)} –{' '}
-                {shortDateLabel(calendar.range_end)}
+                Overview · {shortDateLabel(grid.range_start)} – {shortDateLabel(grid.range_end)}
               </h2>
               <Segmented
                 label="Overview range"
@@ -227,7 +225,7 @@ export function HabitsPage() {
               />
             </div>
             <div className="min-w-0 rounded-2xl border border-line bg-surface p-3">
-              <WeekGrid habits={calendar.habits} search={search} compact={gridPeriod === 'month'} />
+              <WeekGrid habits={grid.habits} search={search} compact={gridPeriod === 'month'} />
             </div>
           </section>
         </>

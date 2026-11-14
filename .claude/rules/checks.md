@@ -25,11 +25,11 @@ Line length, logic, type errors, and failing tests need a real edit that matches
 
 ```python
 # ❌ BAD — silence E501
-raise ValidationError(f"metric {metric.slug!r} does not belong to the goal's area")  # noqa: E501
+raise ValidationError(f"metric {metric.slug!r} is archived and cannot be linked to this goal")  # noqa: E501
 
 # ✅ GOOD — wrap to line-length 100, same wording
 raise ValidationError(
-    f"metric {metric.slug!r} does not belong to the goal's area"
+    f"metric {metric.slug!r} is archived and cannot be linked to this goal"
 )
 ```
 

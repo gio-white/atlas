@@ -4,6 +4,7 @@ import type {
   ScreenDeviceShare,
   ScreenJudgment,
 } from '@/lib/api'
+import { SERIES, seriesColor } from '@/lib/chartColors'
 import { shortDateLabel, weekdayLabel } from '@/lib/dates'
 import { formatMinutes } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -15,21 +16,21 @@ export const JUDGMENT_LABEL: Record<ScreenJudgment, string> = {
 }
 
 export const JUDGMENT_FILL: Record<ScreenJudgment, string> = {
-  useful: 'fill-good',
-  waste: 'fill-bad',
-  neutral: 'fill-warn',
+  useful: 'fill-data-good',
+  waste: 'fill-data-bad',
+  neutral: 'fill-data-neutral',
 }
 
 export const JUDGMENT_STROKE: Record<ScreenJudgment, string> = {
-  useful: 'stroke-good',
-  waste: 'stroke-bad',
-  neutral: 'stroke-warn',
+  useful: 'stroke-data-good',
+  waste: 'stroke-data-bad',
+  neutral: 'stroke-data-neutral',
 }
 
 export const JUDGMENT_BG: Record<ScreenJudgment, string> = {
-  useful: 'bg-good',
-  waste: 'bg-bad',
-  neutral: 'bg-warn',
+  useful: 'bg-data-good',
+  waste: 'bg-data-bad',
+  neutral: 'bg-data-neutral',
 }
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -149,7 +150,7 @@ export function StackedJudgmentBars({
               { key: 'neutral', minutes: day.neutral, fill: JUDGMENT_FILL.neutral },
               { key: 'waste', minutes: day.waste, fill: JUDGMENT_FILL.waste },
             ]
-          : [{ key: 'total', minutes: day.total, fill: 'fill-screen' }]
+          : [{ key: 'total', minutes: day.total, fill: SERIES[0].fill }]
         let top = base
         return (
           <g key={day.date}>
@@ -221,7 +222,7 @@ export function ComparisonLines({ points }: { points: { current: number; previou
       <polyline
         fill="none"
         stroke="currentColor"
-        className="text-screen"
+        className="text-series-1"
         strokeWidth="2.5"
         points={toPoints(points.map((point) => point.current))}
       />
@@ -328,7 +329,7 @@ export function HourHeatmap({
                 return (
                   <span
                     key={`${label}-h${hour}`}
-                    className="aspect-square rounded-[2px] bg-screen"
+                    className="aspect-square rounded-[2px] bg-series-1"
                     style={{ opacity: value <= 0 ? 0.08 : 0.2 + (value / max) * 0.8 }}
                     title={`${label} ${hour}:00 · ${Math.round(value)}m`}
                   />
@@ -343,35 +344,19 @@ export function HourHeatmap({
 }
 
 export function deviceSlices(devices: ScreenDeviceShare[]) {
-  const palette = [
-    { stroke: 'stroke-screen', swatch: 'bg-screen' },
-    { stroke: 'stroke-goal', swatch: 'bg-goal' },
-    { stroke: 'stroke-iris', swatch: 'bg-iris' },
-    { stroke: 'stroke-ember', swatch: 'bg-ember' },
-    { stroke: 'stroke-warn', swatch: 'bg-warn' },
-  ]
   return devices.map((device, index) => ({
     slug: device.slug,
     name: device.name,
     minutes: device.minutes,
-    ...palette[index % palette.length],
+    ...seriesColor(index),
   }))
 }
 
 /**
- * Distinct hues for categories. Good / Bad / Neutral colours are left out on purpose, so a
- * category's colour never reads as a judgment.
+ * Category colours: the shared chart series. The Good / Neutral / Bad colours are separate
+ * tokens, so a category's colour never reads as a judgment.
  */
-export const CATEGORY_PALETTE = [
-  { stroke: 'stroke-screen', swatch: 'bg-screen' },
-  { stroke: 'stroke-ember', swatch: 'bg-ember' },
-  { stroke: 'stroke-adventure', swatch: 'bg-adventure' },
-  { stroke: 'stroke-entertainment', swatch: 'bg-entertainment' },
-  { stroke: 'stroke-iris', swatch: 'bg-iris' },
-  { stroke: 'stroke-health', swatch: 'bg-health' },
-  { stroke: 'stroke-stage-light', swatch: 'bg-stage-light' },
-  { stroke: 'stroke-stage-awake', swatch: 'bg-stage-awake' },
-] as const
+export const CATEGORY_PALETTE = SERIES
 
 /**
  * Slices coloured per category. Colours follow the alphabetical order of every known category
@@ -384,6 +369,6 @@ export function categorySlices(categories: ScreenCategoryShare[], known: string[
     name: category.name,
     minutes: category.minutes,
     detail: JUDGMENT_LABEL[category.judgment],
-    ...CATEGORY_PALETTE[order.indexOf(category.slug) % CATEGORY_PALETTE.length],
+    ...seriesColor(order.indexOf(category.slug)),
   }))
 }

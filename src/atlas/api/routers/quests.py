@@ -22,6 +22,7 @@ from atlas.api.quest_schemas import (
     SideQuestCreate,
     SideQuestOut,
     SideQuestUpdate,
+    SupportingHabitOut,
     TaskCreate,
     TaskDetailOut,
     TaskOrganize,
@@ -31,6 +32,7 @@ from atlas.api.quest_schemas import (
 )
 from atlas.domain import ParentKind, TaskStatus
 from atlas.domain.quests import QuestKind
+from atlas.services.habit_supports import habits_supporting
 from atlas.services.quests import (
     complete_container,
     create_container,
@@ -106,6 +108,15 @@ def _container_routes(
         patch_item
     )
     router.delete(path, status_code=204, summary=f"Delete an empty {label}")(remove_item)
+
+    def item_habits(session: SessionDep, item_id: int) -> list[SupportingHabitOut]:
+        return _supporting(session, kind, item_id)
+
+    router.get(
+        f"{path}/habits",
+        response_model=list[SupportingHabitOut],
+        summary=f"Habits that support a {label} or an item under it",
+    )(item_habits)
 
     if completable:
 
@@ -207,6 +218,20 @@ def patch_task(session: SessionDep, task_id: int, body: TaskUpdate) -> TaskDetai
     return TaskDetailOut.model_validate(
         update_task(session, task_id, body.model_dump(exclude_unset=True))
     )
+
+
+@router.get(
+    "/tasks/{task_id}/habits",
+    response_model=list[SupportingHabitOut],
+    summary="Habits that support a task",
+)
+def task_habits(session: SessionDep, task_id: int) -> list[SupportingHabitOut]:
+    return _supporting(session, QuestKind.TASK, task_id)
+
+
+def _supporting(session: SessionDep, kind: QuestKind, item_id: int) -> list[SupportingHabitOut]:
+    rows = habits_supporting(session, kind, item_id)
+    return [SupportingHabitOut.model_validate(row) for row in rows]
 
 
 @router.delete("/tasks/{task_id}", status_code=204, summary="Delete an Inbox task")

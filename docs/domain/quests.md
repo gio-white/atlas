@@ -248,6 +248,7 @@ completing an ineligible item without `override` → 409. Bad shapes (an `estima
 | `PATCH` | `/tasks/{id}` | Edit title, description, `status`, `priority`, `estimate_minutes`, `due_on`, `weight`, `position`, `archived` | implemented |
 | `DELETE` | `/tasks/{id}` | Delete an Inbox task without time blocks (else 409) | implemented |
 | `POST` | `/tasks/{id}/organize` | `{parent_kind, parent_id}` or `{standalone: true}`; keeps id, status, blocks | implemented |
+| `GET` | `/ambitions/{id}/habits`, `/goals/{id}/habits`, `/milestones/{id}/habits`, `/side-quests/{id}/habits`, `/chapters/{id}/habits`, `/tasks/{id}/habits` | Habits that support the item (`direct: true`) or an item under it, at any depth: `slug`, `name`, `kind`, `archived`, `linked_to` (`{kind, id, title}`), `direct` ([habits](habits.md#quest-links)) | implemented |
 | `POST` | `/tasks/{id}/promote` | Inbox task → new `ambition`, `goal`, `side_quest`, `milestone`, or `chapter` (`kind`, `parent_kind`, `parent_id`); returns `{kind, id, title}` | implemented |
 | `GET` | `/views/main-quests` | Ambitions (each with goal cards and direct tasks; ambitions without goals included), then independent goals | implemented |
 | `GET` | `/views/ambitions/{id}` | One ambition: goals and direct tasks | implemented |
@@ -256,7 +257,7 @@ completing an ineligible item without `override` → 409. Bad shapes (an `estima
 | `GET` | `/views/side-quests/{id}` | One side quest's tree: chapters → tasks, and direct tasks | implemented |
 | `GET` | `/views/inbox` | Inbox tasks, newest first, and `count` | implemented |
 
-The views take `include_archived` (default false). Time blocks, Today, and Calendar are in
+The views take `include_archived` (default false). Time blocks, Today (on Home), and Plan are in
 [time blocks](time-blocks.md#api).
 
 **Response shapes.** Every container carries its stored fields plus the computed state:
@@ -272,7 +273,11 @@ and task writes also return `blocks`.
 **Promote rule** (plan D6): only an Inbox task can be turned into something else; title and
 description are carried over and the task is deleted. A task with time blocks is refused (400)
 with a hint to organize it instead. A goal may name an ambition; a milestone needs a goal; a
-chapter needs a milestone or side quest.
+chapter needs a milestone or side quest. Habits that supported the task support the new item.
+
+**Habit links** ([habits](habits.md#quest-links)): a habit can support an item at any level. No
+rule on this page reads the link, so it never changes progress, completion, weights, chapter
+state, or Next action. Deleting an item deletes the links to it; archiving keeps them.
 
 Service functions (each takes an explicit `Session` first, and an optional `now` for tests):
 
@@ -287,10 +292,10 @@ Service functions (each takes an explicit `Session` first, and an optional `now`
 
 ## Screens
 
-The sidebar's **Quests** group links Today, Inbox, Main quests, Side quests, and Calendar
-(route inventory: [navigation](../product/navigation.md)). This section covers the screens Q2
-of the [plan](../plans/quests-plan.md#6-screens) builds; Today, Calendar, and the sessions
-section of the task drawer are in [time blocks](time-blocks.md#screens).
+The **Quests** destination has four tabs: Main quests, Side quests, Inbox, and Plan (route
+inventory: [navigation](../product/navigation.md)). This section covers the screens Q2 of the
+[plan](../plans/quests-plan.md#6-screens) builds; Today, Plan (the week of sessions), and the
+sessions section of the task drawer are in [time blocks](time-blocks.md#screens).
 
 **The browser computes nothing.** Progress, `weight_share`, chapter state, eligibility, open
 children, and next action are shown exactly as the API returns them. `web/src/lib/quests.ts`
@@ -298,8 +303,8 @@ only labels (status, priority, chapter state, level names), formats dates ("7 No
 percentages, links items to their page, orders siblings for up/down moves, and searches the
 organize picker. Every screen reloads its view after a change.
 
-**Visual language** (`web/src/components/quests/QuestVisuals.tsx`). One quest accent, the
-theme's `iris`, on neutral surfaces; light and dark come from the theme tokens. Levels are told
+**Visual language** (`web/src/components/quests/QuestVisuals.tsx`). The app's one accent, the
+theme's `accent`, on neutral surfaces; light and dark come from the theme tokens. Levels are told
 apart by icon and shape, never by colour alone: Ambition = compass, Goal = flag, Milestone =
 diamond node, Chapter = bookmark, Task = round checkbox, Side quest = scroll (lucide-react).
 Cards carry a progress ring (a dashed empty ring and "Not broken down yet" when `progress` is
@@ -310,9 +315,9 @@ null); rows carry a thin bar. Completed items turn `good` green. No tables.
 | Main quests | `/quests` | One section per ambition: title, goal count, done-task count, target date, a thin bar, then its **goal cards** and an "Add a goal" tile, then a strip of the ambition's direct tasks. An ambition with no goals stays visible with "No goals yet" and **Add a goal**. Then **Independent goals**. Header buttons: **New ambition**, **New goal**. No trees here |
 | Ambition | `/quests/ambitions/:id` | Breadcrumb, ring, status, counts, target date, **Edit** (title, description, target date, archive). Completion control. Goal cards with up/down; **Add a goal** (pre-set to this ambition). Its direct tasks with add and reorder |
 | Goal (quest map) | `/quests/goals/:id` | Breadcrumb **Main quests › Ambition › Goal**; ring, status, due date, counts, **Edit** (including moving to another ambition or none, weight, archive); **What success looks like**; completion control. **Quest map**: a vertical dashed path of diamond milestone nodes. Each node shows its title, done count, due date, chapter count, its share of the goal, a thin bar, edit, and up/down, and expands into its chapters and its direct tasks plus a compact completion control. Completed milestones start folded. The path ends with **Add a milestone**. Then **Tasks directly on this goal**. A line under the heading says how tasks fill chapters, milestones, and the goal, and that the percentage beside an item is how much it counts toward the level above |
-| Side quests | `/side-quests` | **New side quest**; compact side quest cards (ring, status, due date, chapter count, done count, next action); **Standalone tasks** with add (created with `standalone: true`) |
-| Side quest | `/side-quests/:id` | Breadcrumb, ring, status, counts, **Edit**, completion control, and the same tree component as a milestone |
-| Inbox | `/inbox` | See below |
+| Side quests | `/quests/side-quests` | **New side quest**; compact side quest cards (ring, status, due date, chapter count, done count, next action); **Standalone tasks** with add (created with `standalone: true`) |
+| Side quest | `/quests/side-quests/:id` | Breadcrumb, ring, status, counts, **Edit**, completion control, and the same tree component as a milestone |
+| Inbox | `/quests/inbox` | See below |
 | Task drawer | from any task row | See below |
 
 **Shared pieces** (`web/src/components/quests/`):
@@ -350,7 +355,7 @@ null); rows carry a thin bar. Completed items turn `good` green. No tables.
   title, the ancestor path, or the level name. Arrow keys move the highlight; Enter picks. The
   current parent is marked "Here now" and cannot be picked.
 
-**Inbox** (`/inbox`, `InboxPage.tsx`, `InboxItem.tsx`):
+**Inbox** (`/quests/inbox`, `InboxPage.tsx`, `InboxItem.tsx`):
 
 - The capture field is focused on arrival and again after each capture or sort. Enter adds the
   title alone (`POST /tasks` with only `title`); the newest item is first.
@@ -365,9 +370,13 @@ null); rows carry a thin bar. Completed items turn `good` green. No tables.
   Organize it instead: it keeps its sessions." The server's refusal (400) shows the same text.
 - After each change a line confirms it ("Sorted into …", "Now a standalone task.", "Turned
   into a side quest: …" with a link). Empty: "Inbox zero".
-- **Sidebar count:** every quest screen calls `notifyInboxChanged()` after a change that can
-  touch the Inbox; `Layout` listens for the `atlas:inbox-changed` window event and refetches
-  `GET /views/inbox`, besides refreshing on navigation.
+- **Inbox count:** every screen calls `notifyInboxChanged()` after a change that can touch the
+  Inbox; `Layout` listens for the `atlas:inbox-changed` window event and refetches
+  `GET /views/inbox`, besides refreshing on navigation. The count shows on the Quests item of
+  the rail and on the Inbox tab ([navigation](../product/navigation.md#shell)).
+- **Add → Task** in the header (`components/shell/QuickTaskDialog.tsx`) captures a title from
+  any page with the same `POST /tasks` call. The Inbox page listens for the same event, so a
+  task added that way appears in the list at once.
 
 **Task drawer** (`TaskDrawer.tsx`) slides in from the right on any screen that renders tasks
 (each page wraps its content in `TaskDrawerProvider`, and rows call `useOpenTask()`):
@@ -393,13 +402,14 @@ null); rows carry a thin bar. Completed items turn `good` green. No tables.
 - `tests/services/test_quests.py` — acceptance criteria 1–21 through the services (in-memory SQLite), structure and delete rules, promote, organize, filters
 - `tests/api/test_quests.py` — every endpoint group through `TestClient`, error mapping
 - `tests/services/test_port.py` — quest export/import, v10 exports
+- `tests/services/test_habit_supports.py`, `tests/api/test_habit_supports.py` — habit links at every level never change progress, weights, or Next action
 - `tests/services/test_seed.py` — the demo seed covers every quest shape
 - `web/src/lib/quests.test.ts` — labels, links, sibling reorder, organize targets and search
 - `web/src/components/quests/QuestTree.test.tsx` — tree with mixed children and an empty chapter; completing only through the checkbox
-- `web/src/components/quests/InboxItem.test.tsx` — Inbox capture with only a title, organize keeps the task id, make standalone, sidebar count event
+- `web/src/components/quests/InboxItem.test.tsx` — Inbox capture with only a title, organize keeps the task id, make standalone, Inbox count event
 - `web/src/components/quests/PromoteDialog.test.tsx` — promote refused when the task has sessions (before sending and on a 400), promote with and without a parent
 - `web/src/components/quests/CompletionControl.test.tsx` — the override confirmation lists open items and sends `override` only on confirm; eligible completion; reopen
 
 ## Status
 
-Q1 done (backend, typed client, seed). Q2 done: Main quests, Ambition, the goal quest map, Side quests, Side quest, Inbox, and the task drawer. Today, Calendar, and the drawer's sessions section come with Q3 ([time blocks](time-blocks.md)).
+Q1 done (backend, typed client, seed). Q2 done: Main quests, Ambition, the goal quest map, Side quests, Side quest, Inbox, and the task drawer. Today, Plan (then called Calendar), and the drawer's sessions section come with Q3 ([time blocks](time-blocks.md)).

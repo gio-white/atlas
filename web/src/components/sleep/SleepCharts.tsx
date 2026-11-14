@@ -231,7 +231,7 @@ export function NightsChart({
               x2={width}
               y1={y(offset)}
               y2={y(offset)}
-              className="stroke-sleep"
+              className="stroke-muted"
               strokeWidth="1"
               strokeDasharray="4 3"
             >
@@ -303,7 +303,7 @@ function NightBar({
           width={barWidth}
           height={barHeight}
           rx={rx}
-          className="fill-sleep"
+          className="fill-data-neutral"
         />
       ) : (
         <>
@@ -399,7 +399,7 @@ export function AsleepTrend({
                 width={barWidth}
                 height={Math.max(1, PAD_TOP + plotHeight - y(night.asleep_minutes))}
                 rx={Math.min(4, barWidth / 2)}
-                className="fill-sleep"
+                className="fill-series-1"
               >
                 <title>
                   {weekdayLabel(day.date)} {shortDateLabel(day.date)} ·{' '}

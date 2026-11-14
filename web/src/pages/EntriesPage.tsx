@@ -34,9 +34,6 @@ import {
 } from '@/lib/entries'
 import { cn } from '@/lib/utils'
 
-/** Area whose entries are written by device data, not typed: screen time sessions. */
-const AUTOMATIC_AREA = 'screen'
-
 function message(caught: unknown, fallback: string): string {
   return caught instanceof ApiError || caught instanceof Error ? caught.message : fallback
 }
@@ -48,7 +45,7 @@ export function EntriesPage() {
   const metricFilter = params.get('metric') ?? ''
   const hideAutomatic = params.get('automatic') !== 'show'
   // Picking one metric shows it even when it is automatic; the switch only thins "All metrics".
-  const excludeArea = hideAutomatic && metricFilter === '' ? AUTOMATIC_AREA : undefined
+  const includeAutomatic = hideAutomatic && metricFilter === '' ? false : undefined
   const start = params.get('from') ?? defaults.start
   const end = params.get('to') ?? defaults.end
   const [entries, setEntries] = useState<Entry[] | null>(null)
@@ -60,16 +57,16 @@ export function EntriesPage() {
     const [nextEntries, nextMetrics] = await Promise.all([
       listEntries({
         metric: metricFilter || undefined,
-        exclude_area: excludeArea,
+        include_automatic: includeAutomatic,
         start_on: start,
         end_on: end,
         limit: 500,
       }),
-      listMetrics(undefined, true),
+      listMetrics(true),
     ])
     setEntries(nextEntries)
     setMetrics(nextMetrics)
-  }, [metricFilter, excludeArea, start, end])
+  }, [metricFilter, includeAutomatic, start, end])
 
   useEffect(() => {
     let cancelled = false
@@ -107,15 +104,15 @@ export function EntriesPage() {
     }
   }
 
-  if (error !== null) return <PageUnavailable title="History" message={error} />
+  if (error !== null) return <PageUnavailable tab title="All entries" message={error} />
   if (entries === null) return <PageLoading />
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="History"
+        tab
+        title="All entries"
         description="Everything you have logged. Fix a value, move it to another day, or delete it — streaks and goals recompute on their own."
-        homeLink
       />
       <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="flex flex-col gap-1">

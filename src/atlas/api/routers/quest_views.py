@@ -5,20 +5,20 @@ from fastapi import APIRouter
 from atlas.api.deps import SessionDep
 from atlas.api.quest_schemas import (
     AmbitionSectionOut,
-    CalendarOut,
     GoalTreeOut,
     InboxOut,
     MainQuestsOut,
+    PlanOut,
     SideQuestsOut,
     SideQuestTreeOut,
     TodayOut,
 )
 from atlas.services.quest_views import (
     ambition_view,
-    calendar_view,
     goal_view,
     inbox_view,
     main_quests_view,
+    plan_view,
     side_quest_view,
     side_quests_view,
     today_view,
@@ -76,6 +76,6 @@ def get_today(session: SessionDep, as_of: date | None = None) -> TodayOut:
     return TodayOut.model_validate(today_view(session, as_of=as_of))
 
 
-@router.get("/calendar", response_model=CalendarOut)
-def get_calendar(session: SessionDep, start: datetime, end: datetime) -> CalendarOut:
-    return CalendarOut.model_validate(calendar_view(session, start=start, end=end))
+@router.get("/plan", response_model=PlanOut)
+def get_plan(session: SessionDep, start: datetime, end: datetime) -> PlanOut:
+    return PlanOut.model_validate(plan_view(session, start=start, end=end))

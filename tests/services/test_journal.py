@@ -1,6 +1,7 @@
 from datetime import date
 
-from atlas.services import get_metric, journal_day, list_areas, log_journal
+from atlas.domain import MetricOrigin
+from atlas.services import get_metric, journal_day, log_journal
 
 
 def test_log_journal_returns_latest_text_for_the_day(session):
@@ -13,9 +14,10 @@ def test_log_journal_returns_latest_text_for_the_day(session):
     assert first.value_text == "morning notes"
 
 
-def test_journal_day_empty_creates_catalog(session):
+def test_journal_day_empty_creates_the_journal_metric(session):
     view = journal_day(session, as_of=date(2026, 8, 14))
     assert view.text is None
     assert view.entry_id is None
-    assert get_metric(session, "journal").value_type == "text"
-    assert "life" in {area.slug for area in list_areas(session)}
+    metric = get_metric(session, "journal")
+    assert metric.value_type == "text"
+    assert MetricOrigin(metric.origin) is MetricOrigin.JOURNAL

@@ -38,12 +38,12 @@ function NextAction({ task, href, done }: { task: QuestTask | null; href: string
   return (
     <button
       type="button"
-      className="flex min-h-10 w-full items-center gap-2 rounded-lg bg-iris/8 px-3 py-2 text-left hover:bg-iris/14"
+      className="flex min-h-10 w-full items-center gap-2 rounded-lg bg-accent/8 px-3 py-2 text-left hover:bg-accent/14"
       onClick={() => openTask(task.id)}
     >
-      <span className="text-xs font-medium text-iris">Next</span>
+      <span className="text-xs font-medium text-accent">Next</span>
       <span className="min-w-0 flex-1 truncate text-sm text-ink">{task.title}</span>
-      <ArrowRight className="size-3.5 shrink-0 text-iris" aria-hidden />
+      <ArrowRight className="size-3.5 shrink-0 text-accent" aria-hidden />
     </button>
   )
 }
@@ -128,7 +128,7 @@ export function SideQuestCard({ quest }: { quest: SideQuest }) {
     <CardShell
       kind="side_quest"
       item={quest}
-      href={`/side-quests/${quest.id}`}
+      href={`/quests/side-quests/${quest.id}`}
       date={quest.due_on === null ? null : `Due ${questDateLabel(quest.due_on)}`}
       counts={quest.chapter_count > 0 ? [countLabel(quest.chapter_count, 'chapter')] : []}
       compact

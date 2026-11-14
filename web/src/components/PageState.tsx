@@ -1,4 +1,4 @@
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 
@@ -6,32 +6,25 @@ export function PageHeader({
   title,
   kicker,
   description,
-  homeLink = false,
+  tab = false,
 }: {
   title: string
   kicker?: string
   description?: string
-  homeLink?: boolean
+  /** The page is a tab of a section: the section shows the visible title and the tab names
+   * this page, so its own title is kept for screen readers only. */
+  tab?: boolean
 }) {
   return (
     <header className="flex flex-col gap-1">
-      {homeLink && <HomeLink />}
       {kicker !== undefined && <p className="font-mono text-xs text-muted">{kicker}</p>}
-      <h1 className="text-2xl font-semibold tracking-tight text-ink">{title}</h1>
+      {tab ? (
+        <h2 className="sr-only">{title}</h2>
+      ) : (
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">{title}</h1>
+      )}
       {description !== undefined && <p className="text-sm text-muted">{description}</p>}
     </header>
-  )
-}
-
-export function HomeLink() {
-  const [params] = useSearchParams()
-  return (
-    <Link
-      to={{ pathname: '/', search: params.toString() }}
-      className="text-sm text-muted hover:text-ink"
-    >
-      Home
-    </Link>
   )
 }
 
@@ -61,14 +54,16 @@ export function PageUnavailable({
   title,
   description,
   message,
+  tab = false,
 }: {
   title: string
   description?: string
   message: string
+  tab?: boolean
 }) {
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title={title} description={description} homeLink />
+      <PageHeader title={title} description={description} tab={tab} />
       <PageError message={message} />
     </div>
   )

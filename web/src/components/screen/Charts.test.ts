@@ -29,6 +29,9 @@ describe('categorySlices', () => {
     expect(swatches).not.toContain('bg-good')
     expect(swatches).not.toContain('bg-bad')
     expect(swatches).not.toContain('bg-warn')
+    expect(swatches).not.toContain('bg-data-good')
+    expect(swatches).not.toContain('bg-data-bad')
+    expect(swatches).not.toContain('bg-data-neutral')
   })
 })
 

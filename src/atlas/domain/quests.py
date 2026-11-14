@@ -328,8 +328,13 @@ def block_minutes(block: BlockView) -> float:
     return (as_utc(block.end_at) - as_utc(block.start_at)).total_seconds() / 60
 
 
+TAKES_NO_TIME = frozenset({TimeBlockStatus.CANCELLED, TimeBlockStatus.MISSED})
+"""Block statuses that held no time: left out of planned time and overlaps."""
+
+
 def planned_minutes(node: QuestNode) -> float:
-    """Σ (end − start) over non-cancelled blocks of the non-archived tasks under `node`.
+    """Σ (end − start) over the blocks of the non-archived tasks under `node` that were not
+    cancelled and did not go missed.
 
     Planned time is what was scheduled, never actual effort.
     """
@@ -337,7 +342,7 @@ def planned_minutes(node: QuestNode) -> float:
         block_minutes(block)
         for task in walk_tasks(node)
         for block in task.blocks
-        if block.status is not TimeBlockStatus.CANCELLED
+        if block.status not in TAKES_NO_TIME
     )
 
 
@@ -374,10 +379,45 @@ def complete_block(task: TaskTimes, now: datetime) -> BlockOutcome:
     return BlockOutcome(block_status=TimeBlockStatus.COMPLETED, task=task)
 
 
+def check_can_miss(block: BlockView, now: datetime) -> None:
+    """ "Didn't happen" is an answer about the past: the session must have started."""
+    if block.status is not TimeBlockStatus.SCHEDULED:
+        raise QuestRuleError("only a planned session can be marked as didn't happen")
+    if as_utc(block.start_at) > as_utc(now):
+        raise QuestRuleError("a session that has not started yet can be cancelled, not missed")
+
+
+@dataclass(frozen=True, slots=True)
+class SessionsKept:
+    kept: int
+    total: int
+
+
+def sessions_kept(
+    blocks: Sequence[BlockView], start: datetime, end: datetime, now: datetime
+) -> SessionsKept:
+    """Of the sessions starting in [start, end) that are due an answer, how many were done.
+
+    Due an answer: done, didn't happen, or still `scheduled` after its end (unconfirmed).
+    Cancelled sessions are left out, and so is a planned session that has not ended yet. A
+    session marked done before its end counts as kept straight away.
+    """
+    kept = total = 0
+    for block in blocks:
+        if not as_utc(start) <= as_utc(block.start_at) < as_utc(end):
+            continue
+        if block.status is TimeBlockStatus.COMPLETED:
+            kept += 1
+            total += 1
+        elif block.status is TimeBlockStatus.MISSED or is_unconfirmed(block, now):
+            total += 1
+    return SessionsKept(kept=kept, total=total)
+
+
 def overlapping_ids(blocks: Sequence[BlockView]) -> frozenset[int]:
-    """Ids of non-cancelled blocks that overlap another non-cancelled block."""
+    """Ids of blocks that hold time (`TAKES_NO_TIME` aside) and overlap another such block."""
     live = sorted(
-        (block for block in blocks if block.status is not TimeBlockStatus.CANCELLED),
+        (block for block in blocks if block.status not in TAKES_NO_TIME),
         key=lambda block: as_utc(block.start_at),
     )
     found: set[int] = set()

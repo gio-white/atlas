@@ -3,11 +3,10 @@ from collections.abc import Sequence
 from sqlmodel import Session, col, select
 
 from atlas.db.models import (
-    Area,
-    EntertainmentTitle,
-    EntertainmentTopic,
     Entry,
     Habit,
+    LibraryTitle,
+    LibraryTopic,
     Metric,
     ScreenApp,
     ScreenBudget,
@@ -18,13 +17,6 @@ from atlas.db.models import (
 )
 from atlas.domain import Period
 from atlas.services.errors import AlreadyExistsError, NotFoundError, ValidationError
-
-
-def require_area(session: Session, slug: str) -> Area:
-    row = session.exec(select(Area).where(Area.slug == slug)).first()
-    if row is None:
-        raise NotFoundError("area", slug)
-    return row
 
 
 def require_metric(session: Session, slug: str) -> Metric:
@@ -83,17 +75,17 @@ def require_sleep_session(session: Session, session_id: int) -> SleepSession:
     return row
 
 
-def require_entertainment_topic(session: Session, slug: str) -> EntertainmentTopic:
-    row = session.exec(select(EntertainmentTopic).where(EntertainmentTopic.slug == slug)).first()
+def require_library_topic(session: Session, slug: str) -> LibraryTopic:
+    row = session.exec(select(LibraryTopic).where(LibraryTopic.slug == slug)).first()
     if row is None:
-        raise NotFoundError("entertainment_topic", slug)
+        raise NotFoundError("library_topic", slug)
     return row
 
 
-def require_entertainment_title(session: Session, slug: str) -> EntertainmentTitle:
-    row = session.exec(select(EntertainmentTitle).where(EntertainmentTitle.slug == slug)).first()
+def require_library_title(session: Session, slug: str) -> LibraryTitle:
+    row = session.exec(select(LibraryTitle).where(LibraryTitle.slug == slug)).first()
     if row is None:
-        raise NotFoundError("entertainment_title", slug)
+        raise NotFoundError("library_title", slug)
     return row
 
 
@@ -104,34 +96,23 @@ def require_entry(session: Session, entry_id: int) -> Entry:
     return row
 
 
-def require_active_area(session: Session, slug: str) -> Area:
-    area = require_area(session, slug)
-    if area.archived_at is not None:
-        raise ValidationError(f"area {slug!r} is archived")
-    return area
-
-
 def require_active_metric(session: Session, slug: str) -> Metric:
     metric = require_metric(session, slug)
     if metric.archived_at is not None:
         raise ValidationError(f"metric {slug!r} is archived")
-    area = session.get(Area, metric.area_id)
-    if area is not None and area.archived_at is not None:
-        raise ValidationError(f"metric {slug!r} belongs to archived area {area.slug!r}")
     return metric
 
 
 def ensure_unique_slug(
     session: Session,
-    model: type[Area]
-    | type[Metric]
+    model: type[Metric]
     | type[Habit]
     | type[ScreenCategory]
     | type[ScreenApp]
     | type[ScreenBudget]
     | type[ScreenDevice]
-    | type[EntertainmentTopic]
-    | type[EntertainmentTitle],
+    | type[LibraryTopic]
+    | type[LibraryTitle],
     slug: str,
 ) -> None:
     if session.exec(select(model).where(model.slug == slug)).first() is not None:

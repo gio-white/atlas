@@ -19,7 +19,6 @@ from atlas.services import (
     create_screen_device,
     export_all,
     import_all,
-    list_areas,
     list_habits,
     list_metrics,
     log_entry,
@@ -55,7 +54,8 @@ def _populated(session):
 def test_export_round_trips_through_a_fresh_database(session):
     payload = _populated(session)
     assert payload["schema_version"] == CURRENT_SCHEMA_VERSION
-    assert [area["slug"] for area in payload["areas"]] == ["health"]
+    assert "areas" not in payload
+    assert {metric["origin"] for metric in payload["metrics"]} == {"manual"}
     assert {metric["slug"] for metric in payload["metrics"]} == {
         "meditated",
         "pushups",
@@ -68,7 +68,6 @@ def test_export_round_trips_through_a_fresh_database(session):
         import_all(other, payload)
         restored = export_all(other)
 
-    assert restored["areas"] == payload["areas"]
     assert restored["metrics"] == payload["metrics"]
     assert restored["habits"] == payload["habits"]
     assert restored["screen_categories"] == payload["screen_categories"]
@@ -86,7 +85,6 @@ def test_import_replace_clears_existing_rows(session):
 
     import_all(session, payload, replace=True)
 
-    assert [area.slug for area in list_areas(session)] == ["health"]
     assert [habit.slug for habit in list_habits(session)] == ["pushups-daily"]
     assert {metric.slug for metric in list_metrics(session)} == {
         "meditated",
@@ -192,7 +190,7 @@ def test_import_accepts_schema_version_7(session):
         import_all(other, payload)
         restored = export_all(other)
     assert restored["schema_version"] == CURRENT_SCHEMA_VERSION
-    assert restored["entertainment_topics"] == payload.get("entertainment_topics", [])
+    assert restored["library_topics"] == payload.get("library_topics", [])
 
 
 def test_export_round_trips_sleep_sessions(session, monkeypatch):
@@ -337,3 +335,138 @@ def test_quest_import_rejects_a_dangling_reference(session):
     payload["milestones"][0]["goal_id"] = 99
     with pytest.raises(ValidationError, match="goal_id"):
         import_all(session, payload)
+
+
+def _v11_export_with_areas() -> dict:
+    """The shape exports had before schema 12: an `areas` section, and each metric names its
+    area instead of carrying an origin."""
+
+    def metric(slug: str, area: str, value_type: str = "count", **extra) -> dict:
+        return {
+            "slug": slug,
+            "area": area,
+            "name": slug.title(),
+            "value_type": value_type,
+            "unit": None,
+            "aggregation": "last" if value_type == "text" else "sum",
+            "direction": "neutral",
+            "archived_at": None,
+            **extra,
+        }
+
+    return {
+        "schema_version": 11,
+        "areas": [
+            {"slug": "health", "name": "Health", "description": None, "archived_at": None},
+            {"slug": "habits", "name": "Habits", "description": None, "archived_at": None},
+            {"slug": "screen", "name": "Screen", "description": None, "archived_at": None},
+            {"slug": "life", "name": "Life", "description": None, "archived_at": None},
+            {
+                "slug": "old",
+                "name": "Old",
+                "description": None,
+                "archived_at": "2026-05-01T00:00:00+00:00",
+            },
+        ],
+        "metrics": [
+            metric("pushups", "health"),
+            metric("meditate", "habits", "bool"),
+            metric("instagram", "screen", "duration"),
+            metric("journal", "life", "text"),
+            metric("retired", "old"),
+            metric("retired-earlier", "old", archived_at="2026-01-01T00:00:00+00:00"),
+        ],
+    }
+
+
+def test_import_of_a_v11_export_turns_areas_into_metric_origins(session):
+    summary = import_all(session, _v11_export_with_areas())
+
+    origins = {
+        metric.slug: str(metric.origin) for metric in list_metrics(session, include_archived=True)
+    }
+    assert origins == {
+        "pushups": "manual",
+        "meditate": "habit",
+        "instagram": "screen",
+        "journal": "journal",
+        "retired": "manual",
+        "retired-earlier": "manual",
+    }
+    assert summary.ignored_sections == ("areas",)
+    assert summary.notes == [
+        "Skipped areas from this version 11 export: Atlas no longer groups metrics into areas. "
+        "Every metric and habit was kept."
+    ]
+    assert "areas" not in export_all(session)
+
+
+def test_import_of_a_v11_export_keeps_metrics_of_an_archived_area_archived(session):
+    import_all(session, _v11_export_with_areas())
+
+    by_slug = {metric.slug: metric for metric in list_metrics(session, include_archived=True)}
+    assert by_slug["pushups"].archived_at is None
+    assert by_slug["retired"].archived_at is not None
+    assert by_slug["retired-earlier"].archived_at.year == 2026
+    assert by_slug["retired-earlier"].archived_at.month == 1
+    assert {metric.slug for metric in list_metrics(session)} == {
+        "pushups",
+        "meditate",
+        "instagram",
+        "journal",
+    }
+
+
+def test_import_marks_a_screen_apps_metric_as_screen_even_if_the_export_says_manual(session):
+    payload = {
+        "schema_version": CURRENT_SCHEMA_VERSION,
+        "metrics": [
+            {
+                "slug": "instagram",
+                "origin": "manual",
+                "name": "Instagram",
+                "value_type": "duration",
+                "unit": "min",
+                "aggregation": "sum",
+                "direction": "lower_is_better",
+                "archived_at": None,
+            }
+        ],
+        "screen_categories": [
+            {"slug": "social", "name": "Social", "judgment": "waste", "archived_at": None}
+        ],
+        "screen_apps": [
+            {
+                "slug": "instagram",
+                "name": "Instagram",
+                "category": "social",
+                "metric": "instagram",
+                "archived_at": None,
+            }
+        ],
+    }
+
+    import_all(session, payload)
+
+    assert [str(metric.origin) for metric in list_metrics(session)] == ["screen"]
+
+
+def test_import_of_an_export_before_schema_13_reads_the_entertainment_sections(session):
+    payload = {
+        "schema_version": 12,
+        "metrics": [],
+        "entries": [],
+        "habits": [],
+        "entertainment_topics": [{"slug": "jazz", "name": "Jazz"}],
+        "entertainment_titles": [
+            {"slug": "kind-of-blue", "name": "Kind of Blue", "kind": "music", "topics": ["jazz"]}
+        ],
+    }
+
+    import_all(session, payload)
+
+    restored = export_all(session)
+    assert [topic["slug"] for topic in restored["library_topics"]] == ["jazz"]
+    assert [(title["slug"], title["topics"]) for title in restored["library_titles"]] == [
+        ("kind-of-blue", ["jazz"])
+    ]

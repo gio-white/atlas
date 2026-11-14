@@ -3,15 +3,15 @@ from typing import Any
 from sqlmodel import Session
 
 from atlas.api.schemas import (
-    EntertainmentTitleOut,
-    EntertainmentTopicOut,
-    EntertainmentTopicRefOut,
     EntryOut,
     HabitBreakOut,
     HabitCheckInOut,
     HabitDetailOut,
     HabitOut,
     HabitStatusOut,
+    LibraryTitleOut,
+    LibraryTopicOut,
+    LibraryTopicRefOut,
     MetricOut,
     ScreenAppOut,
     ScreenBudgetOut,
@@ -26,6 +26,7 @@ from atlas.domain import (
     Comparator,
     Direction,
     HabitKind,
+    MetricOrigin,
     Period,
     ScreenBudgetTargetKind,
     ScreenJudgment,
@@ -34,7 +35,6 @@ from atlas.domain import (
     ValueType,
 )
 from atlas.services import (
-    list_areas,
     list_metrics,
     list_screen_apps,
     list_screen_categories,
@@ -42,14 +42,6 @@ from atlas.services import (
     sleep_stages,
     title_view_for,
 )
-
-
-def area_slug_by_id(session: Session) -> dict[int, str]:
-    return {
-        area.id: area.slug
-        for area in list_areas(session, include_archived=True)
-        if area.id is not None
-    }
 
 
 def metric_slug_by_id(session: Session) -> dict[int, str]:
@@ -60,11 +52,11 @@ def metric_slug_by_id(session: Session) -> dict[int, str]:
     }
 
 
-def metric_out(metric: Any, area_slug: str) -> MetricOut:
+def metric_out(metric: Any) -> MetricOut:
     return MetricOut(
         id=metric.id,
         slug=metric.slug,
-        area=area_slug,
+        origin=MetricOrigin(metric.origin),
         name=metric.name,
         value_type=ValueType(metric.value_type),
         unit=metric.unit,
@@ -72,11 +64,6 @@ def metric_out(metric: Any, area_slug: str) -> MetricOut:
         direction=Direction(metric.direction),
         archived_at=metric.archived_at,
     )
-
-
-def metrics_out(session: Session, metrics: list[Any]) -> list[MetricOut]:
-    areas = area_slug_by_id(session)
-    return [metric_out(metric, areas[metric.area_id]) for metric in metrics]
 
 
 def entry_out(entry: Any, metric_slug: str) -> EntryOut:
@@ -242,8 +229,8 @@ def sleep_session_out(session: Session, row: Any) -> SleepSessionOut:
     )
 
 
-def entertainment_topic_out(topic: Any) -> EntertainmentTopicOut:
-    return EntertainmentTopicOut(
+def library_topic_out(topic: Any) -> LibraryTopicOut:
+    return LibraryTopicOut(
         id=topic.id,
         slug=topic.slug,
         name=topic.name,
@@ -251,8 +238,8 @@ def entertainment_topic_out(topic: Any) -> EntertainmentTopicOut:
     )
 
 
-def entertainment_title_out(view: Any) -> EntertainmentTitleOut:
-    return EntertainmentTitleOut(
+def library_title_out(view: Any) -> LibraryTitleOut:
+    return LibraryTitleOut(
         slug=view.slug,
         name=view.name,
         kind=view.kind,
@@ -265,13 +252,11 @@ def entertainment_title_out(view: Any) -> EntertainmentTitleOut:
         note=view.note,
         rating=view.rating,
         link=view.link,
-        topics=[
-            EntertainmentTopicRefOut(slug=topic.slug, name=topic.name) for topic in view.topics
-        ],
+        topics=[LibraryTopicRefOut(slug=topic.slug, name=topic.name) for topic in view.topics],
         image=view.image,
         created_at=view.created_at,
     )
 
 
-def entertainment_title_out_for(session: Session, title: Any) -> EntertainmentTitleOut:
-    return entertainment_title_out(title_view_for(session, title))
+def library_title_out_for(session: Session, title: Any) -> LibraryTitleOut:
+    return library_title_out(title_view_for(session, title))

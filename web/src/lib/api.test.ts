@@ -5,10 +5,10 @@ import {
   type ApiError,
   completeQuestGoal,
   createQuestTask,
-  getEntertainmentDashboard,
   getHabitsBoard,
-  getHabitsCalendar,
-  getQuestCalendar,
+  getHabitsGrid,
+  getLibraryDashboard,
+  getPlan,
   getScreenDashboard,
   listQuestTasks,
   logEntry,
@@ -18,7 +18,7 @@ import {
 
 describe('queryString', () => {
   it('omits empty values and names as_of for the API', () => {
-    expect(queryString({ as_of: '2026-08-13', area: '', include_archived: undefined })).toBe(
+    expect(queryString({ as_of: '2026-08-13', metric: '', include_archived: undefined })).toBe(
       '?as_of=2026-08-13',
     )
   })
@@ -47,7 +47,7 @@ describe('request helpers', () => {
     vi.unstubAllGlobals()
   })
 
-  it('getHabitsCalendar sends period and as_of', async () => {
+  it('getHabitsGrid sends period and as_of', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -61,10 +61,10 @@ describe('request helpers', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    await getHabitsCalendar('month', '2026-08-13')
+    await getHabitsGrid('month', '2026-08-13')
 
     expect(fetchMock).toHaveBeenCalledWith(
-      '/views/habits/calendar?period=month&as_of=2026-08-13',
+      '/views/habits/grid?period=month&as_of=2026-08-13',
       expect.any(Object),
     )
     vi.unstubAllGlobals()
@@ -111,7 +111,7 @@ describe('request helpers', () => {
     vi.unstubAllGlobals()
   })
 
-  it('getEntertainmentDashboard sends period and as_of', async () => {
+  it('getLibraryDashboard sends period and as_of', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -134,10 +134,10 @@ describe('request helpers', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    await getEntertainmentDashboard('week', '2026-08-14')
+    await getLibraryDashboard('week', '2026-08-14')
 
     expect(fetchMock).toHaveBeenCalledWith(
-      '/entertainment/dashboard?period=week&as_of=2026-08-14',
+      '/library/dashboard?period=week&as_of=2026-08-14',
       expect.any(Object),
     )
     vi.unstubAllGlobals()
@@ -241,11 +241,11 @@ describe('quest client', () => {
     vi.unstubAllGlobals()
   })
 
-  it('asks the calendar for a UTC range', async () => {
+  it('asks Plan for a UTC range', async () => {
     const fetchMock = stubFetch()
-    await getQuestCalendar('2026-11-09T00:00:00Z', '2026-11-16T00:00:00Z')
+    await getPlan('2026-11-09T00:00:00Z', '2026-11-16T00:00:00Z')
     expect(call(fetchMock).path).toBe(
-      '/views/calendar?start=2026-11-09T00%3A00%3A00Z&end=2026-11-16T00%3A00%3A00Z',
+      '/views/plan?start=2026-11-09T00%3A00%3A00Z&end=2026-11-16T00%3A00%3A00Z',
     )
     vi.unstubAllGlobals()
   })

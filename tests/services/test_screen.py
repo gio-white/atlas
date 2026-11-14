@@ -3,7 +3,7 @@ from datetime import UTC, date, datetime
 import pytest
 
 from atlas.db import create_memory_engine, init_schema, make_session_factory
-from atlas.domain import Comparator, Direction, Period, ScreenJudgment, ValueType
+from atlas.domain import Comparator, Direction, MetricOrigin, Period, ScreenJudgment, ValueType
 from atlas.services import (
     AlreadyExistsError,
     NotFoundError,
@@ -17,7 +17,6 @@ from atlas.services import (
     export_all,
     get_metric,
     import_all,
-    list_areas,
     list_screen_apps,
     list_screen_sessions,
     log_entry,
@@ -49,11 +48,6 @@ def _taxonomy(session):
     )
 
 
-def test_create_category_creates_screen_area(session):
-    create_screen_category(session, "entertainment", judgment=ScreenJudgment.WASTE)
-    assert [area.slug for area in list_areas(session)] == ["screen"]
-
-
 def test_create_app_creates_duration_metric_mirroring_judgment(session):
     create_screen_category(session, "entertainment", judgment=ScreenJudgment.WASTE)
     app = create_screen_app(session, "instagram", category_slug="entertainment", name="Instagram")
@@ -64,6 +58,7 @@ def test_create_app_creates_duration_metric_mirroring_judgment(session):
     assert metric.unit == "min"
     assert metric.direction is Direction.LOWER_IS_BETTER
     assert metric.name == "Instagram"
+    assert MetricOrigin(metric.origin) is MetricOrigin.SCREEN
 
 
 def test_view_rolls_apps_into_category_and_waste_budget(session):
@@ -84,7 +79,7 @@ def test_view_rolls_apps_into_category_and_waste_budget(session):
     assert [session_row.app for session_row in view.sessions] == ["instagram", "youtube", "coding"]
 
 
-def test_reclassify_entertainment_moves_minutes_out_of_waste(session):
+def test_reclassify_library_moves_minutes_out_of_waste(session):
     _taxonomy(session)
     log_entry(session, "instagram", 30.0, occurred_on=date(2026, 8, 14))
     update_screen_category(session, "entertainment", judgment=ScreenJudgment.USEFUL)
@@ -269,3 +264,41 @@ def test_screen_dashboard_week_totals_and_budget_insight(session, monkeypatch):
     assert dash.budgets[0].current_value == 20.0
     kinds = {item.kind.value for item in dash.insights}
     assert "budget" not in kinds or dash.budgets[0].satisfied is True
+
+
+def test_a_cap_on_all_screen_time_adds_up_every_app(session):
+    _taxonomy(session)
+    create_screen_budget(
+        session,
+        "daily-total",
+        name="Daily total",
+        target_kind="total",
+        period=Period.DAY,
+        target_value=150.0,
+        comparator=Comparator.AT_MOST,
+        active_from=date(2026, 8, 1),
+    )
+    log_entry(session, "instagram", 30.0, occurred_on=date(2026, 8, 14))
+    log_entry(session, "coding", 90.0, occurred_on=date(2026, 8, 14))
+    log_entry(session, "youtube", 40.0, occurred_on=date(2026, 8, 14))
+
+    view = screen_view(session, as_of=date(2026, 8, 14))
+    total = next(budget for budget in view.budgets if budget.slug == "daily-total")
+
+    assert total.target_kind == "total"
+    assert total.target_slug == "all"
+    assert total.current_value == 160.0
+    assert total.satisfied is False
+
+
+def test_a_cap_on_all_screen_time_ignores_any_target_it_is_given(session):
+    budget = create_screen_budget(
+        session,
+        "total",
+        target_kind="total",
+        target_slug="entertainment",
+        period=Period.DAY,
+        target_value=60.0,
+        comparator=Comparator.AT_MOST,
+    )
+    assert budget.target_slug == "all"

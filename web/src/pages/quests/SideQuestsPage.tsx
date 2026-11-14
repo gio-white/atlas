@@ -21,7 +21,7 @@ export function SideQuestsPage() {
   }, [reload])
 
   if (error !== null && data === null) {
-    return <PageUnavailable title="Side quests" message={error} />
+    return <PageUnavailable tab title="Side quests" message={error} />
   }
   if (data === null) return <PageLoading />
 
@@ -30,12 +30,13 @@ export function SideQuestsPage() {
       <div className="flex flex-col gap-8">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <PageHeader
+            tab
             title="Side quests"
             description="Work that matters but isn't part of a goal."
           />
           <Button
             type="button"
-            className="bg-iris hover:bg-iris/90"
+            className="bg-accent hover:bg-accent/90"
             onClick={() => setCreating(true)}
           >
             <Plus className="size-4" aria-hidden />

@@ -197,6 +197,9 @@ only applies to Claude sessions.
 
 ## 3. Track T2 — Navigation, life areas, and fewer concepts
 
+> **Superseded (13 Nov 2026)** by the [redesign brief](redesign-brief.md), which replaces this
+> track's proposed model and work items. Kept for the record.
+
 ### 3.1 What is confusing today
 
 The app groups things along **three different axes** but shows them as one flat list:

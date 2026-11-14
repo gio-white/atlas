@@ -7,11 +7,12 @@ import {
   cancelTimeBlock,
   completeTimeBlock,
   getQuestTask,
+  missTimeBlock,
   type QuestTaskDetail,
   type TimeBlock,
 } from '@/lib/api'
 import { formatMinutes } from '@/lib/format'
-import { BLOCK_STATUS_LABELS, formatBlockDay, formatTimeRange } from '@/lib/timeBlocks'
+import { BLOCK_STATUS_LABELS, formatBlockDay, formatTimeRange, hasStarted } from '@/lib/timeBlocks'
 import { cn } from '@/lib/utils'
 
 import { TimeBlockDialog } from './TimeBlockDialog'
@@ -93,7 +94,7 @@ export function TaskTimeBlocks({ taskId, onChanged }: { taskId: number; onChange
           title={closed ? 'Reopen the task to plan more sessions.' : undefined}
           onClick={() => setDialog({ block: null })}
         >
-          <CalendarPlus className="size-4 text-iris" aria-hidden />
+          <CalendarPlus className="size-4 text-accent" aria-hidden />
           Schedule
         </Button>
       </div>
@@ -117,7 +118,7 @@ export function TaskTimeBlocks({ taskId, onChanged }: { taskId: number; onChange
               key={block.id}
               className={cn(
                 'flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2',
-                block.status === 'cancelled' && 'text-muted',
+                (block.status === 'cancelled' || block.status === 'missed') && 'text-muted',
               )}
             >
               <div className="min-w-0 flex-1">
@@ -153,17 +154,33 @@ export function TaskTimeBlocks({ taskId, onChanged }: { taskId: number; onChange
                       <CalendarCheck className="size-4" aria-hidden />
                       Done
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={() =>
-                        run(() => cancelTimeBlock(block.id), 'Couldn’t cancel the session.')
-                      }
-                      aria-label={`Cancel session: ${formatBlockDay(block.start_at)}`}
-                    >
-                      <Ban className="size-4" aria-hidden />
-                    </Button>
+                    {hasStarted(block) ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={busy}
+                        onClick={() =>
+                          run(() => missTimeBlock(block.id), 'Couldn’t mark the session.')
+                        }
+                        aria-label={`Didn’t happen: ${formatBlockDay(block.start_at)}`}
+                        title="Didn’t happen"
+                      >
+                        <Ban className="size-4" aria-hidden />
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={busy}
+                        onClick={() =>
+                          run(() => cancelTimeBlock(block.id), 'Couldn’t cancel the session.')
+                        }
+                        aria-label={`Cancel session: ${formatBlockDay(block.start_at)}`}
+                        title="Cancel session"
+                      >
+                        <Ban className="size-4" aria-hidden />
+                      </Button>
+                    )}
                   </>
                 )}
                 <Button

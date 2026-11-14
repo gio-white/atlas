@@ -5,8 +5,14 @@ import pytest
 from atlas.domain import ParentKind, TaskStatus, TimeBlockStatus
 from atlas.domain.quests import QuestKind
 from atlas.services import NotFoundError, ValidationError
-from atlas.services.quest_views import calendar_view, today_view
-from atlas.services.quests import create_container, create_task, get_task, update_task
+from atlas.services.quest_views import plan_view, today_view
+from atlas.services.quests import (
+    complete_container,
+    create_container,
+    create_task,
+    get_task,
+    update_task,
+)
 from atlas.services.time_blocks import (
     cancel_time_block,
     complete_time_block,
@@ -14,6 +20,7 @@ from atlas.services.time_blocks import (
     delete_time_block,
     get_time_block,
     list_time_blocks,
+    miss_time_block,
     update_time_block,
 )
 
@@ -146,12 +153,72 @@ def test_today_view_uses_the_local_day(session, monkeypatch):
     assert [item.block.id for item in view.blocks] == [late.id]
 
 
-def test_calendar_view(session):
+def test_plan_view(session):
     task = _task(session)
     inside = _block(session, task.id, NOW)
     overlapping = _block(session, task.id, NOW + timedelta(minutes=30))
     _block(session, task.id, NOW + 72 * HOUR)
-    view = calendar_view(session, start=NOW - HOUR, end=NOW + 24 * HOUR, now=NOW)
+    view = plan_view(session, start=NOW - HOUR, end=NOW + 24 * HOUR, now=NOW)
     assert [item.block.id for item in view.blocks] == [inside.id, overlapping.id]
     assert all(item.block.overlaps for item in view.blocks)
     assert view.blocks[0].task.title == "Study"
+
+
+def test_not_scheduled_yet_lists_next_actions_without_an_upcoming_session(session):
+    goals = [
+        create_container(session, QuestKind.GOAL, {"title": title}, now=NOW)
+        for title in ("Ship", "Learn", "Move", "Read")
+    ]
+    side = create_container(session, QuestKind.SIDE_QUEST, {"title": "Taxes"}, now=NOW)
+    done_goal = create_container(session, QuestKind.GOAL, {"title": "Done"}, now=NOW)
+
+    def next_task(kind, parent, title):
+        return create_task(session, title=title, parent_kind=kind, parent_id=parent.id, now=NOW)
+
+    planned, past, cancelled, open_ = (
+        next_task(ParentKind.GOAL, goal, title)
+        for goal, title in zip(goals, ("Planned", "Past", "Cancelled", "Open"), strict=True)
+    )
+    forms = next_task(ParentKind.SIDE_QUEST, side, "Forms")
+    next_task(ParentKind.GOAL, done_goal, "Leftover")
+    complete_container(session, QuestKind.GOAL, done_goal.id, override=True, now=NOW)
+    _block(session, planned.id, NOW + 50 * HOUR)  # upcoming, outside the week shown
+    _block(session, past.id, NOW - 3 * HOUR)  # ended, unanswered: not upcoming
+    later = _block(session, cancelled.id, NOW + 3 * HOUR)
+    cancel_time_block(session, later.id, now=NOW)
+
+    view = plan_view(session, start=NOW - HOUR, end=NOW + HOUR, now=NOW)
+
+    assert [task.id for task in view.not_scheduled] == [past.id, cancelled.id, open_.id, forms.id]
+
+
+def test_a_session_in_progress_counts_as_upcoming(session):
+    goal = create_container(session, QuestKind.GOAL, {"title": "Ship"}, now=NOW)
+    task = create_task(
+        session, title="Write", parent_kind=ParentKind.GOAL, parent_id=goal.id, now=NOW
+    )
+    _block(session, task.id, NOW - timedelta(minutes=30))
+
+    assert plan_view(session, start=NOW, end=NOW + HOUR, now=NOW).not_scheduled == []
+
+
+def test_a_session_that_did_not_happen_is_kept_apart_from_a_cancelled_one(session):
+    task = _task(session)
+    past = _block(session, task.id, NOW - 3 * HOUR)
+    later = _block(session, task.id, NOW + 3 * HOUR)
+
+    missed = miss_time_block(session, past.id, now=NOW)
+
+    assert missed.status is TimeBlockStatus.MISSED
+    assert missed.unconfirmed is False
+    assert get_task(session, task.id, now=NOW).status is TaskStatus.TODO
+    with pytest.raises(ValidationError, match="not started"):
+        miss_time_block(session, later.id, now=NOW)
+    with pytest.raises(ValidationError, match="only a planned session"):
+        miss_time_block(session, past.id, now=NOW)
+    with pytest.raises(NotFoundError):
+        miss_time_block(session, 9999, now=NOW)
+    assert get_task(session, task.id, now=NOW).planned_minutes == 60
+    day = today_view(session, as_of=NOW.date(), now=NOW)
+    assert [item.block.id for item in day.unconfirmed] == []
+    assert [item.block.id for item in day.blocks] == [past.id, later.id]

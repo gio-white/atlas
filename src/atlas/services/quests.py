@@ -11,7 +11,16 @@ from typing import Any
 
 from sqlmodel import Session, select
 
-from atlas.db.models import Ambition, Chapter, Goal, Milestone, SideQuest, Task, TimeBlock
+from atlas.db.models import (
+    Ambition,
+    Chapter,
+    Goal,
+    HabitSupport,
+    Milestone,
+    SideQuest,
+    Task,
+    TimeBlock,
+)
 from atlas.domain import (
     ChapterState,
     ParentKind,
@@ -22,6 +31,7 @@ from atlas.domain import (
     TimeBlockStatus,
 )
 from atlas.domain.quests import (
+    TAKES_NO_TIME,
     BlockView,
     NeedsOverrideError,
     ParentRef,
@@ -67,6 +77,16 @@ TASK_PARENT_COLUMNS: dict[ParentKind, str] = {
 }
 
 _KIND_OF_PARENT = {kind: QuestKind(kind.value) for kind in ParentKind}
+
+# The `habit_support` column that points at each kind of quest item.
+SUPPORT_COLUMNS: dict[QuestKind, str] = {
+    QuestKind.AMBITION: "ambition_id",
+    QuestKind.GOAL: "goal_id",
+    QuestKind.MILESTONE: "milestone_id",
+    QuestKind.SIDE_QUEST: "side_quest_id",
+    QuestKind.CHAPTER: "chapter_id",
+    QuestKind.TASK: "task_id",
+}
 
 
 # --- Views returned to the API ---------------------------------------------------------------
@@ -294,9 +314,7 @@ class QuestIndex:
             created_at=as_utc(row.created_at),
             updated_at=as_utc(row.updated_at),
             planned_minutes=sum(
-                block_minutes(block)
-                for block in node.blocks
-                if block.status is not TimeBlockStatus.CANCELLED
+                block_minutes(block) for block in node.blocks if block.status not in TAKES_NO_TIME
             ),
             block_count=len(rows),
             blocks=[block_item(block, now) for block in rows] if with_blocks else [],
@@ -485,6 +503,7 @@ def delete_container(session: Session, kind: QuestKind, item_id: int) -> None:
             f"{_label(kind)} {item_id} still has {len(children)} item(s) under it; "
             "archive it instead or remove them first"
         )
+    detach_supports(session, kind, item_id)
     session.delete(session.get(CONTAINER_MODELS[kind], item_id))
     session.commit()
 
@@ -666,6 +685,7 @@ def delete_task(session: Session, task_id: int) -> None:
         raise ConflictError("only an Inbox task can be deleted; archive it instead")
     if session.exec(select(TimeBlock).where(TimeBlock.task_id == task_id)).first() is not None:
         raise ConflictError("this task has time blocks; archive it instead")
+    detach_supports(session, QuestKind.TASK, task_id)
     session.delete(row)
     session.commit()
 
@@ -724,6 +744,8 @@ def promote_task(
         raise ValidationError("a task is already a task; organize it instead")
     fields: dict[str, Any] = {"title": row.title, "description": row.description}
     fields.update(_promote_parent_fields(kind, parent_kind, parent_id))
+    # Habits that supported the task support what it became.
+    habit_ids = detach_supports(session, QuestKind.TASK, task_id)
     session.delete(row)
     session.flush()
     try:
@@ -731,7 +753,22 @@ def promote_task(
     except Exception:
         session.rollback()
         raise
+    if habit_ids:
+        for habit_id in habit_ids:
+            session.add(HabitSupport(habit_id=habit_id, **{SUPPORT_COLUMNS[kind]: created.id}))
+        session.commit()
     return PromoteResult(kind=kind, id=created.id, title=created.title)
+
+
+def detach_supports(session: Session, kind: QuestKind, item_id: int) -> list[int]:
+    """Remove every habit link to one quest item (before the item is deleted); flushes, does
+    not commit. Returns the habit ids that were linked."""
+    column = getattr(HabitSupport, SUPPORT_COLUMNS[kind])
+    rows = session.exec(select(HabitSupport).where(column == item_id)).all()
+    for link in rows:
+        session.delete(link)
+    session.flush()
+    return [link.habit_id for link in rows]
 
 
 # --- Helpers ---------------------------------------------------------------------------------

@@ -86,6 +86,7 @@ export const BLOCK_STATUS_LABELS: Record<TimeBlockStatus, string> = {
   scheduled: 'Planned',
   completed: 'Session done',
   cancelled: 'Cancelled',
+  missed: 'Didn’t happen',
 }
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
@@ -94,7 +95,7 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   completed: 'Done',
 }
 
-// --- Weeks (Calendar) ---------------------------------------------------------------------
+// --- Weeks (Plan) -------------------------------------------------------------------------
 
 /** The Monday (local) of the week that contains `date`. */
 export function weekStart(date: string): string {
@@ -115,7 +116,7 @@ export function weekDays(monday: string): string[] {
   return Array.from({ length: 7 }, (_, index) => addDays(monday, index))
 }
 
-/** UTC bounds [start, end) of the local week starting at `monday`, for `/views/calendar`. */
+/** UTC bounds [start, end) of the local week starting at `monday`, for `/views/plan`. */
 export function weekRangeUtc(monday: string): { start: string; end: string } {
   return { start: localToUtc(monday, '00:00'), end: localToUtc(addDays(monday, 7), '00:00') }
 }
@@ -222,4 +223,12 @@ function safeStorage(): Storage | null {
   } catch {
     return null
   }
+}
+
+/**
+ * Whether a session's start has passed. A session that has started is answered with "Didn't
+ * happen" (it counts as not kept); one still ahead is called off with "Cancel".
+ */
+export function hasStarted(block: { start_at: string }, now: Date = new Date()): boolean {
+  return new Date(block.start_at).getTime() <= now.getTime()
 }
