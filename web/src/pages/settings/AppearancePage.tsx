@@ -48,7 +48,7 @@ export function AppearancePage() {
                 type="button"
                 aria-pressed={theme === option.id}
                 className={cn(
-                  'min-h-8 cursor-pointer rounded-md px-3 text-xs font-medium focus-visible:ring-2 focus-visible:ring-iris focus-visible:outline-none',
+                  'min-h-8 cursor-pointer rounded-md px-3 text-xs font-medium focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none',
                   theme === option.id
                     ? 'bg-surface text-ink shadow-sm'
                     : 'text-muted hover:text-ink',

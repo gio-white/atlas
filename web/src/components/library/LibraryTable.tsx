@@ -317,7 +317,7 @@ function StatusChip({
       aria-pressed={active}
       className={cn(
         'cursor-pointer rounded-full border px-3 py-1 text-xs motion-safe:transition-colors',
-        active ? 'border-library bg-library/15 text-ink' : 'border-line text-muted hover:text-ink',
+        active ? 'border-accent bg-accent/12 text-ink' : 'border-line text-muted hover:text-ink',
       )}
       onClick={onClick}
     >

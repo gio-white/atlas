@@ -303,8 +303,8 @@ only labels (status, priority, chapter state, level names), formats dates ("7 No
 percentages, links items to their page, orders siblings for up/down moves, and searches the
 organize picker. Every screen reloads its view after a change.
 
-**Visual language** (`web/src/components/quests/QuestVisuals.tsx`). One quest accent, the
-theme's `iris`, on neutral surfaces; light and dark come from the theme tokens. Levels are told
+**Visual language** (`web/src/components/quests/QuestVisuals.tsx`). The app's one accent, the
+theme's `accent`, on neutral surfaces; light and dark come from the theme tokens. Levels are told
 apart by icon and shape, never by colour alone: Ambition = compass, Goal = flag, Milestone =
 diamond node, Chapter = bookmark, Task = round checkbox, Side quest = scroll (lucide-react).
 Cards carry a progress ring (a dashed empty ring and "Not broken down yet" when `progress` is

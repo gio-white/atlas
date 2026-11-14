@@ -161,19 +161,19 @@ function IconTile({
   return (
     <Link
       to={to}
-      className="group flex flex-col items-center gap-2 rounded-3xl p-1 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      className="group flex flex-col items-center gap-2 rounded-3xl p-1 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       <span className="relative">
         <CategoryIcon
           id={id}
           className={cn(
-            'drop-shadow-[0_10px_18px_rgba(0,0,0,0.18)] motion-safe:transition-transform motion-safe:duration-200 group-hover:-translate-y-1 group-hover:scale-[1.04] group-active:scale-95',
+            'motion-safe:transition-transform motion-safe:duration-200 group-hover:-translate-y-0.5',
             small ? 'size-16 sm:size-20' : 'size-20 sm:size-24 lg:size-28',
           )}
         />
         {badge > 0 ? (
           <span
-            className="absolute -top-1.5 -right-1.5 flex h-6 min-w-6 items-center justify-center rounded-full bg-bad px-1.5 text-xs font-semibold text-white ring-2 ring-canvas"
+            className="absolute -top-1.5 -right-1.5 flex h-6 min-w-6 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-semibold text-on-accent ring-2 ring-canvas"
             title={`${badge} in progress`}
           >
             {badge}

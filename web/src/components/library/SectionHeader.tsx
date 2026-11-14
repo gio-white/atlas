@@ -34,7 +34,7 @@ export function SectionHeader({
       </Link>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <CategoryIcon id={icon} className="size-14 drop-shadow-md sm:size-16" />
+          <CategoryIcon id={icon} className="size-14 sm:size-16" />
           <header className="flex flex-col gap-0.5">
             <h1 className="text-2xl font-semibold tracking-tight text-ink">{title}</h1>
             <p className="text-sm text-muted">{description}</p>

@@ -112,7 +112,7 @@ export function ScreenPage() {
                   aria-selected={period === item.id}
                   className={cn(
                     'rounded-full px-3 py-1 text-sm motion-safe:transition-colors',
-                    period === item.id ? 'bg-screen/20 text-ink' : 'text-muted hover:text-ink',
+                    period === item.id ? 'bg-accent/12 text-ink' : 'text-muted hover:text-ink',
                   )}
                   onClick={() => setPeriod(item.id)}
                 >
@@ -230,7 +230,7 @@ function ScreenDisplay({
                 <CardTitle className="text-base">Each day</CardTitle>
                 <button
                   type="button"
-                  className="text-xs font-medium text-screen hover:underline"
+                  className="text-xs font-medium text-accent hover:underline"
                   onClick={onToggleBreakdown}
                 >
                   {breakdown ? 'Show total only' : 'Split by Good / Bad'}
@@ -342,7 +342,7 @@ function ScreenDisplay({
                 <CardTitle className="text-base">8-week trend</CardTitle>
                 <CardDescription>Daily average</CardDescription>
               </CardHeader>
-              <div className="text-screen">
+              <div className="text-series-1">
                 <Sparkline
                   values={dash.trend.map((point) => point.daily_average ?? 0)}
                   className="h-16 w-full"
@@ -384,7 +384,7 @@ function SetupLink() {
     <p className="border-t border-line pt-5">
       <Link
         to={{ pathname: '/settings/screen-time', search }}
-        className="inline-flex items-center gap-2 text-sm font-medium text-iris hover:underline"
+        className="inline-flex items-center gap-2 text-sm font-medium text-accent hover:underline"
       >
         <Settings2 className="size-4" aria-hidden />
         Set up apps, categories and caps

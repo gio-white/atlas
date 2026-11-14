@@ -85,8 +85,8 @@ export function Layout() {
               aria-label={SETTINGS.label}
               aria-current={active === 'settings' ? 'page' : undefined}
               className={cn(
-                'inline-flex size-9 items-center justify-center rounded-lg hover:bg-raised focus-visible:ring-2 focus-visible:ring-iris focus-visible:outline-none md:hidden',
-                active === 'settings' ? 'text-iris' : 'text-muted hover:text-ink',
+                'inline-flex size-9 items-center justify-center rounded-lg hover:bg-raised focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none md:hidden',
+                active === 'settings' ? 'text-accent' : 'text-muted hover:text-ink',
               )}
             >
               <Settings className="size-5" aria-hidden />

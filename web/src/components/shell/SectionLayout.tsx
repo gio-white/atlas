@@ -45,9 +45,9 @@ export function SectionLayout({ section }: { section: SectionId }) {
                 end
                 className={({ isActive }) =>
                   cn(
-                    '-mb-px inline-flex min-h-10 shrink-0 scroll-mx-4 items-center gap-2 border-b-2 text-sm font-medium whitespace-nowrap motion-safe:transition-colors motion-safe:duration-200 focus-visible:text-iris focus-visible:outline-none',
+                    '-mb-px inline-flex min-h-10 shrink-0 scroll-mx-4 items-center gap-2 border-b-2 text-sm font-medium whitespace-nowrap motion-safe:transition-colors motion-safe:duration-200 focus-visible:text-accent focus-visible:outline-none',
                     isActive
-                      ? 'border-iris text-ink'
+                      ? 'border-accent text-ink'
                       : 'border-transparent text-muted hover:text-ink',
                   )
                 }

@@ -260,7 +260,7 @@ export function TaskDrawer({
                         'min-h-10 rounded-lg px-2 text-sm font-medium',
                         task.status === status
                           ? status === 'completed'
-                            ? 'bg-good text-on-primary'
+                            ? 'bg-good text-on-accent'
                             : 'bg-surface text-ink shadow-sm'
                           : 'text-muted hover:text-ink',
                       )}
@@ -297,7 +297,7 @@ export function TaskDrawer({
                   <textarea
                     id="task-description"
                     rows={3}
-                    className="w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    className="w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                     placeholder="What does done look like?"
                     value={draft.description}
                     onChange={(event) => setDraft({ ...draft, description: event.target.value })}

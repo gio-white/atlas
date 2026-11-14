@@ -44,15 +44,15 @@ function DestinationLink({
       to={{ pathname: destination.to, search }}
       aria-current={current ? 'page' : undefined}
       className={cn(
-        'flex flex-col items-center justify-center gap-1 rounded-xl text-[11px] leading-none font-medium motion-safe:transition-colors motion-safe:duration-200 focus-visible:ring-2 focus-visible:ring-iris focus-visible:outline-none',
-        current ? 'text-iris' : 'text-muted hover:text-ink',
+        'flex flex-col items-center justify-center gap-1 rounded-xl text-[11px] leading-none font-medium motion-safe:transition-colors motion-safe:duration-200 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none',
+        current ? 'text-accent' : 'text-muted hover:text-ink',
         className,
       )}
     >
       <span className="relative">
         <Icon className="size-5" aria-hidden />
         {badge !== null && (
-          <span className="absolute -top-1.5 left-3.5 min-w-4 rounded-full bg-iris px-1 py-0.5 text-center text-[10px] leading-none font-semibold text-on-primary tabular-nums">
+          <span className="absolute -top-1.5 left-3.5 min-w-4 rounded-full bg-accent px-1 py-0.5 text-center text-[10px] leading-none font-semibold text-on-accent tabular-nums">
             {badge}
           </span>
         )}

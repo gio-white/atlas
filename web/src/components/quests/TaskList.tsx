@@ -44,7 +44,7 @@ export function TaskCheck({
       aria-label={done ? `Reopen ${task.title}` : `Mark ${task.title} done`}
       className={cn(
         'inline-flex size-9 shrink-0 items-center justify-center rounded-full motion-safe:transition-colors',
-        done ? 'text-good' : 'text-muted hover:text-iris',
+        done ? 'text-good' : 'text-muted hover:text-accent',
       )}
       onClick={async () => {
         setBusy(true)

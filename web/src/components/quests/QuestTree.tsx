@@ -11,10 +11,10 @@ import { Chip, LevelIcon, QuestBar } from './QuestVisuals'
 import { MoveButtons, moveSibling, TaskList } from './TaskList'
 import { errorMessage } from './useQuestView'
 
-const STATE_TONE: Record<ChapterState, 'muted' | 'iris' | 'good'> = {
+const STATE_TONE: Record<ChapterState, 'muted' | 'accent' | 'good'> = {
   empty: 'muted',
   not_started: 'muted',
-  in_progress: 'iris',
+  in_progress: 'accent',
   completed: 'good',
 }
 

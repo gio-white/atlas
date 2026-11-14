@@ -36,7 +36,7 @@ export function SideQuestsPage() {
           />
           <Button
             type="button"
-            className="bg-iris hover:bg-iris/90"
+            className="bg-accent hover:bg-accent/90"
             onClick={() => setCreating(true)}
           >
             <Plus className="size-4" aria-hidden />

@@ -91,7 +91,7 @@ export function HabitCard({
       {status.period === 'day' && status.weekdays !== null
         ? `${weekdaysLabel(status.weekdays)} · `
         : null}
-      {goalLabel(status)} · <Flame className="inline size-3 text-warn" aria-hidden />{' '}
+      {goalLabel(status)} · <Flame className="inline size-3 text-accent" aria-hidden />{' '}
       {streakLabel(status)}
     </p>
   )
@@ -150,7 +150,7 @@ export function HabitCard({
             <div
               className={cn(
                 'h-full rounded-full motion-safe:transition-[width] motion-safe:duration-300',
-                status.satisfied ? 'bg-good' : 'bg-iris',
+                status.satisfied ? 'bg-good' : 'bg-accent',
               )}
               style={{ width: `${Math.round((progress ?? 0) * 100)}%` }}
             />
@@ -188,7 +188,7 @@ export function HabitCard({
             className={cn(
               'flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 motion-safe:transition-all motion-safe:active:scale-90',
               status.satisfied
-                ? 'border-good bg-good text-white'
+                ? 'border-good bg-good text-on-accent'
                 : 'border-line text-muted hover:border-good hover:text-good',
             )}
           >
@@ -474,7 +474,7 @@ export function ProgressRing({
         strokeDashoffset={circumference * (1 - value)}
         className={cn(
           'motion-safe:transition-[stroke-dashoffset] motion-safe:duration-300',
-          over ? 'stroke-bad' : done ? 'stroke-good' : 'stroke-iris',
+          over ? 'stroke-bad' : done ? 'stroke-good' : 'stroke-accent',
         )}
       />
     </svg>

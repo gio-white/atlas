@@ -42,7 +42,7 @@ export function AsOfControl({
               : `${longDateLabel(asOf)}. View another date`
           }
           className={cn(
-            'inline-flex min-h-9 max-w-full cursor-pointer items-center gap-2 rounded-lg px-2 text-sm font-medium motion-safe:transition-colors motion-safe:duration-200 focus-visible:ring-2 focus-visible:ring-iris focus-visible:outline-none',
+            'inline-flex min-h-9 max-w-full cursor-pointer items-center gap-2 rounded-lg px-2 text-sm font-medium motion-safe:transition-colors motion-safe:duration-200 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none',
             elsewhere
               ? 'border border-warn/40 bg-warn/10 text-ink hover:bg-warn/20'
               : 'text-muted hover:bg-raised hover:text-ink',

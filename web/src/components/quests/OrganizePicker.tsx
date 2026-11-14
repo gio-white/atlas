@@ -174,7 +174,7 @@ export function OrganizePicker({
                     data-active={index === active || undefined}
                     className={cn(
                       'flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2 text-left',
-                      index === active ? 'bg-iris/10' : 'hover:bg-raised',
+                      index === active ? 'bg-accent/10' : 'hover:bg-raised',
                       isCurrent && 'cursor-default opacity-60',
                     )}
                     onMouseEnter={() => setActive(index)}

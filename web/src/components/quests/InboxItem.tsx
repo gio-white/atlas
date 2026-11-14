@@ -97,7 +97,7 @@ export function InboxItem({
             aria-label="Description"
             rows={2}
             placeholder="Add a note (optional)"
-            className="w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             value={description}
             onChange={(event) => setDescription(event.target.value)}
           />
@@ -151,7 +151,7 @@ export function InboxItem({
           <Button
             type="button"
             size="sm"
-            className="bg-iris hover:bg-iris/90"
+            className="bg-accent hover:bg-accent/90"
             disabled={busy}
             onClick={() => setOrganizing(true)}
           >

@@ -29,7 +29,7 @@ export function RatingStars({
         <button
           key={star}
           type="button"
-          className="cursor-pointer rounded p-0.5 hover:bg-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="cursor-pointer rounded p-0.5 hover:bg-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           aria-label={value === star ? `Clear ${label}` : `${star} of 5`}
           aria-pressed={value !== null && star <= value}
           onClick={(event) => {
@@ -45,5 +45,5 @@ export function RatingStars({
 }
 
 function starTone(value: number | null, star: number): string {
-  return value !== null && star <= value ? 'fill-warn text-warn' : 'text-line'
+  return value !== null && star <= value ? 'fill-accent text-accent' : 'text-line'
 }

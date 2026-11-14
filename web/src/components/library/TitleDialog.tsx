@@ -348,9 +348,7 @@ export function TitleDialog({
                       key={topic.slug}
                       className={cn(
                         'cursor-pointer rounded-full border px-3 py-1 text-xs',
-                        checked
-                          ? 'border-library bg-library/15 text-ink'
-                          : 'border-line text-muted',
+                        checked ? 'border-accent bg-accent/12 text-ink' : 'border-line text-muted',
                       )}
                     >
                       <input
@@ -384,7 +382,7 @@ export function TitleDialog({
               rows={3}
               value={note}
               onChange={(event) => setNote(event.target.value)}
-              className="w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               placeholder="What stuck with you, quotes, why you want to see it"
             />
           </Field>

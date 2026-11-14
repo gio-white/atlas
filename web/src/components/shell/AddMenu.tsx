@@ -15,7 +15,7 @@ export function AddMenu({ onTask, onEntry }: { onTask: () => void; onEntry: () =
     // page unclickable once that dialog closes.
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
-        <Button type="button" className="bg-iris hover:bg-iris/90 focus-visible:ring-iris">
+        <Button type="button" className="bg-accent hover:bg-accent/90 focus-visible:ring-accent">
           <Plus className="size-4" aria-hidden />
           Add
         </Button>

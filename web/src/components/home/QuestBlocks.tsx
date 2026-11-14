@@ -79,7 +79,7 @@ export function TodayBlock({
           )}
           <div>
             <Button type="button" size="sm" variant="outline" onClick={onPlan}>
-              <CalendarPlus className="size-4 text-iris" aria-hidden />
+              <CalendarPlus className="size-4 text-accent" aria-hidden />
               Plan a session
             </Button>
           </div>
@@ -160,10 +160,10 @@ function DueLabel({ due, today }: { due: string | null; today: string }) {
 function NowMarker() {
   return (
     <li className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 sm:grid-cols-[5rem_minmax(0,1fr)]">
-      <span className="whitespace-nowrap text-right text-xs font-semibold tabular-nums text-iris">
+      <span className="whitespace-nowrap text-right text-xs font-semibold tabular-nums text-accent">
         Now · {formatTime(new Date().toISOString())}
       </span>
-      <span className="h-0.5 rounded-full bg-iris" aria-hidden />
+      <span className="h-0.5 rounded-full bg-accent" aria-hidden />
     </li>
   )
 }

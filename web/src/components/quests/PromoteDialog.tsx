@@ -109,7 +109,7 @@ export function PromoteDialog({
                   key={option}
                   className={cn(
                     'flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-3 py-2',
-                    kind === option ? 'border-iris bg-iris/8' : 'border-line hover:bg-raised',
+                    kind === option ? 'border-accent bg-accent/8' : 'border-line hover:bg-raised',
                   )}
                 >
                   <input

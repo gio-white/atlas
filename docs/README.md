@@ -117,6 +117,7 @@ blocked commit should review, so keep it a plain two-column table.
 | `web/src/components/LogForm.tsx` | `docs/domain/trackers-and-entries.md` |
 | `web/src/components/ui/*` | `docs/product/design-system.md` |
 | `web/src/index.css` | `docs/product/design-system.md` |
+| `web/src/lib/chartColors.ts` | `docs/product/design-system.md` |
 | `web/src/lib/theme.ts` | `docs/product/design-system.md` |
 | `web/src/lib/timeBlocks.ts` | `docs/domain/time-blocks.md` |
 | `web/src/lib/library.ts` | `docs/domain/library.md` |

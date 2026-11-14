@@ -1,13 +1,5 @@
+import { seriesColor } from '@/lib/chartColors'
 import { cn } from '@/lib/utils'
-
-const PALETTE = [
-  { stroke: 'stroke-library', swatch: 'bg-library' },
-  { stroke: 'stroke-iris', swatch: 'bg-iris' },
-  { stroke: 'stroke-screen', swatch: 'bg-screen' },
-  { stroke: 'stroke-goal', swatch: 'bg-goal' },
-  { stroke: 'stroke-adventure', swatch: 'bg-adventure' },
-  { stroke: 'stroke-warn', swatch: 'bg-warn' },
-] as const
 
 export type CountSlice = {
   slug: string
@@ -20,7 +12,7 @@ export type CountSlice = {
 export function countSlices(rows: { slug: string; name: string; count: number }[]): CountSlice[] {
   return rows.map((row, index) => ({
     ...row,
-    ...PALETTE[index % PALETTE.length],
+    ...seriesColor(index),
   }))
 }
 

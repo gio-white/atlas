@@ -51,7 +51,7 @@ export function MainQuestsPage() {
             </Button>
             <Button
               type="button"
-              className="bg-iris hover:bg-iris/90"
+              className="bg-accent hover:bg-accent/90"
               onClick={() => setCreating({ kind: 'goal', ambitionId: null })}
             >
               <Plus className="size-4" aria-hidden />

@@ -201,7 +201,7 @@ function QuestForm({ onOpenChange, kind, parent, item, parentTitle, onSaved }: F
           <textarea
             id={`${formId}-description`}
             rows={2}
-            className="w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             value={fields.description}
             onChange={(event) => setFields({ ...fields, description: event.target.value })}
           />
@@ -212,7 +212,7 @@ function QuestForm({ onOpenChange, kind, parent, item, parentTitle, onSaved }: F
             <textarea
               id={`${formId}-success`}
               rows={2}
-              className="w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               value={fields.success}
               onChange={(event) => setFields({ ...fields, success: event.target.value })}
             />

@@ -278,9 +278,9 @@ function NumberRow({
 }
 
 const SPLIT = [
-  { key: 'screen_good', label: 'Good', bar: 'bg-good' },
-  { key: 'screen_neutral', label: 'Neutral', bar: 'bg-muted' },
-  { key: 'screen_bad', label: 'Bad', bar: 'bg-bad' },
+  { key: 'screen_good', label: 'Good', bar: 'bg-data-good' },
+  { key: 'screen_neutral', label: 'Neutral', bar: 'bg-data-neutral' },
+  { key: 'screen_bad', label: 'Bad', bar: 'bg-data-bad' },
 ] as const
 
 /** The week's Good / Neutral / Bad minutes as one bar with a legend. */

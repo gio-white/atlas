@@ -73,7 +73,7 @@ export function QuickTaskDialog({
           <div>
             <Button
               type="submit"
-              className="bg-iris hover:bg-iris/90"
+              className="bg-accent hover:bg-accent/90"
               disabled={busy || title.trim() === ''}
             >
               Add to Inbox

@@ -54,7 +54,7 @@ export function WeekGrid({
               <td className="py-3 pr-3">
                 <Link
                   to={{ pathname: `/habit/${habit.slug}`, search }}
-                  className="font-medium hover:text-warn"
+                  className="font-medium hover:text-accent"
                 >
                   {habit.name}
                 </Link>

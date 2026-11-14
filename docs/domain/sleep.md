@@ -83,12 +83,12 @@ Service functions (in `src/atlas/services/`, each taking an explicit `Session` f
 - **Last updated** — from `last_recorded_at` ("Last updated today at 08:22").
 - **Stat tiles** — average asleep, average bedtime and average wake each with the consistency label and spread ("Steady · ±30m"), and missing nights.
 - **Time asleep** — one bar per day with the range average as a dashed line; a day without a night is a dashed **No data** column.
-- **Bedtime and wake** — a bed → wake bar per day with dashed average lines; the top time label is padded so it is never clipped.
+- **Bedtime and wake** — a bed → wake bar per day, coloured by stage, with dashed average lines in the muted colour; a night without stages is grey; the top time label is padded so it is never clipped.
 - **Stage split** — average minutes and share per stage over nights with stages.
 - **Nights** — read-only list, newest first; missing days appear as "No data" rows.
 - **Empty state** — with no nights at all: "No sleep data yet. It will appear here once a data source is connected."
 
-There is no capture, edit, or delete control. Charts live in `web/src/components/sleep/SleepCharts.tsx`; range and consistency helpers in `web/src/lib/sleep.ts`; the "Last updated" wording in `web/src/lib/freshness.ts`. The Home Sleep card is described in [home](home.md).
+Colours are the shared chart tokens ([design system](../product/design-system.md#colour)): Asleep is the first series colour and the stages keep their fixed slots. There is no capture, edit, or delete control. Charts live in `web/src/components/sleep/SleepCharts.tsx`; range and consistency helpers in `web/src/lib/sleep.ts`; the "Last updated" wording in `web/src/lib/freshness.ts`. The Home Sleep card is described in [home](home.md).
 
 Route inventory with status: [navigation](../product/navigation.md).
 

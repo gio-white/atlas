@@ -119,8 +119,7 @@ Service functions (`src/atlas/services/time_blocks.py`):
 Shown to people as **sessions**. Every screen shows what the API returns: unconfirmed, overlaps,
 and planned time are never worked out in the browser. Local ↔ UTC conversion happens in one
 place, `localToUtc` / `utcToLocal` in `web/src/lib/timeBlocks.ts`; times read as "09:05"
-(24-hour, browser-local). The quest accent is the theme's `iris` colour (the same accent as the
-other quest screens), used for borders, icons, the now line, and today's date pill; the rest
+(24-hour, browser-local). The app's one accent (the theme's `accent`, [design system](../product/design-system.md#colour)) is used for borders, icons, the now line, and today's date pill; the rest
 stays neutral, and Unconfirmed keeps the warning colour. A task is drawn as
 a round checkbox (empty for To do, dashed for In progress, checked for Done); a side quest path
 starts with a scroll icon, a goal path with a flag, an ambition path with a compass.

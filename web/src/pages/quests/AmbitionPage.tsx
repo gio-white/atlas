@@ -59,7 +59,7 @@ export function AmbitionPage() {
         <header className="flex flex-wrap items-start gap-4">
           <QuestRing value={ambition.progress} completed={ambition.status === 'completed'} />
           <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-1.5 text-xs font-medium text-iris">
+            <p className="flex items-center gap-1.5 text-xs font-medium text-accent">
               <LevelIcon kind="ambition" className="size-3.5" />
               Ambition
             </p>

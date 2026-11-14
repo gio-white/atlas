@@ -10,7 +10,7 @@ Page behaviour is described in each feature's doc under [domain/](../domain/) (s
 
 The structure comes from the [redesign brief](../plans/redesign-brief.md) and
 [decision 0007](../decisions/0007-five-destinations-on-a-rail.md). The brief lands in phases;
-this page describes what is built now. **Phases 1 (the shell), 2 (Settings), 3 (Home), 4 (Stats), and 5 (Library and Plan names, Not scheduled yet) are built.** Other
+this page describes what is built now. **Phases 1 (the shell), 2 (Settings), 3 (Home), 4 (Stats), 5 (Library and Plan names, Not scheduled yet), and 7 (the visual pass: one accent, [design system](design-system.md#colour)) are built; phase 6 (habit links) has its API but no screen yet.** Other
 pages keep their earlier content; the notes marked *until phase N* say what is still temporary.
 
 ## Destinations
@@ -34,7 +34,7 @@ Habits keeps the address `/habit`: `/habits` is the API's list of habits.
 
 - **Rail** (screens 768px and wider): a fixed left rail, 76px wide. Each item is an icon with
   its label underneath: Home, Quests, Habits, Stats, Library from the top, Settings at the
-  bottom. The active item has the accent colour (`iris`) on icon and label and a raised surface,
+  bottom. The active item has the accent colour on icon and label and a raised surface,
   and carries `aria-current="page"`. Icons are house, map, repeat arrows, bar chart, and books;
   none is a quest level icon (compass, flag, diamond, bookmark, scroll).
 - **Bottom tab bar** (narrower screens): the same five destinations in a fixed bar at the bottom.

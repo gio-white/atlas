@@ -94,7 +94,7 @@ export function PlanPage() {
           </Button>
         </nav>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted">
-          <Legend swatch="border-l-4 border-l-iris border-iris/40 bg-surface" label="Planned" />
+          <Legend swatch="border-l-4 border-l-accent border-accent/40 bg-surface" label="Planned" />
           <Legend swatch="border-l-4 border-l-warn border-warn/50 bg-warn/10" label="Unconfirmed" />
           <Legend swatch="border-line bg-raised" label="Done" />
           <Legend swatch="border-dashed border-warn/50" label="Didn’t happen" />
@@ -105,7 +105,7 @@ export function PlanPage() {
           <label className="inline-flex items-center gap-2 text-ink">
             <input
               type="checkbox"
-              className="size-4 accent-[var(--iris)]"
+              className="size-4 accent-accent"
               checked={showCancelled}
               onChange={(event) => setShowCancelled(event.target.checked)}
             />

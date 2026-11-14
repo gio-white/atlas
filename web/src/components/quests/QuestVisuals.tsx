@@ -17,7 +17,7 @@ import type { ItemRef, QuestKind, QuestStatus } from '@/lib/api'
 import { itemHref, KIND_LABELS, NOT_BROKEN_DOWN, progressLabel } from '@/lib/quests'
 import { cn } from '@/lib/utils'
 
-// The quest accent is the theme's iris; every other surface stays neutral.
+// The app has one accent; every other surface stays neutral.
 
 /** Levels are told apart by icon and shape (plan §6 visual direction). */
 export const LEVEL_ICONS: Record<QuestKind, LucideIcon> = {
@@ -42,7 +42,7 @@ export function LevelIcon({
   const Icon = LEVEL_ICONS[kind]
   return (
     <Icon
-      className={cn('size-4 shrink-0 text-iris', className)}
+      className={cn('size-4 shrink-0 text-accent', className)}
       aria-hidden={!label}
       aria-label={label ? KIND_LABELS[kind] : undefined}
       role={label ? 'img' : undefined}
@@ -95,7 +95,7 @@ export function QuestRing({
             strokeDashoffset={circumference * (1 - fraction)}
             className={cn(
               'motion-safe:transition-[stroke-dashoffset] motion-safe:duration-300',
-              completed ? 'stroke-good' : 'stroke-iris',
+              completed ? 'stroke-good' : 'stroke-accent',
             )}
           />
         )}
@@ -133,7 +133,7 @@ export function QuestBar({
       <div
         className={cn(
           'h-full rounded-full motion-safe:transition-[width] motion-safe:duration-300',
-          completed ? 'bg-good' : 'bg-iris',
+          completed ? 'bg-good' : 'bg-accent',
         )}
         style={{ width: `${pct}%` }}
       />
@@ -159,7 +159,7 @@ export function StatusChip({
     )
   }
   return (
-    <Chip tone="iris">
+    <Chip tone="accent">
       <CircleDot className="size-3" aria-hidden />
       Active
     </Chip>
@@ -171,7 +171,7 @@ export function Chip({
   children,
   className,
 }: {
-  tone?: 'muted' | 'iris' | 'good' | 'warn'
+  tone?: 'muted' | 'accent' | 'good' | 'warn'
   children: ReactNode
   className?: string
 }) {
@@ -180,7 +180,7 @@ export function Chip({
       className={cn(
         'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap',
         tone === 'muted' && 'bg-raised text-muted',
-        tone === 'iris' && 'bg-iris/12 text-iris',
+        tone === 'accent' && 'bg-accent/12 text-accent',
         tone === 'good' && 'bg-good/12 text-good',
         tone === 'warn' && 'bg-warn/15 text-warn',
         className,

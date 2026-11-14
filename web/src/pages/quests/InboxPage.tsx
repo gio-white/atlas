@@ -111,7 +111,7 @@ export function InboxPage() {
               {notice.href !== undefined && (
                 <>
                   {' '}
-                  <Link to={notice.href} className="text-iris hover:underline">
+                  <Link to={notice.href} className="text-accent hover:underline">
                     {notice.link}
                   </Link>
                 </>

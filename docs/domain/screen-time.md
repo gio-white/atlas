@@ -165,7 +165,7 @@ Service functions (in `src/atlas/services/`, each taking an explicit `Session` f
 - **Last updated** — from `last_recorded_at`.
 - **Totals** — total, daily average, longest day, and the score. The score is explained in plain words: "How much of your screen time went to apps you count as Good. Neutral time counts for half." Judgments are labelled Good / Bad / Neutral on screen (`useful` / `waste` / `neutral` in the API).
 - **Each day** — daily bars with a minutes y-axis, day labels, and a Good / Neutral / Bad legend when split; a toggle switches between the total and the split.
-- **Categories** — each category has its own colour (`CATEGORY_PALETTE` in `web/src/components/screen/Charts.tsx`, assigned by alphabetical slug and never a good/bad/warn colour, so a colour does not read as a judgment); the legend shows minutes and the judgment.
+- **Categories** — each category has its own chart colour (`CATEGORY_PALETTE` in `web/src/components/screen/Charts.tsx`, the shared series from `web/src/lib/chartColors.ts`, assigned by alphabetical slug; a ninth category and beyond are grey; never a Good/Neutral/Bad colour, so a colour does not read as a judgment); the legend shows minutes and the judgment.
 - **Apps, devices, hours heatmap, comparison, 8-week trend, insights** — as computed above.
 - **Caps** — read-only status of each cap (`current / target`); with none: "No caps set. Add one in Settings."
 - **Empty state** — with no sessions at all: "No screen time data yet. It will appear here once a data source is connected."

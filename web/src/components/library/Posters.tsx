@@ -1,33 +1,16 @@
 import { Clapperboard } from 'lucide-react'
 
 import { RatingStars } from '@/components/library/RatingStars'
-import type { LibraryKind, LibraryTitle } from '@/lib/api'
+import type { LibraryTitle } from '@/lib/api'
 import { shortDateLabel } from '@/lib/dates'
 import { KIND_LABEL } from '@/lib/library'
-import { cn } from '@/lib/utils'
-
-export const KIND_FALLBACK: Record<LibraryKind, string> = {
-  film: 'bg-library/80',
-  series: 'bg-iris/80',
-  anime: 'bg-adventure/80',
-  video: 'bg-screen/80',
-  podcast: 'bg-goal/80',
-  book: 'bg-warn/80',
-  music: 'bg-sleep/80',
-  other: 'bg-muted/80',
-}
 
 export function Thumb({ title }: { title: LibraryTitle }) {
   if (title.image) {
     return <img src={title.image} alt="" className="size-10 shrink-0 rounded-md object-cover" />
   }
   return (
-    <div
-      className={cn(
-        'flex size-10 shrink-0 items-center justify-center rounded-md text-white/90',
-        KIND_FALLBACK[title.kind],
-      )}
-    >
+    <div className="flex size-10 shrink-0 items-center justify-center rounded-md border border-line bg-raised text-muted">
       <Clapperboard className="size-4" aria-hidden />
     </div>
   )
@@ -40,12 +23,7 @@ export function PosterCard({ title }: { title: LibraryTitle }) {
         {title.image ? (
           <img src={title.image} alt="" className="size-full object-cover" />
         ) : (
-          <div
-            className={cn(
-              'flex size-full items-center justify-center text-white/90',
-              KIND_FALLBACK[title.kind],
-            )}
-          >
+          <div className="flex size-full items-center justify-center bg-raised text-muted">
             <Clapperboard className="size-8" aria-hidden />
           </div>
         )}

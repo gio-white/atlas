@@ -94,7 +94,7 @@ export function NoteBlock({
             setText(event.target.value)
             setStatus(null)
           }}
-          className="w-full resize-none rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink placeholder:text-muted motion-safe:transition-[height] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-iris"
+          className="w-full resize-none rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink placeholder:text-muted motion-safe:transition-[height] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         />
         {(changed || status !== null || error !== null) && (
           <div className="flex items-center gap-3">

@@ -47,7 +47,7 @@ export function HomeBlock({
           ) : (
             <Link
               to={{ pathname: to, search }}
-              className="inline-flex items-center gap-1 hover:text-iris focus-visible:text-iris focus-visible:outline-none"
+              className="inline-flex items-center gap-1 hover:text-accent focus-visible:text-accent focus-visible:outline-none"
             >
               {title}
               <ChevronRight className="size-4 text-muted" aria-hidden />
@@ -57,7 +57,7 @@ export function HomeBlock({
         {action !== undefined && (
           <Link
             to={{ pathname: action.to, search }}
-            className="shrink-0 text-xs font-medium text-iris hover:underline"
+            className="shrink-0 text-xs font-medium text-accent hover:underline"
           >
             {action.label}
           </Link>
