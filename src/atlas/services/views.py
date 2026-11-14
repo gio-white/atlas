@@ -50,7 +50,7 @@ class WeekHabit:
 
 
 @dataclass(frozen=True, slots=True)
-class HabitsCalendar:
+class HabitsGrid:
     as_of: date
     period: Period
     range_start: date
@@ -58,12 +58,12 @@ class HabitsCalendar:
     habits: list[WeekHabit]
 
 
-def habit_calendar(
+def habit_grid(
     session: Session,
     *,
     period: Period = Period.WEEK,
     as_of: date | None = None,
-) -> HabitsCalendar:
+) -> HabitsGrid:
     as_of = resolve_today(as_of)
     window = bucket_for(as_of, period)
     habits: list[WeekHabit] = []
@@ -116,7 +116,7 @@ def habit_calendar(
                 weekdays=sorted(habit.weekdays) if habit.weekdays else None,
             )
         )
-    return HabitsCalendar(
+    return HabitsGrid(
         as_of=as_of,
         period=period,
         range_start=window.start,

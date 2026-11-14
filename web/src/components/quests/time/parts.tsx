@@ -1,4 +1,4 @@
-// Small shared pieces for the execution screens (Today, Calendar, Home, the task's sessions).
+// Small shared pieces for the execution screens (Home, Plan, the task's sessions).
 // The quest accent is the theme's `iris` (shared with the quest screens), kept to borders,
 // icons, and the now line so the screens stay mostly neutral.
 

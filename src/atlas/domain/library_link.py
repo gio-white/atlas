@@ -9,7 +9,7 @@ from html.parser import HTMLParser
 from typing import Any
 from urllib.parse import quote, urljoin, urlsplit
 
-from atlas.domain.enums import EntertainmentKind
+from atlas.domain.enums import LibraryKind
 
 _OEMBED_PROVIDERS: tuple[tuple[tuple[str, ...], str], ...] = (
     (("youtube.com", "youtu.be"), "https://www.youtube.com/oembed?format=json&url="),
@@ -18,38 +18,38 @@ _OEMBED_PROVIDERS: tuple[tuple[tuple[str, ...], str], ...] = (
     (("soundcloud.com",), "https://soundcloud.com/oembed?format=json&url="),
 )
 
-_HOST_KINDS: tuple[tuple[str, EntertainmentKind], ...] = (
-    ("youtube.com", EntertainmentKind.VIDEO),
-    ("youtu.be", EntertainmentKind.VIDEO),
-    ("vimeo.com", EntertainmentKind.VIDEO),
-    ("twitch.tv", EntertainmentKind.VIDEO),
-    ("podcasts.apple.com", EntertainmentKind.PODCAST),
-    ("overcast.fm", EntertainmentKind.PODCAST),
-    ("pca.st", EntertainmentKind.PODCAST),
-    ("music.apple.com", EntertainmentKind.MUSIC),
-    ("music.youtube.com", EntertainmentKind.MUSIC),
-    ("soundcloud.com", EntertainmentKind.MUSIC),
-    ("bandcamp.com", EntertainmentKind.MUSIC),
-    ("goodreads.com", EntertainmentKind.BOOK),
-    ("openlibrary.org", EntertainmentKind.BOOK),
-    ("books.google.com", EntertainmentKind.BOOK),
-    ("letterboxd.com", EntertainmentKind.FILM),
-    ("myanimelist.net", EntertainmentKind.ANIME),
-    ("anilist.co", EntertainmentKind.ANIME),
+_HOST_KINDS: tuple[tuple[str, LibraryKind], ...] = (
+    ("youtube.com", LibraryKind.VIDEO),
+    ("youtu.be", LibraryKind.VIDEO),
+    ("vimeo.com", LibraryKind.VIDEO),
+    ("twitch.tv", LibraryKind.VIDEO),
+    ("podcasts.apple.com", LibraryKind.PODCAST),
+    ("overcast.fm", LibraryKind.PODCAST),
+    ("pca.st", LibraryKind.PODCAST),
+    ("music.apple.com", LibraryKind.MUSIC),
+    ("music.youtube.com", LibraryKind.MUSIC),
+    ("soundcloud.com", LibraryKind.MUSIC),
+    ("bandcamp.com", LibraryKind.MUSIC),
+    ("goodreads.com", LibraryKind.BOOK),
+    ("openlibrary.org", LibraryKind.BOOK),
+    ("books.google.com", LibraryKind.BOOK),
+    ("letterboxd.com", LibraryKind.FILM),
+    ("myanimelist.net", LibraryKind.ANIME),
+    ("anilist.co", LibraryKind.ANIME),
 )
 
-_OG_TYPE_KINDS: dict[str, EntertainmentKind] = {
-    "video.movie": EntertainmentKind.FILM,
-    "video.tv_show": EntertainmentKind.SERIES,
-    "video.episode": EntertainmentKind.SERIES,
-    "video.other": EntertainmentKind.VIDEO,
-    "video": EntertainmentKind.VIDEO,
-    "music.song": EntertainmentKind.MUSIC,
-    "music.album": EntertainmentKind.MUSIC,
-    "music.playlist": EntertainmentKind.MUSIC,
-    "music.radio_station": EntertainmentKind.MUSIC,
-    "book": EntertainmentKind.BOOK,
-    "books.book": EntertainmentKind.BOOK,
+_OG_TYPE_KINDS: dict[str, LibraryKind] = {
+    "video.movie": LibraryKind.FILM,
+    "video.tv_show": LibraryKind.SERIES,
+    "video.episode": LibraryKind.SERIES,
+    "video.other": LibraryKind.VIDEO,
+    "video": LibraryKind.VIDEO,
+    "music.song": LibraryKind.MUSIC,
+    "music.album": LibraryKind.MUSIC,
+    "music.playlist": LibraryKind.MUSIC,
+    "music.radio_station": LibraryKind.MUSIC,
+    "book": LibraryKind.BOOK,
+    "books.book": LibraryKind.BOOK,
 }
 
 _TITLE_SEPARATORS = (" - ", " | ", " · ", " — ", " – ")
@@ -59,7 +59,7 @@ _TITLE_SEPARATORS = (" - ", " | ", " · ", " — ", " – ")
 class LinkSuggestion:
     link: str
     name: str | None = None
-    kind: EntertainmentKind | None = None
+    kind: LibraryKind | None = None
     creator: str | None = None
     image_url: str | None = None
 
@@ -82,20 +82,20 @@ def oembed_url(url: str) -> str | None:
     return None
 
 
-def kind_from_url(url: str) -> EntertainmentKind | None:
+def kind_from_url(url: str) -> LibraryKind | None:
     host = host_of(url)
     path = urlsplit(url).path.lower()
     if _matches(host, "open.spotify.com"):
         if path.startswith(("/episode", "/show")):
-            return EntertainmentKind.PODCAST
-        return EntertainmentKind.MUSIC
+            return LibraryKind.PODCAST
+        return LibraryKind.MUSIC
     if _matches(host, "imdb.com") and path.startswith("/title"):
-        return EntertainmentKind.FILM
+        return LibraryKind.FILM
     if _matches(host, "themoviedb.org"):
         if path.startswith("/tv"):
-            return EntertainmentKind.SERIES
+            return LibraryKind.SERIES
         if path.startswith("/movie"):
-            return EntertainmentKind.FILM
+            return LibraryKind.FILM
     for domain, kind in _HOST_KINDS:
         if _matches(host, domain):
             return kind

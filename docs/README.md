@@ -39,7 +39,7 @@ blocked commit should review, so keep it a plain two-column table.
 | `src/atlas/domain/quests.py` | `docs/domain/quests.md`, `docs/domain/time-blocks.md` |
 | `src/atlas/domain/screen.py` | `docs/domain/screen-time.md` |
 | `src/atlas/domain/sleep.py` | `docs/domain/sleep.md` |
-| `src/atlas/domain/entertainment*.py` | `docs/domain/entertainment.md` |
+| `src/atlas/domain/library*.py` | `docs/domain/library.md` |
 | `src/atlas/domain/*` | `docs/architecture/overview.md` |
 | `src/atlas/db/models.py` | `docs/architecture/data-model.md`, the feature's `docs/domain/*.md` (Data model) |
 | `src/atlas/db/engine.py` | `docs/architecture/migrations.md` |
@@ -55,7 +55,7 @@ blocked commit should review, so keep it a plain two-column table.
 | `src/atlas/services/life.py` | `docs/domain/journal.md` |
 | `src/atlas/services/screen.py` | `docs/domain/screen-time.md`, `docs/data-sources/screen-time.md` |
 | `src/atlas/services/sleep.py` | `docs/domain/sleep.md`, `docs/data-sources/sleep.md` |
-| `src/atlas/services/entertainment*.py` | `docs/domain/entertainment.md` |
+| `src/atlas/services/library*.py` | `docs/domain/library.md` |
 | `src/atlas/services/views.py` | `docs/domain/habits.md` |
 | `src/atlas/services/port.py` | `docs/architecture/migrations.md` |
 | `src/atlas/services/quest_port.py` | `docs/architecture/migrations.md` |
@@ -72,7 +72,7 @@ blocked commit should review, so keep it a plain two-column table.
 | `src/atlas/api/routers/screen.py` | `docs/domain/screen-time.md`, `docs/data-sources/screen-time.md` |
 | `src/atlas/api/routers/sleep.py` | `docs/domain/sleep.md`, `docs/data-sources/sleep.md` |
 | `src/atlas/api/routers/journal.py` | `docs/domain/journal.md` |
-| `src/atlas/api/routers/entertainment.py` | `docs/domain/entertainment.md` |
+| `src/atlas/api/routers/library.py` | `docs/domain/library.md` |
 | `src/atlas/api/routers/port.py` | `docs/architecture/cli.md`, `docs/architecture/migrations.md` |
 | `src/atlas/api/spa.py` | `docs/architecture/frontend.md` |
 | `src/atlas/api/*` | `docs/architecture/api-conventions.md` |
@@ -86,7 +86,7 @@ blocked commit should review, so keep it a plain two-column table.
 | `web/src/components/home/*` | `docs/domain/home.md` |
 | `web/src/pages/Habit*.tsx` | `docs/domain/habits.md` |
 | `web/src/components/habits/*` | `docs/domain/habits.md` |
-| `web/src/pages/quests/CalendarPage.tsx` | `docs/domain/time-blocks.md`, `docs/product/navigation.md` |
+| `web/src/pages/quests/PlanPage.tsx` | `docs/domain/time-blocks.md`, `docs/product/navigation.md` |
 | `web/src/pages/quests/*` | `docs/domain/quests.md`, `docs/product/navigation.md` |
 | `web/src/components/quests/time/*` | `docs/domain/time-blocks.md` |
 | `web/src/components/quests/*` | `docs/domain/quests.md` |
@@ -95,8 +95,8 @@ blocked commit should review, so keep it a plain two-column table.
 | `web/src/pages/SleepPage.tsx` | `docs/domain/sleep.md` |
 | `web/src/pages/ScreenPage.tsx` | `docs/domain/screen-time.md` |
 | `web/src/components/screen/*` | `docs/domain/screen-time.md` |
-| `web/src/pages/Entertainment*.tsx` | `docs/domain/entertainment.md` |
-| `web/src/components/entertainment/*` | `docs/domain/entertainment.md` |
+| `web/src/pages/Library*.tsx` | `docs/domain/library.md` |
+| `web/src/components/library/*` | `docs/domain/library.md` |
 | `web/src/pages/EntriesPage.tsx` | `docs/domain/history.md` |
 | `web/src/components/sleep/*` | `docs/domain/sleep.md` |
 | `web/src/lib/sleep.ts` | `docs/domain/sleep.md` |
@@ -118,6 +118,7 @@ blocked commit should review, so keep it a plain two-column table.
 | `web/src/index.css` | `docs/product/design-system.md` |
 | `web/src/lib/theme.ts` | `docs/product/design-system.md` |
 | `web/src/lib/timeBlocks.ts` | `docs/domain/time-blocks.md` |
+| `web/src/lib/library.ts` | `docs/domain/library.md` |
 | `web/src/lib/api.ts` | `docs/architecture/frontend.md` |
 | `web/src/*` | `docs/architecture/frontend.md`, `docs/product/ux-writing.md` (any user-facing text) |
 | `src/*` | `docs/architecture/overview.md` |

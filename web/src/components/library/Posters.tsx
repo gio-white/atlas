@@ -1,13 +1,13 @@
 import { Clapperboard } from 'lucide-react'
 
-import { RatingStars } from '@/components/entertainment/RatingStars'
-import type { EntertainmentKind, EntertainmentTitle } from '@/lib/api'
+import { RatingStars } from '@/components/library/RatingStars'
+import type { LibraryKind, LibraryTitle } from '@/lib/api'
 import { shortDateLabel } from '@/lib/dates'
-import { KIND_LABEL } from '@/lib/entertainment'
+import { KIND_LABEL } from '@/lib/library'
 import { cn } from '@/lib/utils'
 
-export const KIND_FALLBACK: Record<EntertainmentKind, string> = {
-  film: 'bg-entertainment/80',
+export const KIND_FALLBACK: Record<LibraryKind, string> = {
+  film: 'bg-library/80',
   series: 'bg-iris/80',
   anime: 'bg-adventure/80',
   video: 'bg-screen/80',
@@ -17,7 +17,7 @@ export const KIND_FALLBACK: Record<EntertainmentKind, string> = {
   other: 'bg-muted/80',
 }
 
-export function Thumb({ title }: { title: EntertainmentTitle }) {
+export function Thumb({ title }: { title: LibraryTitle }) {
   if (title.image) {
     return <img src={title.image} alt="" className="size-10 shrink-0 rounded-md object-cover" />
   }
@@ -33,7 +33,7 @@ export function Thumb({ title }: { title: EntertainmentTitle }) {
   )
 }
 
-export function PosterCard({ title }: { title: EntertainmentTitle }) {
+export function PosterCard({ title }: { title: LibraryTitle }) {
   return (
     <article className="overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow-card)]">
       <div className="relative aspect-[16/10]">

@@ -366,7 +366,7 @@ export const CATEGORY_PALETTE = [
   { stroke: 'stroke-screen', swatch: 'bg-screen' },
   { stroke: 'stroke-ember', swatch: 'bg-ember' },
   { stroke: 'stroke-adventure', swatch: 'bg-adventure' },
-  { stroke: 'stroke-entertainment', swatch: 'bg-entertainment' },
+  { stroke: 'stroke-library', swatch: 'bg-library' },
   { stroke: 'stroke-iris', swatch: 'bg-iris' },
   { stroke: 'stroke-health', swatch: 'bg-health' },
   { stroke: 'stroke-stage-light', swatch: 'bg-stage-light' },

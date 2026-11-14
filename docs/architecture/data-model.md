@@ -11,7 +11,7 @@ All tables at a glance. Field-level tables live in each feature's doc:
 | `ScreenCategory`, `ScreenApp`, `ScreenBudget`, `ScreenDevice`, `ScreenSession` | [screen time](../domain/screen-time.md#data-model) |
 | `SleepSession`, `SleepSessionStage` | [sleep](../domain/sleep.md#data-model) |
 | The journal's metric (journal rows) | [journal](../domain/journal.md#data-model) |
-| `EntertainmentTopic`, `EntertainmentTitle`, `EntertainmentTitleTopic` | [entertainment](../domain/entertainment.md#data-model) |
+| `LibraryTopic`, `LibraryTitle`, `LibraryTitleTopic` | [library](../domain/library.md#data-model) |
 | `SchemaVersion` | [migrations](migrations.md) |
 
 ## Overview
@@ -33,9 +33,9 @@ flowchart TD
   ScreenSession -->|optional| ScreenDevice[ScreenDevice]
   ScreenBudget[ScreenBudget] -->|caps| ScreenJudgment
   ScreenBudget -->|or caps| ScreenCategory
-  EntertainmentTopic[EntertainmentTopic]
-  EntertainmentTitle[EntertainmentTitle]
-  EntertainmentTopic -->|M2M tags| EntertainmentTitle
+  LibraryTopic[LibraryTopic]
+  LibraryTitle[LibraryTitle]
+  LibraryTopic -->|M2M tags| LibraryTitle
   SleepSession[SleepSession: one night] -->|has many| SleepSessionStage[SleepSessionStage: deep light rem awake]
 ```
 

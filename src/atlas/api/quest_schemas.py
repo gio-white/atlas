@@ -200,10 +200,11 @@ class TodayOut(_Read):
     up_next: list[TaskOut]
 
 
-class CalendarOut(_Read):
+class PlanOut(_Read):
     start: datetime
     end: datetime
     blocks: list[ScheduledBlockOut]
+    not_scheduled: list[TaskOut]
 
 
 # --- Requests --------------------------------------------------------------------------------

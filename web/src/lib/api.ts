@@ -127,7 +127,7 @@ export type WeekHabit = {
   weekdays: number[] | null
 }
 
-export type HabitsCalendar = {
+export type HabitsGrid = {
   as_of: string
   period: Period
   range_start: string
@@ -346,7 +346,7 @@ export type JournalDay = {
   entry_id: number | null
 }
 
-export type EntertainmentKind =
+export type LibraryKind =
   | 'film'
   | 'series'
   | 'anime'
@@ -355,68 +355,68 @@ export type EntertainmentKind =
   | 'book'
   | 'music'
   | 'other'
-export type EntertainmentStatus = 'queued' | 'in_progress' | 'done' | 'dropped'
+export type LibraryStatus = 'queued' | 'in_progress' | 'done' | 'dropped'
 
-export type EntertainmentTopic = {
+export type LibraryTopic = {
   id: number
   slug: string
   name: string
   archived_at: string | null
 }
 
-export type EntertainmentTopicRef = {
+export type LibraryTopicRef = {
   slug: string
   name: string
 }
 
-export type EntertainmentTitle = {
+export type LibraryTitle = {
   slug: string
   name: string
-  kind: EntertainmentKind
+  kind: LibraryKind
   creator: string | null
   recommended_by: string | null
-  status: EntertainmentStatus
+  status: LibraryStatus
   started_on: string | null
   finished_on: string | null
   progress: string | null
   note: string | null
   rating: number | null
   link: string | null
-  topics: EntertainmentTopicRef[]
+  topics: LibraryTopicRef[]
   image: string | null
   created_at: string | null
 }
 
-export type EntertainmentLinkSuggestion = {
+export type LibraryLinkSuggestion = {
   link: string
   name: string | null
-  kind: EntertainmentKind | null
+  kind: LibraryKind | null
   creator: string | null
   image_url: string | null
   existing: string | null
 }
 
-export type EntertainmentKindCount = {
-  kind: EntertainmentKind
+export type LibraryKindCount = {
+  kind: LibraryKind
   count: number
   share: number
 }
 
-export type EntertainmentTopicCount = {
+export type LibraryTopicCount = {
   slug: string
   name: string
   count: number
   share: number
 }
 
-export type EntertainmentLibrary = {
-  queued: EntertainmentTitle[]
-  in_progress: EntertainmentTitle[]
-  done: EntertainmentTitle[]
-  dropped: EntertainmentTitle[]
+export type LibraryShelves = {
+  queued: LibraryTitle[]
+  in_progress: LibraryTitle[]
+  done: LibraryTitle[]
+  dropped: LibraryTitle[]
 }
 
-export type EntertainmentDashboard = {
+export type LibraryDashboard = {
   period: Period
   as_of: string
   range_start: string
@@ -427,10 +427,10 @@ export type EntertainmentDashboard = {
   in_progress: number
   done: number
   dropped: number
-  by_kind: EntertainmentKindCount[]
-  by_topic: EntertainmentTopicCount[]
-  recently_finished: EntertainmentTitle[]
-  library: EntertainmentLibrary
+  by_kind: LibraryKindCount[]
+  by_topic: LibraryTopicCount[]
+  recently_finished: LibraryTitle[]
+  library: LibraryShelves
 }
 
 export type EntryCreate = {
@@ -525,8 +525,8 @@ export function getHabitsBoard(asOf?: string): Promise<HabitsBoard> {
   return request(`/views/habits${queryString({ as_of: asOf })}`)
 }
 
-export function getHabitsCalendar(period: Period, asOf?: string): Promise<HabitsCalendar> {
-  return request(`/views/habits/calendar${queryString({ period, as_of: asOf })}`)
+export function getHabitsGrid(period: Period, asOf?: string): Promise<HabitsGrid> {
+  return request(`/views/habits/grid${queryString({ period, as_of: asOf })}`)
 }
 
 export function getScreenDashboard(period: Period, asOf?: string): Promise<ScreenDashboard> {
@@ -624,26 +624,23 @@ export function updateScreenBudget(
   })
 }
 
-export function getEntertainmentDashboard(
-  period: Period,
-  asOf?: string,
-): Promise<EntertainmentDashboard> {
-  return request(`/entertainment/dashboard${queryString({ period, as_of: asOf })}`)
+export function getLibraryDashboard(period: Period, asOf?: string): Promise<LibraryDashboard> {
+  return request(`/library/dashboard${queryString({ period, as_of: asOf })}`)
 }
 
-export function listEntertainmentTopics(includeArchived = false): Promise<EntertainmentTopic[]> {
+export function listLibraryTopics(includeArchived = false): Promise<LibraryTopic[]> {
   return request(
-    `/entertainment/topics${queryString({ include_archived: includeArchived || undefined })}`,
+    `/library/topics${queryString({ include_archived: includeArchived || undefined })}`,
   )
 }
 
-export function listEntertainmentTitles(filters?: {
-  kind?: EntertainmentKind
-  status?: EntertainmentStatus
+export function listLibraryTitles(filters?: {
+  kind?: LibraryKind
+  status?: LibraryStatus
   topic?: string
-}): Promise<EntertainmentTitle[]> {
+}): Promise<LibraryTitle[]> {
   return request(
-    `/entertainment/titles${queryString({
+    `/library/titles${queryString({
       kind: filters?.kind,
       status: filters?.status,
       topic: filters?.topic,
@@ -651,13 +648,13 @@ export function listEntertainmentTitles(filters?: {
   )
 }
 
-export function createEntertainmentTitle(body: {
+export function createLibraryTitle(body: {
   slug: string
-  kind: EntertainmentKind
+  kind: LibraryKind
   name?: string | null
   creator?: string | null
   recommended_by?: string | null
-  status?: EntertainmentStatus
+  status?: LibraryStatus
   started_on?: string | null
   finished_on?: string | null
   progress?: string | null
@@ -666,18 +663,18 @@ export function createEntertainmentTitle(body: {
   link?: string | null
   topics?: string[]
   image_url?: string | null
-}): Promise<EntertainmentTitle> {
-  return request('/entertainment/titles', { method: 'POST', body: JSON.stringify(body) })
+}): Promise<LibraryTitle> {
+  return request('/library/titles', { method: 'POST', body: JSON.stringify(body) })
 }
 
-export function updateEntertainmentTitle(
+export function updateLibraryTitle(
   slug: string,
   body: {
     name?: string
-    kind?: EntertainmentKind
+    kind?: LibraryKind
     creator?: string | null
     recommended_by?: string | null
-    status?: EntertainmentStatus
+    status?: LibraryStatus
     started_on?: string | null
     finished_on?: string | null
     progress?: string | null
@@ -687,30 +684,27 @@ export function updateEntertainmentTitle(
     topics?: string[]
     image_url?: string | null
   },
-): Promise<EntertainmentTitle> {
-  return request(`/entertainment/titles/${encodeURIComponent(slug)}`, {
+): Promise<LibraryTitle> {
+  return request(`/library/titles/${encodeURIComponent(slug)}`, {
     method: 'PATCH',
     body: JSON.stringify(body),
   })
 }
 
-export function lookupEntertainmentLink(url: string): Promise<EntertainmentLinkSuggestion> {
-  return request('/entertainment/lookup', { method: 'POST', body: JSON.stringify({ url }) })
+export function lookupLibraryLink(url: string): Promise<LibraryLinkSuggestion> {
+  return request('/library/lookup', { method: 'POST', body: JSON.stringify({ url }) })
 }
 
-export function deleteEntertainmentTitle(slug: string): Promise<void> {
-  return request(`/entertainment/titles/${encodeURIComponent(slug)}`, { method: 'DELETE' })
+export function deleteLibraryTitle(slug: string): Promise<void> {
+  return request(`/library/titles/${encodeURIComponent(slug)}`, { method: 'DELETE' })
 }
 
-export async function uploadEntertainmentImage(
-  slug: string,
-  file: File,
-): Promise<EntertainmentTitle> {
+export async function uploadLibraryImage(slug: string, file: File): Promise<LibraryTitle> {
   const body = new FormData()
   body.append('file', file)
   let response: Response
   try {
-    response = await fetch(`/entertainment/titles/${encodeURIComponent(slug)}/image`, {
+    response = await fetch(`/library/titles/${encodeURIComponent(slug)}/image`, {
       method: 'PUT',
       body,
     })
@@ -721,7 +715,7 @@ export async function uploadEntertainmentImage(
     const payload: unknown = await response.json().catch(() => null)
     throw new ApiError(response.status, errorDetail(payload, response.status, response.statusText))
   }
-  return (await response.json()) as EntertainmentTitle
+  return (await response.json()) as LibraryTitle
 }
 
 export function getSleepView(asOf?: string, days?: number): Promise<SleepView> {
@@ -1015,7 +1009,13 @@ export type TodayQuests = {
   due_today: QuestTask[]
   up_next: QuestTask[]
 }
-export type QuestCalendar = { start: string; end: string; blocks: ScheduledBlock[] }
+/** A week of sessions, and the next actions that have no upcoming session (`not_scheduled`). */
+export type Plan = {
+  start: string
+  end: string
+  blocks: ScheduledBlock[]
+  not_scheduled: QuestTask[]
+}
 export type PromoteResult = { kind: PromoteKind; id: number; title: string }
 
 type ContainerFields = {
@@ -1292,8 +1292,8 @@ export function getInbox(): Promise<Inbox> {
 export function getTodayQuests(asOf?: string): Promise<TodayQuests> {
   return request(`/views/today${queryString({ as_of: asOf })}`)
 }
-export function getQuestCalendar(start: string, end: string): Promise<QuestCalendar> {
-  return request(`/views/calendar${queryString({ start, end })}`)
+export function getPlan(start: string, end: string): Promise<Plan> {
+  return request(`/views/plan${queryString({ start, end })}`)
 }
 
 /** This week so far (local Monday to the end of `as_of`), for Home. Every number is computed

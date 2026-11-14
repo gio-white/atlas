@@ -1,6 +1,6 @@
 import { type ReactNode, useId } from 'react'
 
-import type { CategoryId } from '@/lib/entertainment'
+import type { CategoryId } from '@/lib/library'
 import { cn } from '@/lib/utils'
 
 export type IconId = CategoryId | 'insights'

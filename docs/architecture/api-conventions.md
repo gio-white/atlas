@@ -12,7 +12,7 @@ Routers parse the request, call a service, and serialize. Create/list bodies use
 
 ## Query filters
 
-Optional filters the services already support are query parameters: `metric` and `include_automatic` on entries, `metric` on habits, `ambition_id` and `include_archived` on goals, `parent_kind` + `parent_id`, `status`, `inbox`, `standalone`, `due_on`, and `include_archived` on tasks, `start` / `end` (UTC datetimes) and `task_id` on time blocks and `/views/calendar`, `include_archived` on metrics, screen categories/apps/devices, and entertainment topics/titles, `kind` / `status` / `topic` on entertainment titles, `as_of` on status/progress/views including `/views/week-so-far`, `/views/this-week`, `/screen/view`, `/screen/dashboard`, `/sleep/view`, `/entertainment/dashboard`, `/views/today`, `/views/habits`, and `/views/habits/calendar`, `period` on `/screen/dashboard`, `/entertainment/dashboard`, and `/views/habits/calendar`, `days` (1–366) on `/sleep/view`, and `replace` on import.
+Optional filters the services already support are query parameters: `metric` and `include_automatic` on entries, `metric` on habits, `ambition_id` and `include_archived` on goals, `parent_kind` + `parent_id`, `status`, `inbox`, `standalone`, `due_on`, and `include_archived` on tasks, `start` / `end` (UTC datetimes) and `task_id` on time blocks and `/views/plan`, `include_archived` on metrics, screen categories/apps/devices, and library topics/titles, `kind` / `status` / `topic` on library titles, `as_of` on status/progress/views including `/views/week-so-far`, `/views/this-week`, `/screen/view`, `/screen/dashboard`, `/sleep/view`, `/library/dashboard`, `/views/today`, `/views/habits`, and `/views/habits/grid`, `period` on `/screen/dashboard`, `/library/dashboard`, and `/views/habits/grid`, `days` (1–366) on `/sleep/view`, and `replace` on import.
 
 ## Slugs
 
@@ -29,11 +29,11 @@ There is no authentication. The app binds to localhost only (`127.0.0.1`). CORS 
 | `/entries`, `/metrics` | [trackers and entries](../domain/trackers-and-entries.md#api) |
 | `/habits`, `/views/habits` | [habits](../domain/habits.md#api) |
 | `/ambitions`, `/goals`, `/milestones`, `/side-quests`, `/chapters`, `/tasks`, `/views/main-quests`, `/views/ambitions`, `/views/goals`, `/views/side-quests`, `/views/inbox` | [quests](../domain/quests.md#api) |
-| `/time-blocks`, `/views/today`, `/views/calendar` | [time blocks](../domain/time-blocks.md#api) |
+| `/time-blocks`, `/views/today`, `/views/plan` | [time blocks](../domain/time-blocks.md#api) |
 | `/views/week-so-far` | [home](../domain/home.md#api) |
 | `/views/this-week` | [this week](../domain/this-week.md#api) |
 | `/screen` | [screen time](../domain/screen-time.md#api) |
 | `/sleep` | [sleep](../domain/sleep.md#api) |
 | `/journal` | [journal](../domain/journal.md#api) |
-| `/entertainment` | [entertainment](../domain/entertainment.md#api) |
+| `/library` | [library](../domain/library.md#api) |
 | `/export`, `/import` | [cli and port](cli.md#api) |

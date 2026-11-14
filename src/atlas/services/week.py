@@ -14,8 +14,8 @@ from atlas.db.models import Milestone, Task, TimeBlock
 from atlas.domain import Period, QuestStatus, TaskStatus
 from atlas.domain.quests import as_utc, sessions_kept
 from atlas.services.clock import resolve_today
-from atlas.services.entertainment import entertainment_dashboard
 from atlas.services.habits import HabitWeekProgress, habit_week_progress, pooled_adherence_counts
+from atlas.services.library import library_dashboard
 from atlas.services.quest_views import local_day_bounds
 from atlas.services.quests import block_view
 from atlas.services.screen import screen_dashboard
@@ -117,7 +117,7 @@ def week_numbers(session: Session, *, as_of: date, now: datetime | None = None) 
     days = (as_of - monday).days + 1
     sleep = sleep_view(session, as_of=as_of, days=days)
     screen = screen_dashboard(session, as_of=as_of, period=Period.WEEK)
-    library = entertainment_dashboard(session, as_of=as_of, period=Period.WEEK)
+    library = library_dashboard(session, as_of=as_of, period=Period.WEEK)
     return WeekNumbers(
         as_of=as_of,
         week_start=monday,

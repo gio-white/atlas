@@ -190,7 +190,7 @@ def test_import_accepts_schema_version_7(session):
         import_all(other, payload)
         restored = export_all(other)
     assert restored["schema_version"] == CURRENT_SCHEMA_VERSION
-    assert restored["entertainment_topics"] == payload.get("entertainment_topics", [])
+    assert restored["library_topics"] == payload.get("library_topics", [])
 
 
 def test_export_round_trips_sleep_sessions(session, monkeypatch):
@@ -449,3 +449,24 @@ def test_import_marks_a_screen_apps_metric_as_screen_even_if_the_export_says_man
     import_all(session, payload)
 
     assert [str(metric.origin) for metric in list_metrics(session)] == ["screen"]
+
+
+def test_import_of_an_export_before_schema_13_reads_the_entertainment_sections(session):
+    payload = {
+        "schema_version": 12,
+        "metrics": [],
+        "entries": [],
+        "habits": [],
+        "entertainment_topics": [{"slug": "jazz", "name": "Jazz"}],
+        "entertainment_titles": [
+            {"slug": "kind-of-blue", "name": "Kind of Blue", "kind": "music", "topics": ["jazz"]}
+        ],
+    }
+
+    import_all(session, payload)
+
+    restored = export_all(session)
+    assert [topic["slug"] for topic in restored["library_topics"]] == ["jazz"]
+    assert [(title["slug"], title["topics"]) for title in restored["library_titles"]] == [
+        ("kind-of-blue", ["jazz"])
+    ]

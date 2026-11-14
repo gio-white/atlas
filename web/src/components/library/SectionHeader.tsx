@@ -2,9 +2,9 @@ import { ChevronLeft } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 
-import { CategoryIcon, type IconId } from '@/components/entertainment/CategoryIcon'
+import { CategoryIcon, type IconId } from '@/components/library/CategoryIcon'
 
-/** Search params worth carrying between entertainment pages (the `?on=` review date). */
+/** Search params worth carrying between Library pages (the `?on=` review date). */
 export function useCarriedSearch(): string {
   const [params] = useSearchParams()
   const on = params.get('on')

@@ -25,7 +25,7 @@ const apiPrefixes = [
   '/tasks',
   '/time-blocks',
   '/journal',
-  '/entertainment',
+  '/library',
   '/export',
   '/import',
 ]

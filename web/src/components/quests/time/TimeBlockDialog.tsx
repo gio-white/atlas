@@ -51,7 +51,7 @@ export type TimeBlockDialogProps = {
   block?: TimeBlock | null
   /** The task the session is for. Omit to let the person pick one. */
   task?: DialogTask | null
-  /** Where a new session starts (local date and time), e.g. the clicked calendar slot. */
+  /** Where a new session starts (local date and time), e.g. the clicked slot on Plan. */
   initial?: { date: string; start: string; end?: string } | null
   /** Called after any change is saved (create, edit, done, cancel, delete). */
   onSaved: () => void | Promise<void>
@@ -81,7 +81,7 @@ function initialWindow(
   }
 }
 
-/** Plan or edit one session. Shared by Today, Calendar, and a task's sessions list. */
+/** Plan or edit one session. Shared by Home, Plan, and a task's sessions list. */
 export function TimeBlockDialog(props: TimeBlockDialogProps) {
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>

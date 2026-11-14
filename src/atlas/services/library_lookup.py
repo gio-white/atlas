@@ -7,18 +7,18 @@ from dataclasses import dataclass
 
 from sqlmodel import Session, select
 
-from atlas.db.models import EntertainmentTitle
+from atlas.db.models import LibraryTitle
 from atlas.domain import (
-    EntertainmentKind,
-    EntertainmentStatus,
+    LibraryKind,
+    LibraryStatus,
     LinkSuggestion,
     oembed_url,
     parse_page_meta,
     suggest_from_sources,
 )
-from atlas.domain.entertainment_link import host_of
-from atlas.services.entertainment import create_entertainment_title
+from atlas.domain.library_link import host_of
 from atlas.services.errors import AlreadyExistsError, UpstreamError, ValidationError
+from atlas.services.library import create_library_title
 
 FETCH_TIMEOUT_SECONDS = 8
 FETCH_MAX_BYTES = 2 * 1024 * 1024
@@ -70,9 +70,7 @@ def lookup_link(session: Session, url: str, *, fetch: Fetch | None = None) -> Li
             if oembed is None:
                 raise
     suggestion = suggest_from_sources(link, oembed=oembed, meta=meta)
-    existing = session.exec(
-        select(EntertainmentTitle).where(EntertainmentTitle.link == link)
-    ).first()
+    existing = session.exec(select(LibraryTitle).where(LibraryTitle.link == link)).first()
     return LinkLookup(suggestion=suggestion, existing=existing.slug if existing else None)
 
 
@@ -80,21 +78,21 @@ def create_title_from_link(
     session: Session,
     url: str,
     *,
-    kind: EntertainmentKind | None = None,
-    status: EntertainmentStatus = EntertainmentStatus.QUEUED,
+    kind: LibraryKind | None = None,
+    status: LibraryStatus = LibraryStatus.QUEUED,
     topics: list[str] | None = None,
     note: str | None = None,
     fetch: Fetch | None = None,
-) -> EntertainmentTitle:
+) -> LibraryTitle:
     """Look a link up and save it in one step; refuses links already in the library."""
     lookup = lookup_link(session, url, fetch=fetch)
     if lookup.existing is not None:
-        raise AlreadyExistsError("entertainment_title", lookup.existing)
+        raise AlreadyExistsError("library_title", lookup.existing)
     suggestion = lookup.suggestion
     if suggestion.name is None:
         raise ValidationError("could not find a title at that link; add it by hand")
-    resolved_kind = EntertainmentKind(kind or suggestion.kind or EntertainmentKind.OTHER)
-    return create_entertainment_title(
+    resolved_kind = LibraryKind(kind or suggestion.kind or LibraryKind.OTHER)
+    return create_library_title(
         session,
         unique_title_slug(session, suggestion.name, resolved_kind),
         kind=resolved_kind,
@@ -108,9 +106,9 @@ def create_title_from_link(
     )
 
 
-def unique_title_slug(session: Session, name: str, kind: EntertainmentKind) -> str:
+def unique_title_slug(session: Session, name: str, kind: LibraryKind) -> str:
     base = _SLUG_CHUNK.sub("-", name.lower()).strip("-")[:60].strip("-") or str(kind)
-    taken = set(session.exec(select(EntertainmentTitle.slug)).all())
+    taken = set(session.exec(select(LibraryTitle.slug)).all())
     if base not in taken:
         return base
     with_kind = f"{base}-{kind}"

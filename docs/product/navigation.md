@@ -10,7 +10,7 @@ Page behaviour is described in each feature's doc under [domain/](../domain/) (s
 
 The structure comes from the [redesign brief](../plans/redesign-brief.md) and
 [decision 0007](../decisions/0007-five-destinations-on-a-rail.md). The brief lands in phases;
-this page describes what is built now. **Phases 1 (the shell), 2 (Settings), 3 (Home), and 4 (Stats) are built.** Other
+this page describes what is built now. **Phases 1 (the shell), 2 (Settings), 3 (Home), 4 (Stats), and 5 (Library and Plan names, Not scheduled yet) are built.** Other
 pages keep their earlier content; the notes marked *until phase N* say what is still temporary.
 
 ## Destinations
@@ -70,7 +70,7 @@ Habits keeps the address `/habit`: `/habits` is the API's list of habits.
 | `/quests` | Quests → Main quests: each ambition with its goal cards (ring, status, date, counts, next action) and direct tasks, ambitions without goals included, then independent goals; new ambition and new goal | implemented |
 | `/quests/side-quests` | Quests → Side quests: side quest cards with progress and standalone tasks; new side quest | implemented |
 | `/quests/inbox` | Quests → Inbox: always-focused capture (Enter adds a title); each item can be edited, organized into any ambition, goal, milestone, chapter, or side quest (search picker), made standalone, turned into a new item, or archived ([quests](../domain/quests.md#screens)) | implemented |
-| `/quests/plan` | Quests → Plan: Monday–Sunday week of sessions by hour (`?on=` picks the week); click an empty hour to plan a session, click a session to edit, complete, cancel, or delete ([time blocks](../domain/time-blocks.md#screens)) | implemented |
+| `/quests/plan` | Quests → Plan: Monday–Sunday week of sessions by hour (`?on=` picks the week); click an empty hour to plan a session, click a session to edit, complete, cancel, or delete; Not scheduled yet lists each goal's and side quest's next action with no upcoming session, and Schedule plans one ([time blocks](../domain/time-blocks.md#screens)) | implemented |
 | `/quests/ambitions/:id` | One ambition: edit, complete or reopen, its goal cards (reorder, add) and direct tasks | implemented |
 | `/quests/goals/:id` | One goal's quest map: breadcrumb, success description, completion (with override), a path of expandable milestones with chapters and tasks, direct tasks, add and reorder at every level | implemented |
 | `/quests/side-quests/:id` | One side quest: edit, completion, its chapters and direct tasks (the same tree as a milestone) | implemented |
@@ -80,7 +80,7 @@ Habits keeps the address `/habit`: `/habits` is the API's list of habits.
 | `/stats/sleep` | Stats → Sleep, display-only: Week / Month / 90 days range, time asleep trend, bedtime and wake consistency, stage split, read-only nights list with No data gaps | implemented |
 | `/stats/screen-time` | Stats → Screen time, display-only period dashboard: totals, score, charts, heatmap, insights, cap status; a link to its setup in Settings | implemented |
 | `/stats/health` | Stats → Health: an empty state, "No health data yet / This fills in once a device is connected." Health only ever shows device data | implemented |
-| `/library` | Library: category icons, add from link, Everything / Insights dock ([entertainment](../domain/entertainment.md#screens)) | implemented |
+| `/library` | Library: category icons, add from link, Everything / Insights dock ([library](../domain/library.md#screens)) | implemented |
 | `/library/:category` | Library table for one category (or `all`) with filter/sort, add/edit dialog | implemented |
 | `/library/insights` | Period dashboard: finished by kind and tag, recently finished | implemented |
 | `/settings/appearance` | Settings → Appearance: theme (dark or light) and your name, both kept on this device | implemented |
@@ -114,13 +114,6 @@ query string (so the As of date and filters survive), and the hash.
 | `/area/:slug` | `/settings/metrics` (areas are removed) |
 
 Any other unknown address goes to Home.
-
-## Names that are ahead of the API
-
-Two labels and addresses already use their final names while the API and code keep the old ones
-*until phase 5*: **Library** (API `/entertainment`, code `Entertainment*`) and **Plan** (API
-`GET /views/calendar`, code `CalendarPage`). Phase 5 renames both everywhere
-([glossary](glossary.md)).
 
 ## What was removed
 

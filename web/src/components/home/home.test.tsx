@@ -7,9 +7,9 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type {
-  EntertainmentTitle,
   HabitStatus,
   JournalDay,
+  LibraryTitle,
   MainQuests,
   QuestGoal,
   ScreenBudgetStatus,
@@ -210,7 +210,7 @@ describe('Screen time today', () => {
 describe('In progress', () => {
   it('counts titles in progress and names up to three', () => {
     const titles = ['Dune', 'Severance', 'Atomic Habits', 'Lex Fridman'].map(
-      (name) => ({ slug: name.toLowerCase(), name }) as EntertainmentTitle,
+      (name) => ({ slug: name.toLowerCase(), name }) as LibraryTitle,
     )
     renderBlock(<InProgressBlock titles={titles} search="" />)
 

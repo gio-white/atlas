@@ -174,16 +174,16 @@ def test_time_blocks_and_execution_views(client):
 
     today = ok(client.get("/views/today"))
     assert [item["block"]["id"] for item in today["unconfirmed"]] == [block["id"]]
-    calendar = ok(
+    plan = ok(
         client.get(
-            "/views/calendar",
+            "/views/plan",
             params={
                 "start": (now - timedelta(days=1)).isoformat(),
                 "end": (now + timedelta(days=1)).isoformat(),
             },
         )
     )
-    assert {item["block"]["id"] for item in calendar["blocks"]} == {block["id"], later["id"]}
+    assert {item["block"]["id"] for item in plan["blocks"]} == {block["id"], later["id"]}
 
     completed = ok(client.post(f"/time-blocks/{block['id']}/complete"))
     assert completed["status"] == "completed"

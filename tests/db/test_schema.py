@@ -7,10 +7,10 @@ from sqlmodel import Session, select
 
 from atlas.db import (
     CURRENT_SCHEMA_VERSION,
-    EntertainmentTitle,
-    EntertainmentTopic,
     Entry,
     Habit,
+    LibraryTitle,
+    LibraryTopic,
     Metric,
     SchemaVersion,
     ScreenApp,
@@ -28,9 +28,9 @@ from atlas.domain import (
     Aggregation,
     Comparator,
     Direction,
-    EntertainmentKind,
-    EntertainmentStatus,
     HabitKind,
+    LibraryKind,
+    LibraryStatus,
     MetricOrigin,
     Period,
     ScreenJudgment,
@@ -175,29 +175,29 @@ def test_screen_slugs_are_unique(session):
         session.commit()
 
 
-def test_entertainment_slugs_are_unique(session):
-    session.add(EntertainmentTopic(slug="physics", name="Physics"))
+def test_library_slugs_are_unique(session):
+    session.add(LibraryTopic(slug="physics", name="Physics"))
     session.commit()
-    session.add(EntertainmentTopic(slug="physics", name="Other"))
+    session.add(LibraryTopic(slug="physics", name="Other"))
     with pytest.raises(IntegrityError):
         session.commit()
     session.rollback()
 
     session.add(
-        EntertainmentTitle(
+        LibraryTitle(
             slug="interstellar",
             name="Interstellar",
-            kind=EntertainmentKind.FILM,
-            status=EntertainmentStatus.QUEUED,
+            kind=LibraryKind.FILM,
+            status=LibraryStatus.QUEUED,
         )
     )
     session.commit()
     session.add(
-        EntertainmentTitle(
+        LibraryTitle(
             slug="interstellar",
             name="Other",
-            kind=EntertainmentKind.BOOK,
-            status=EntertainmentStatus.QUEUED,
+            kind=LibraryKind.BOOK,
+            status=LibraryStatus.QUEUED,
         )
     )
     with pytest.raises(IntegrityError):
@@ -356,7 +356,7 @@ def _row_for(model, *, slug: str, metric: Metric):
     )
 
 
-def test_init_schema_adds_entertainment_rating_and_link(tmp_path):
+def test_init_schema_adds_library_rating_and_link(tmp_path):
     engine = create_engine_for(tmp_path / "v8.db")
     with engine.begin() as connection:
         connection.execute(
@@ -381,10 +381,10 @@ def test_init_schema_adds_entertainment_rating_and_link(tmp_path):
         )
     init_schema(engine)
 
-    columns = {column["name"] for column in inspect(engine).get_columns("entertainment_title")}
+    columns = {column["name"] for column in inspect(engine).get_columns("library_title")}
     assert {"rating", "link"} <= columns
     with Session(engine) as session:
-        title = session.exec(select(EntertainmentTitle)).one()
+        title = session.exec(select(LibraryTitle)).one()
         assert title.slug == "dune"
         assert title.rating is None
         assert title.link is None
@@ -529,7 +529,7 @@ def test_init_schema_replaces_areas_with_metric_origins(tmp_path):
 
     init_schema(engine)
 
-    assert CURRENT_SCHEMA_VERSION == 12
+    assert CURRENT_SCHEMA_VERSION == 13
     inspector = inspect(engine)
     assert "area" not in inspector.get_table_names()
     columns = {column["name"] for column in inspector.get_columns("metric")}
@@ -612,3 +612,50 @@ def test_the_area_migration_runs_once(tmp_path):
 
     with Session(engine) as session:
         assert len(session.exec(select(Metric)).all()) == 8
+
+
+def test_init_schema_renames_entertainment_tables_to_library(tmp_path):
+    engine = create_engine_for(tmp_path / "v12.db")
+    with engine.begin() as connection:
+        for statement in (
+            "CREATE TABLE schema_version (id INTEGER PRIMARY KEY, version INTEGER)",
+            "INSERT INTO schema_version (id, version) VALUES (1, 12)",
+            "CREATE TABLE entertainment_topic (id INTEGER PRIMARY KEY, slug VARCHAR NOT NULL "
+            "UNIQUE, name VARCHAR NOT NULL, archived_at DATETIME)",
+            "CREATE INDEX ix_entertainment_topic_slug ON entertainment_topic (slug)",
+            "CREATE TABLE entertainment_title (id INTEGER PRIMARY KEY, slug VARCHAR NOT NULL "
+            "UNIQUE, name VARCHAR NOT NULL, kind VARCHAR NOT NULL, creator VARCHAR, "
+            "recommended_by VARCHAR, status VARCHAR NOT NULL, started_on DATE, finished_on DATE, "
+            "progress VARCHAR, note VARCHAR, rating INTEGER, link VARCHAR, image_url VARCHAR, "
+            "image_bytes BLOB, image_media_type VARCHAR, archived_at DATETIME, "
+            "created_at DATETIME NOT NULL)",
+            "CREATE INDEX ix_entertainment_title_slug ON entertainment_title (slug)",
+            "CREATE TABLE entertainment_title_topic ("
+            "title_id INTEGER NOT NULL REFERENCES entertainment_title (id), "
+            "topic_id INTEGER NOT NULL REFERENCES entertainment_topic (id), "
+            "PRIMARY KEY (title_id, topic_id))",
+            "INSERT INTO entertainment_topic (id, slug, name) VALUES (7, 'jazz', 'Jazz')",
+            "INSERT INTO entertainment_title (id, slug, name, kind, status, created_at) "
+            "VALUES (3, 'kind-of-blue', 'Kind of Blue', 'MUSIC', 'DONE', '2026-08-01 12:00:00')",
+            "INSERT INTO entertainment_title_topic (title_id, topic_id) VALUES (3, 7)",
+        ):
+            connection.execute(text(statement))
+
+    init_schema(engine)
+
+    inspector = inspect(engine)
+    tables = set(inspector.get_table_names())
+    assert {"library_topic", "library_title", "library_title_topic"} <= tables
+    assert not {name for name in tables if name.startswith("entertainment_")}
+    assert {index["name"] for index in inspector.get_indexes("library_title")} >= {
+        "ix_library_title_slug"
+    }
+    links = inspector.get_foreign_keys("library_title_topic")
+    assert {link["referred_table"] for link in links} == {"library_title", "library_topic"}
+    with Session(engine) as session:
+        title = session.exec(select(LibraryTitle)).one()
+        assert (title.id, title.slug, title.status) == (3, "kind-of-blue", LibraryStatus.DONE)
+        assert session.exec(select(LibraryTopic)).one().id == 7
+        assert session.get(SchemaVersion, 1).version == 13
+    with engine.connect() as connection:
+        assert connection.execute(text("PRAGMA foreign_key_check")).all() == []

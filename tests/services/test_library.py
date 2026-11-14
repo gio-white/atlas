@@ -4,23 +4,23 @@ import pytest
 from sqlmodel import select
 
 from atlas.db.models import Entry
-from atlas.domain import EntertainmentKind, EntertainmentStatus, Period
+from atlas.domain import LibraryKind, LibraryStatus, Period
 from atlas.services import (
     AlreadyExistsError,
     NotFoundError,
     ValidationError,
-    create_entertainment_title,
-    create_entertainment_topic,
-    delete_entertainment_title,
-    entertainment_dashboard,
+    create_library_title,
+    create_library_topic,
+    delete_library_title,
     export_all,
-    get_entertainment_title,
-    get_entertainment_topic,
+    get_library_title,
+    get_library_topic,
     get_title_image,
     import_all,
-    list_entertainment_titles,
+    library_dashboard,
+    list_library_titles,
     set_title_image,
-    update_entertainment_title,
+    update_library_title,
 )
 
 PNG = (
@@ -31,46 +31,46 @@ PNG = (
 
 
 def _topic(session, slug: str = "physics"):
-    return create_entertainment_topic(session, slug)
+    return create_library_topic(session, slug)
 
 
 def test_create_title_does_not_write_an_entry(session):
     _topic(session)
-    title = create_entertainment_title(
+    title = create_library_title(
         session,
         "interstellar",
-        kind=EntertainmentKind.FILM,
+        kind=LibraryKind.FILM,
         name="Interstellar",
         creator="Christopher Nolan",
         topics=["physics"],
-        status=EntertainmentStatus.DONE,
+        status=LibraryStatus.DONE,
         finished_on=date(2026, 8, 12),
     )
-    assert title.status is EntertainmentStatus.DONE
+    assert title.status is LibraryStatus.DONE
     assert session.exec(select(Entry)).all() == []
-    listed = list_entertainment_titles(session, topic="physics")
+    listed = list_library_titles(session, topic="physics")
     assert [row.slug for row in listed] == ["interstellar"]
 
 
 def test_duplicate_topic_slug_is_rejected(session):
     _topic(session, "math")
     with pytest.raises(AlreadyExistsError):
-        create_entertainment_topic(session, "math")
+        create_library_topic(session, "math")
 
 
 def test_marking_done_stamps_finished_on(session, monkeypatch):
     monkeypatch.setenv("ATLAS_TZ", "UTC")
-    create_entertainment_title(session, "queued-book", kind=EntertainmentKind.BOOK)
-    updated = update_entertainment_title(session, "queued-book", status=EntertainmentStatus.DONE)
-    assert updated.status is EntertainmentStatus.DONE
+    create_library_title(session, "queued-book", kind=LibraryKind.BOOK)
+    updated = update_library_title(session, "queued-book", status=LibraryStatus.DONE)
+    assert updated.status is LibraryStatus.DONE
     assert updated.finished_on is not None
 
 
 def test_image_url_and_upload_are_exclusive(session):
-    create_entertainment_title(
+    create_library_title(
         session,
         "poster",
-        kind=EntertainmentKind.FILM,
+        kind=LibraryKind.FILM,
         image_url="https://example.com/poster.jpg",
     )
     updated = set_title_image(session, "poster", PNG, media_type="image/png")
@@ -78,9 +78,7 @@ def test_image_url_and_upload_are_exclusive(session):
     data, media_type = get_title_image(session, "poster")
     assert data == PNG
     assert media_type == "image/png"
-    cleared = update_entertainment_title(
-        session, "poster", image_url="https://example.com/other.jpg"
-    )
+    cleared = update_library_title(session, "poster", image_url="https://example.com/other.jpg")
     assert cleared.image_bytes is None
     assert cleared.image_url == "https://example.com/other.jpg"
     with pytest.raises(NotFoundError):
@@ -88,7 +86,7 @@ def test_image_url_and_upload_are_exclusive(session):
 
 
 def test_image_rejects_large_and_unknown_types(session):
-    create_entertainment_title(session, "clip", kind=EntertainmentKind.VIDEO)
+    create_library_title(session, "clip", kind=LibraryKind.VIDEO)
     with pytest.raises(ValidationError, match="jpeg"):
         set_title_image(session, "clip", b"not-an-image", media_type="application/pdf")
     with pytest.raises(ValidationError, match="2 MiB"):
@@ -97,49 +95,49 @@ def test_image_rejects_large_and_unknown_types(session):
 
 def test_dashboard_and_view_count_library_status(session):
     _topic(session, "programming")
-    create_entertainment_title(
+    create_library_title(
         session,
         "lex",
-        kind=EntertainmentKind.PODCAST,
-        status=EntertainmentStatus.DONE,
+        kind=LibraryKind.PODCAST,
+        status=LibraryStatus.DONE,
         finished_on=date(2026, 8, 13),
         topics=["programming"],
     )
-    create_entertainment_title(
+    create_library_title(
         session,
         "office",
-        kind=EntertainmentKind.SERIES,
-        status=EntertainmentStatus.IN_PROGRESS,
+        kind=LibraryKind.SERIES,
+        status=LibraryStatus.IN_PROGRESS,
         started_on=date(2026, 8, 10),
     )
-    dash = entertainment_dashboard(session, as_of=date(2026, 8, 14), period=Period.WEEK)
+    dash = library_dashboard(session, as_of=date(2026, 8, 14), period=Period.WEEK)
     assert dash.finished_in_range == 1
     assert dash.in_progress == 1
     assert dash.library.done[0].slug == "lex"
     assert dash.library.done[0].topics[0].slug == "programming"
 
 
-def test_export_includes_entertainment_without_entries(session):
+def test_export_includes_library_without_entries(session):
     _topic(session, "finance")
-    create_entertainment_title(
+    create_library_title(
         session,
         "atomic-habits",
-        kind=EntertainmentKind.BOOK,
+        kind=LibraryKind.BOOK,
         topics=["finance"],
         image_url="https://example.com/atomic.jpg",
     )
     payload = export_all(session)
-    assert payload["entertainment_topics"][0]["slug"] == "finance"
-    assert payload["entertainment_titles"][0]["slug"] == "atomic-habits"
-    assert payload["entertainment_titles"][0]["topics"] == ["finance"]
+    assert payload["library_topics"][0]["slug"] == "finance"
+    assert payload["library_titles"][0]["slug"] == "atomic-habits"
+    assert payload["library_titles"][0]["topics"] == ["finance"]
     assert payload["entries"] == []
 
 
 def test_rating_and_link_are_validated_and_clearable(session):
-    title = create_entertainment_title(
+    title = create_library_title(
         session,
         "kind-of-blue",
-        kind=EntertainmentKind.MUSIC,
+        kind=LibraryKind.MUSIC,
         rating=5,
         link=" https://open.spotify.com/album/kind-of-blue ",
     )
@@ -148,50 +146,50 @@ def test_rating_and_link_are_validated_and_clearable(session):
 
     for bad in (0, 6, True):
         with pytest.raises(ValidationError):
-            update_entertainment_title(session, "kind-of-blue", rating=bad)
+            update_library_title(session, "kind-of-blue", rating=bad)
     with pytest.raises(ValidationError):
-        update_entertainment_title(session, "kind-of-blue", link="spotify:album:1")
+        update_library_title(session, "kind-of-blue", link="spotify:album:1")
 
-    cleared = update_entertainment_title(session, "kind-of-blue", rating=None, link="")
+    cleared = update_library_title(session, "kind-of-blue", rating=None, link="")
     assert cleared.rating is None
     assert cleared.link is None
 
 
 def test_unknown_tags_are_created_on_the_fly(session):
-    title = create_entertainment_title(
-        session, "huberman", kind=EntertainmentKind.PODCAST, topics=["sleep-science"]
+    title = create_library_title(
+        session, "huberman", kind=LibraryKind.PODCAST, topics=["sleep-science"]
     )
-    topic = get_entertainment_topic(session, "sleep-science")
+    topic = get_library_topic(session, "sleep-science")
     assert topic.name == "Sleep Science"
-    listed = list_entertainment_titles(session, topic="sleep-science")
+    listed = list_library_titles(session, topic="sleep-science")
     assert [row.slug for row in listed] == [title.slug]
 
 
 def test_delete_title_removes_it_and_its_tag_links(session):
     _topic(session)
-    create_entertainment_title(session, "cosmos", kind=EntertainmentKind.SERIES, topics=["physics"])
-    delete_entertainment_title(session, "cosmos")
+    create_library_title(session, "cosmos", kind=LibraryKind.SERIES, topics=["physics"])
+    delete_library_title(session, "cosmos")
     with pytest.raises(NotFoundError):
-        get_entertainment_title(session, "cosmos")
-    assert export_all(session)["entertainment_titles"] == []
-    assert list_entertainment_titles(session, topic="physics") == []
-    create_entertainment_title(session, "cosmos", kind=EntertainmentKind.SERIES)
+        get_library_title(session, "cosmos")
+    assert export_all(session)["library_titles"] == []
+    assert list_library_titles(session, topic="physics") == []
+    create_library_title(session, "cosmos", kind=LibraryKind.SERIES)
 
 
 def test_rating_and_link_survive_export_and_import(session):
-    create_entertainment_title(
+    create_library_title(
         session,
         "dune",
-        kind=EntertainmentKind.BOOK,
+        kind=LibraryKind.BOOK,
         rating=4,
         link="https://openlibrary.org/works/OL893415W",
     )
     payload = export_all(session)
-    row = payload["entertainment_titles"][0]
+    row = payload["library_titles"][0]
     assert row["rating"] == 4
     assert row["link"] == "https://openlibrary.org/works/OL893415W"
-    delete_entertainment_title(session, "dune")
+    delete_library_title(session, "dune")
     import_all(session, payload)
-    restored = get_entertainment_title(session, "dune")
+    restored = get_library_title(session, "dune")
     assert restored.rating == 4
     assert restored.link == "https://openlibrary.org/works/OL893415W"

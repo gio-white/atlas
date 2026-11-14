@@ -33,7 +33,7 @@ function dayHeading(date: string): { weekday: string; day: string; full: string 
  * from the API's `overlaps` flag (lanes only keep them readable). Empty hours are buttons that
  * plan a session there (the lower half of an hour starts at :30).
  */
-export function WeekCalendar({
+export function PlanGrid({
   monday,
   blocks,
   today,
@@ -75,7 +75,7 @@ export function WeekCalendar({
     <div
       ref={scroller}
       className="max-h-[70svh] overflow-auto rounded-2xl border border-line bg-surface shadow-[var(--shadow-card)]"
-      data-testid="week-calendar"
+      data-testid="plan-grid"
     >
       <div className="grid min-w-[760px] grid-cols-[3.5rem_repeat(7,minmax(0,1fr))]">
         <div className="sticky top-0 left-0 z-30 border-b border-line bg-surface" />

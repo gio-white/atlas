@@ -2,20 +2,20 @@ import { Link2, Plus } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 
-import { CategoryIcon, type IconId } from '@/components/entertainment/CategoryIcon'
-import { useCarriedSearch } from '@/components/entertainment/SectionHeader'
-import { TitleDialog } from '@/components/entertainment/TitleDialog'
-import { useLibrary } from '@/components/entertainment/useLibrary'
+import { CategoryIcon, type IconId } from '@/components/library/CategoryIcon'
+import { useCarriedSearch } from '@/components/library/SectionHeader'
+import { TitleDialog } from '@/components/library/TitleDialog'
+import { useLibrary } from '@/components/library/useLibrary'
 import { PageHeader, PageLoading, PageUnavailable } from '@/components/PageState'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { CATEGORIES, categoryFromPath, inCategory } from '@/lib/entertainment'
+import { CATEGORIES, categoryFromPath, inCategory } from '@/lib/library'
 import { cn } from '@/lib/utils'
 
 const SHELF = CATEGORIES.filter((category) => category.id !== 'all')
 
-/** Entertainment home: one app-style icon per category, plus Everything and Insights. */
-export function EntertainmentPage() {
+/** Library home: one app-style icon per category, plus Everything and Insights. */
+export function LibraryPage() {
   const [params] = useSearchParams()
   const search = useCarriedSearch()
   const { titles, topics, error, refresh } = useLibrary()

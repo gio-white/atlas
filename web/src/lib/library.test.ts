@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { EntertainmentTitle } from './api'
+import type { LibraryTitle } from './api'
 import {
   categoryFromPath,
   filterTitles,
@@ -12,11 +12,11 @@ import {
   statusCounts,
   tagsIn,
   uniqueTitleSlug,
-} from './entertainment'
+} from './library'
 
 function title(
-  overrides: Partial<EntertainmentTitle> & Pick<EntertainmentTitle, 'slug' | 'name'>,
-): EntertainmentTitle {
+  overrides: Partial<LibraryTitle> & Pick<LibraryTitle, 'slug' | 'name'>,
+): LibraryTitle {
   return {
     kind: 'film',
     creator: null,

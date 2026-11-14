@@ -33,7 +33,8 @@ changes, change it here, in the UI, and in the API together.
 | Making an Inbox task into a new ambition, goal, side quest, milestone, or chapter | Turn into… | `POST /tasks/{id}/promote` | [quests](../domain/quests.md) |
 | Empty / Not started / In progress / Completed | same | chapter `state`: `empty`, `not_started`, `in_progress`, `completed` | [quests](../domain/quests.md) |
 | The task to work on next | Next | `next_action` | [quests](../domain/quests.md) |
-| A planned session on the calendar | Session (time block) | `TimeBlock`, `/time-blocks` | [time blocks](../domain/time-blocks.md) |
+| A planned session on Plan | Session (time block) | `TimeBlock`, `/time-blocks` | [time blocks](../domain/time-blocks.md) |
+| Next tasks with no upcoming session | Not scheduled yet (on Plan) | `not_scheduled` on `GET /views/plan` | [time blocks](../domain/time-blocks.md) |
 | Recording that a session happened (the task stays open) | Session done | `POST /time-blocks/{id}/complete` | [time blocks](../domain/time-blocks.md) |
 | Completing the task itself from a session | Outcome achieved | task `status: completed` via `PATCH /tasks/{id}` | [time blocks](../domain/time-blocks.md) |
 | A session whose time passed without an answer | To confirm (on Home), Unconfirmed (on Plan and in the task's sessions) | derived: `scheduled` after `end_at` | [time blocks](../domain/time-blocks.md) |
@@ -52,23 +53,24 @@ changes, change it here, in the UI, and in the API together.
 | Good / Bad / Neutral | same | `judgment`: `useful`, `waste`, `neutral` | [screen time](../domain/screen-time.md) |
 | A daily limit | Cap | `ScreenBudget`, `/screen/budgets` | [screen time](../domain/screen-time.md) |
 | A phone or computer | Device | `ScreenDevice` | [screen time](../domain/screen-time.md) |
-| A work in the library | Title | `EntertainmentTitle` | [entertainment](../domain/entertainment.md) |
-| A label on a title | Tag | `EntertainmentTopic` | [entertainment](../domain/entertainment.md) |
+| A work in the library | Title | `LibraryTitle` | [library](../domain/library.md) |
+| A label on a title | Tag | `LibraryTopic` | [library](../domain/library.md) |
 | Everything ever recorded | History | `GET /entries` | [history](../domain/history.md) |
 | Viewing the app on a past date | As of | `as_of` / `?on=` | [api conventions](../architecture/api-conventions.md) |
 
 Words that never reach the UI are listed in [ux-writing](ux-writing.md).
 
-## Names that are ahead of the API
+## Renamed by the redesign
 
-The [redesign brief](../plans/redesign-brief.md) renames two things. Their labels and addresses
-changed with the shell (phase 1); the API and code follow in phase 5, and until then these two
-rows are the only places where the UI word and the API word differ.
+The [redesign brief](../plans/redesign-brief.md) renamed two things. The labels and addresses
+changed with the shell (phase 1), the API and code with phase 5, so the UI word and the API word
+are the same again. The old addresses redirect.
 
-| Concept | Shown in the UI as | In the code / API until phase 5 |
-| ------- | ------------------ | ------------------------------- |
-| Everything watched, read, and heard | Library (`/library`) | `Entertainment*`, `/entertainment` |
-| The week of planned sessions | Plan (`/quests/plan`) | `CalendarPage`, `GET /views/calendar` |
+| Concept | Name in the UI, API, and code | Was |
+| ------- | ----------------------------- | --- |
+| Everything watched, read, and heard | Library (`/library`, API `/library/…`, `Library*`, tables `library_*`) | Entertainment |
+| The week of planned sessions | Plan (`/quests/plan`, `GET /views/plan`, `PlanPage`) | Calendar |
+| A habit's day / week / month history grid | Grid (`GET /views/habits/grid`, `habit_grid`) | calendar |
 
 History is shown as **All entries** (Settings → All entries); the API is `GET /entries` as before.
 

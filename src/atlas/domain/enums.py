@@ -97,7 +97,7 @@ class TimeOfDay(StrEnum):
     ANYTIME = "anytime"
 
 
-class EntertainmentKind(StrEnum):
+class LibraryKind(StrEnum):
     FILM = "film"
     SERIES = "series"
     ANIME = "anime"
@@ -108,7 +108,7 @@ class EntertainmentKind(StrEnum):
     OTHER = "other"
 
 
-class EntertainmentStatus(StrEnum):
+class LibraryStatus(StrEnum):
     QUEUED = "queued"
     IN_PROGRESS = "in_progress"
     DONE = "done"

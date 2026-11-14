@@ -4,17 +4,17 @@ import pytest
 
 from atlas.domain import (
     Comparator,
-    EntertainmentKind,
-    EntertainmentStatus,
     HabitKind,
+    LibraryKind,
+    LibraryStatus,
     Period,
     ScreenJudgment,
     TaskStatus,
 )
 from atlas.domain.quests import QuestKind
 from atlas.services import (
-    create_entertainment_title,
     create_habit,
+    create_library_title,
     create_screen_app,
     create_screen_category,
     log_entry,
@@ -159,18 +159,18 @@ def test_tasks_milestones_and_titles_finished_in_the_window(session):
         session, QuestKind.MILESTONE, {"title": "Beta", "goal_id": goal.id}, now=earlier
     )
     complete_container(session, QuestKind.MILESTONE, milestone.id, override=True, now=at)
-    create_entertainment_title(
+    create_library_title(
         session,
         "dune",
-        kind=EntertainmentKind.BOOK,
-        status=EntertainmentStatus.DONE,
+        kind=LibraryKind.BOOK,
+        status=LibraryStatus.DONE,
         finished_on=date(2026, 8, 12),
     )
-    create_entertainment_title(
+    create_library_title(
         session,
         "later",
-        kind=EntertainmentKind.BOOK,
-        status=EntertainmentStatus.DONE,
+        kind=LibraryKind.BOOK,
+        status=LibraryStatus.DONE,
         finished_on=date(2026, 8, 15),
     )
 

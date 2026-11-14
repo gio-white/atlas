@@ -20,7 +20,6 @@ import { PageError, PageLoading } from '@/components/PageState'
 import { type DialogTask, TimeBlockDialog } from '@/components/quests/time/TimeBlockDialog'
 import { useSessionActions } from '@/components/quests/time/useSessionActions'
 import {
-  type EntertainmentTitle,
   getHabitsBoard,
   getJournal,
   getMainQuests,
@@ -30,7 +29,8 @@ import {
   getWeekSoFar,
   type HabitsBoard,
   type JournalDay,
-  listEntertainmentTitles,
+  type LibraryTitle,
+  listLibraryTitles,
   type MainQuests,
   type ScreenDashboard,
   type SleepView,
@@ -49,7 +49,7 @@ export type HomeData = {
   quests: MainQuests | null
   sleep: SleepView | null
   screen: ScreenDashboard | null
-  reading: EntertainmentTitle[] | null
+  reading: LibraryTitle[] | null
 }
 
 export async function loadHome(asOf: string): Promise<HomeData> {
@@ -61,7 +61,7 @@ export async function loadHome(asOf: string): Promise<HomeData> {
     getMainQuests().catch(() => null),
     getSleepView(asOf).catch(() => null),
     getScreenDashboard('day', asOf).catch(() => null),
-    listEntertainmentTitles({ status: 'in_progress' }).catch(() => null),
+    listLibraryTitles({ status: 'in_progress' }).catch(() => null),
   ])
   return { today, habits, journal, week, quests, sleep, screen, reading }
 }

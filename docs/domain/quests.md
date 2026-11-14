@@ -406,4 +406,4 @@ null); rows carry a thin bar. Completed items turn `good` green. No tables.
 
 ## Status
 
-Q1 done (backend, typed client, seed). Q2 done: Main quests, Ambition, the goal quest map, Side quests, Side quest, Inbox, and the task drawer. Today, Calendar, and the drawer's sessions section come with Q3 ([time blocks](time-blocks.md)).
+Q1 done (backend, typed client, seed). Q2 done: Main quests, Ambition, the goal quest map, Side quests, Side quest, Inbox, and the task drawer. Today, Plan (then called Calendar), and the drawer's sessions section come with Q3 ([time blocks](time-blocks.md)).

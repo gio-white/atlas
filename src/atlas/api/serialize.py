@@ -3,15 +3,15 @@ from typing import Any
 from sqlmodel import Session
 
 from atlas.api.schemas import (
-    EntertainmentTitleOut,
-    EntertainmentTopicOut,
-    EntertainmentTopicRefOut,
     EntryOut,
     HabitBreakOut,
     HabitCheckInOut,
     HabitDetailOut,
     HabitOut,
     HabitStatusOut,
+    LibraryTitleOut,
+    LibraryTopicOut,
+    LibraryTopicRefOut,
     MetricOut,
     ScreenAppOut,
     ScreenBudgetOut,
@@ -229,8 +229,8 @@ def sleep_session_out(session: Session, row: Any) -> SleepSessionOut:
     )
 
 
-def entertainment_topic_out(topic: Any) -> EntertainmentTopicOut:
-    return EntertainmentTopicOut(
+def library_topic_out(topic: Any) -> LibraryTopicOut:
+    return LibraryTopicOut(
         id=topic.id,
         slug=topic.slug,
         name=topic.name,
@@ -238,8 +238,8 @@ def entertainment_topic_out(topic: Any) -> EntertainmentTopicOut:
     )
 
 
-def entertainment_title_out(view: Any) -> EntertainmentTitleOut:
-    return EntertainmentTitleOut(
+def library_title_out(view: Any) -> LibraryTitleOut:
+    return LibraryTitleOut(
         slug=view.slug,
         name=view.name,
         kind=view.kind,
@@ -252,13 +252,11 @@ def entertainment_title_out(view: Any) -> EntertainmentTitleOut:
         note=view.note,
         rating=view.rating,
         link=view.link,
-        topics=[
-            EntertainmentTopicRefOut(slug=topic.slug, name=topic.name) for topic in view.topics
-        ],
+        topics=[LibraryTopicRefOut(slug=topic.slug, name=topic.name) for topic in view.topics],
         image=view.image,
         created_at=view.created_at,
     )
 
 
-def entertainment_title_out_for(session: Session, title: Any) -> EntertainmentTitleOut:
-    return entertainment_title_out(title_view_for(session, title))
+def library_title_out_for(session: Session, title: Any) -> LibraryTitleOut:
+    return library_title_out(title_view_for(session, title))

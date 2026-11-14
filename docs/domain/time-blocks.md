@@ -80,7 +80,7 @@ block → 404; unknown, completed, or archived task, or `end_at ≤ start_at` �
 | `POST` | `/time-blocks/{id}/complete` / `/cancel` | Session done (a `todo` task → `in_progress`; never completes the task) / session cancelled | implemented |
 | `POST` | `/time-blocks/{id}/miss` | Didn't happen: only for a scheduled block that has started (otherwise 400); the task is unchanged | implemented |
 | `GET` | `/views/today` | Today's blocks with task and parent path, unconfirmed blocks, tasks due, and "Up next" (`as_of`) | implemented |
-| `GET` | `/views/calendar` | Blocks overlapping [`start`, `end`) with task and parent path, overlaps marked | implemented |
+| `GET` | `/views/plan` | Blocks overlapping [`start`, `end`) with task and parent path, overlaps marked; `not_scheduled`, the next actions with no upcoming session | implemented |
 
 A block reads `{id, task_id, start_at, end_at, status, provider, external_event_id, created_at,
 updated_at, minutes, unconfirmed, overlaps}`.
@@ -96,8 +96,15 @@ updated_at, minutes, unconfirmed, overlaps}`.
 - `up_next` — the next action of each active goal and side quest (in position order), without
   duplicates and without tasks already on today's timeline.
 
-**Calendar** (`calendar_view`): every block (any status) overlapping [`start`, `end`), by start,
-each with its task; `overlaps` marks non-cancelled blocks that intersect another.
+**Plan** (`plan_view`):
+
+- `blocks` — every block (any status) overlapping [`start`, `end`), by start, each with its
+  task; `overlaps` marks non-cancelled blocks that intersect another.
+- `not_scheduled` — the same next actions as `up_next` (active goals first, then active side
+  quests, each in position order, without duplicates) that have no **upcoming session**: no
+  block that is still `scheduled` and ends after now. A session in progress counts as upcoming;
+  a past one waiting to be confirmed, a done, cancelled, or didn't-happen one does not. It does
+  not depend on [`start`, `end`), so it is the same whichever week is shown.
 
 Service functions (`src/atlas/services/time_blocks.py`):
 
@@ -105,7 +112,7 @@ Service functions (`src/atlas/services/time_blocks.py`):
 | -------- | ---- |
 | `list_time_blocks` / `get_time_block` / `create_time_block` / `update_time_block` / `delete_time_block` | CRUD. Datetimes are converted to UTC before they are stored or compared. |
 | `complete_time_block` / `cancel_time_block` / `miss_time_block` | Session outcome through `complete_block`; the task row changes only when it was `todo`. |
-| `today_view` / `calendar_view` | Execution read models (`src/atlas/services/quest_views.py`). |
+| `today_view` / `plan_view` | Execution read models (`src/atlas/services/quest_views.py`). |
 
 ## Screens
 
@@ -144,8 +151,8 @@ session blocks are `web/src/components/home/QuestBlocks.tsx`.
   each task has a **Schedule** button that opens the time-block dialog for it.
 - **Plan a session** opens the dialog with the task picker.
 
-**Plan** (`/quests/plan`, the page that was called Calendar: `CalendarPage.tsx` + `components/quests/time/WeekCalendar.tsx`) reads
-`GET /views/calendar` for the local Monday 00:00 to the next Monday 00:00, converted to UTC.
+**Plan** (`/quests/plan`: `PlanPage.tsx` + `components/quests/time/PlanGrid.tsx`) reads
+`GET /views/plan` for the local Monday 00:00 to the next Monday 00:00, converted to UTC.
 
 - The week is the one containing the shell date, so it lives in the URL as `?on=`. **Previous**
   and **Next** move `on` by seven days; **This week** removes it.
@@ -164,6 +171,9 @@ session blocks are `web/src/components/home/QuestBlocks.tsx`.
 - Each empty hour is a button: clicking it opens the dialog at that hour (:30 for a click in its
   lower half) with the task picker. Clicking a block opens the dialog to edit it. No dragging in
   V1 (plan D15).
+- **Not scheduled yet** (`not_scheduled`): beside the week from 1280px, below it on smaller
+  screens. Each task shows its title and parent path, with a **Schedule** button that opens the
+  time-block dialog with that task already chosen. Empty: "Everything next has a session."
 
 **Time-block dialog** (`components/quests/time/TimeBlockDialog.tsx`), shared by Home, Plan, and
 the task's sessions:
@@ -195,18 +205,19 @@ the task's sessions:
 ## Tests
 
 - `tests/domain/test_quests.py` — planned effort, unconfirmed, session done (criterion 14), overlap, missed blocks hold no time, only a started planned session can be missed, sessions kept
-- `tests/services/test_time_blocks.py` — CRUD, UTC conversion, session done, cancel, and didn't happen (kept apart from cancel), overlaps, Today (local day, unconfirmed, due, up next), Calendar
-- `tests/api/test_quests.py` — time block endpoints (including `/miss`), Today, Calendar
+- `tests/services/test_time_blocks.py` — CRUD, UTC conversion, session done, cancel, and didn't happen (kept apart from cancel), overlaps, Today (local day, unconfirmed, due, up next), Plan, Not scheduled yet (a past, cancelled, or missing session leaves a task on it; a session in progress takes it off)
+- `tests/api/test_quests.py` — time block endpoints (including `/miss`), Today, Plan
 - `tests/db/test_quest_schema.py` — `end_at > start_at`, unique external event per provider
 - `web/src/lib/timeBlocks.test.ts` — local ↔ UTC (pinned to Europe/Copenhagen, both offsets), window validation, Monday weeks and their UTC range, day placement and midnight clipping, lanes, defaults, path label, the Outcome achieved memory
 - `web/src/components/quests/time/execution.test.tsx` (jsdom):
   - Home's sessions: time range and path; Session done calls only the block endpoint; Outcome achieved confirms the first time, then calls only the task update; a session to confirm resolves as done or as didn't happen (never cancel).
-  - Calendar: a block in the right day column at the right hour; cancelled hidden by the toggle; overlaps marked; an empty slot opens with its date and hour.
+  - Plan grid: a block in the right day column at the right hour; cancelled hidden by the toggle; overlaps marked; an empty slot opens with its date and hour.
   - Dialog: validation; create and edit in UTC; the picker leaves out Inbox and completed tasks.
   - Task sessions: planned versus estimate, Session done, no scheduling for a completed task.
+- `web/src/pages/quests/PlanPage.test.tsx` (jsdom) — Not scheduled yet lists the tasks and opens the dialog with the chosen task; its empty state
 
 ## Status
 
 Implemented: backend, typed client, and seed (Q1); the time-block dialog, Plan, and the task
 sessions section (Q3). Today moved into Home and "Didn't happen" became its own status with the
-redesign brief's phase 3. `TaskTimeBlocks` is the task drawer's sessions section.
+redesign brief's phase 3; phase 5 renamed Calendar to Plan in the API and code and added Not scheduled yet. `TaskTimeBlocks` is the task drawer's sessions section.

@@ -95,7 +95,7 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   completed: 'Done',
 }
 
-// --- Weeks (Calendar) ---------------------------------------------------------------------
+// --- Weeks (Plan) -------------------------------------------------------------------------
 
 /** The Monday (local) of the week that contains `date`. */
 export function weekStart(date: string): string {
@@ -116,7 +116,7 @@ export function weekDays(monday: string): string[] {
   return Array.from({ length: 7 }, (_, index) => addDays(monday, index))
 }
 
-/** UTC bounds [start, end) of the local week starting at `monday`, for `/views/calendar`. */
+/** UTC bounds [start, end) of the local week starting at `monday`, for `/views/plan`. */
 export function weekRangeUtc(monday: string): { start: string; end: string } {
   return { start: localToUtc(monday, '00:00'), end: localToUtc(addDays(monday, 7), '00:00') }
 }

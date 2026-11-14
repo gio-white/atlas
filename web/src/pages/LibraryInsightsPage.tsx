@@ -1,24 +1,18 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-
-import { CountDonut, countSlices } from '@/components/entertainment/Charts'
-import { PosterCard } from '@/components/entertainment/Posters'
-import { SectionHeader } from '@/components/entertainment/SectionHeader'
-import { useLibrary } from '@/components/entertainment/useLibrary'
 import { Segmented } from '@/components/home/Segmented'
+import { CountDonut, countSlices } from '@/components/library/Charts'
+import { PosterCard } from '@/components/library/Posters'
+import { SectionHeader } from '@/components/library/SectionHeader'
+import { useLibrary } from '@/components/library/useLibrary'
 import { EmptyState, PageLoading, PageUnavailable } from '@/components/PageState'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  ApiError,
-  type EntertainmentDashboard,
-  getEntertainmentDashboard,
-  type Period,
-} from '@/lib/api'
+import { ApiError, getLibraryDashboard, type LibraryDashboard, type Period } from '@/lib/api'
 import { useAsOf } from '@/lib/asOf'
 import { shiftPeriodDate, shortDateLabel } from '@/lib/dates'
-import { KIND_LABEL, STATUS_LABEL } from '@/lib/entertainment'
+import { KIND_LABEL, STATUS_LABEL } from '@/lib/library'
 import { todayIso } from '@/lib/utils'
 
 const PERIODS: { id: Period; label: string }[] = [
@@ -32,7 +26,7 @@ function parsePeriod(raw: string | null): Period {
   return 'week'
 }
 
-export function EntertainmentInsightsPage() {
+export function LibraryInsightsPage() {
   const { titles, error } = useLibrary()
   if (error !== null) return <PageUnavailable title="Insights" message={error} />
   if (titles === null) return <PageLoading />
@@ -52,13 +46,13 @@ function InsightsBody({ titleCount }: { titleCount: number }) {
   const asOf = useAsOf()
   const [params, setParams] = useSearchParams()
   const period = parsePeriod(params.get('period'))
-  const [dash, setDash] = useState<EntertainmentDashboard | null>(null)
+  const [dash, setDash] = useState<LibraryDashboard | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
     setError(null)
-    getEntertainmentDashboard(period, asOf)
+    getLibraryDashboard(period, asOf)
       .then((next) => {
         if (!cancelled) setDash(next)
       })

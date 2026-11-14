@@ -47,7 +47,7 @@ end of `as_of`, four of the numbers of Stats → This week (`week_numbers`,
 
 Home also calls `GET /views/today`, `GET /views/habits`, `GET /journal`, `GET /views/main-quests`,
 `GET /sleep/view`, `GET /screen/dashboard?period=day`, and
-`GET /entertainment/titles?status=in_progress`, and the write endpoints of the controls it
+`GET /library/titles?status=in_progress`, and the write endpoints of the controls it
 reuses (session, habit, and journal).
 
 ## Screens

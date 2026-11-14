@@ -2,22 +2,22 @@ import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 
-import { LibraryTable } from '@/components/entertainment/LibraryTable'
-import { SectionHeader, useCarriedSearch } from '@/components/entertainment/SectionHeader'
-import { TitleDialog } from '@/components/entertainment/TitleDialog'
-import { useLibrary } from '@/components/entertainment/useLibrary'
+import { LibraryTable } from '@/components/library/LibraryTable'
+import { SectionHeader, useCarriedSearch } from '@/components/library/SectionHeader'
+import { TitleDialog } from '@/components/library/TitleDialog'
+import { useLibrary } from '@/components/library/useLibrary'
 import { PageLoading, PageUnavailable } from '@/components/PageState'
 import { Button } from '@/components/ui/button'
-import type { EntertainmentTitle } from '@/lib/api'
-import { categoryFor, categoryFromPath, inCategory } from '@/lib/entertainment'
+import type { LibraryTitle } from '@/lib/api'
+import { categoryFor, categoryFromPath, inCategory } from '@/lib/library'
 
-export function EntertainmentCategoryPage() {
+export function LibraryCategoryPage() {
   const { category: raw } = useParams()
   const category = categoryFromPath(raw)
   const search = useCarriedSearch()
   const { titles, topics, error, refresh } = useLibrary()
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editing, setEditing] = useState<EntertainmentTitle | null>(null)
+  const [editing, setEditing] = useState<LibraryTitle | null>(null)
 
   if (category === null) return <Navigate to={{ pathname: '/library', search }} replace />
   const meta = categoryFor(category)
@@ -26,7 +26,7 @@ export function EntertainmentCategoryPage() {
 
   const count = titles.filter((title) => inCategory(title, category)).length
 
-  function openDialog(title: EntertainmentTitle | null) {
+  function openDialog(title: LibraryTitle | null) {
     setEditing(title)
     setDialogOpen(true)
   }

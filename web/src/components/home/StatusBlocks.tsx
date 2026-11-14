@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { QuestRing } from '@/components/quests/QuestVisuals'
 import { Button } from '@/components/ui/button'
 import type {
-  EntertainmentTitle,
+  LibraryTitle,
   MainQuests,
   QuestGoal,
   ScreenDashboard,
@@ -193,7 +193,7 @@ export function InProgressBlock({
   titles,
   search,
   className,
-}: BlockProps & { titles: EntertainmentTitle[] | null }) {
+}: BlockProps & { titles: LibraryTitle[] | null }) {
   const shown = (titles ?? []).slice(0, IN_PROGRESS_SHOWN)
   return (
     <HomeBlock

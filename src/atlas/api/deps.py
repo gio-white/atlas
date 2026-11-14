@@ -5,7 +5,7 @@ from fastapi import Depends, Request
 from sqlmodel import Session
 
 from atlas.services import http_get_text
-from atlas.services.entertainment_lookup import Fetch
+from atlas.services.library_lookup import Fetch
 
 
 def get_session(request: Request) -> Iterator[Session]:

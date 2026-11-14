@@ -1,6 +1,6 @@
-import type { EntertainmentKind, EntertainmentStatus, EntertainmentTitle } from './api'
+import type { LibraryKind, LibraryStatus, LibraryTitle } from './api'
 
-export const KINDS: EntertainmentKind[] = [
+export const KINDS: LibraryKind[] = [
   'film',
   'series',
   'anime',
@@ -11,7 +11,7 @@ export const KINDS: EntertainmentKind[] = [
   'other',
 ]
 
-export const KIND_LABEL: Record<EntertainmentKind, string> = {
+export const KIND_LABEL: Record<LibraryKind, string> = {
   film: 'Film',
   series: 'Series',
   anime: 'Anime',
@@ -28,7 +28,7 @@ export type Category = {
   id: CategoryId
   label: string
   tagline: string
-  kinds: EntertainmentKind[]
+  kinds: LibraryKind[]
 }
 
 export const CATEGORIES: Category[] = [
@@ -55,21 +55,21 @@ export function categoryFromPath(raw: string | undefined): CategoryId | null {
   return CATEGORIES.some((category) => category.id === raw) ? (raw as CategoryId) : null
 }
 
-export const STATUSES: { id: EntertainmentStatus; label: string }[] = [
+export const STATUSES: { id: LibraryStatus; label: string }[] = [
   { id: 'queued', label: 'Wishlist' },
   { id: 'in_progress', label: 'In progress' },
   { id: 'done', label: 'Done' },
   { id: 'dropped', label: 'Dropped' },
 ]
 
-export const STATUS_LABEL: Record<EntertainmentStatus, string> = {
+export const STATUS_LABEL: Record<LibraryStatus, string> = {
   queued: 'Wishlist',
   in_progress: 'In progress',
   done: 'Done',
   dropped: 'Dropped',
 }
 
-const STATUS_ORDER: Record<EntertainmentStatus, number> = {
+const STATUS_ORDER: Record<LibraryStatus, number> = {
   in_progress: 0,
   queued: 1,
   done: 2,
@@ -84,22 +84,22 @@ export function categoryFor(id: CategoryId): Category {
   return CATEGORIES.find((category) => category.id === id) ?? CATEGORIES[0]
 }
 
-export function inCategory(title: EntertainmentTitle, id: CategoryId): boolean {
+export function inCategory(title: LibraryTitle, id: CategoryId): boolean {
   return categoryFor(id).kinds.includes(title.kind)
 }
 
 export type LibraryFilter = {
-  status: EntertainmentStatus | null
+  status: LibraryStatus | null
   tag: string | null
   minRating: number | null
   query: string
 }
 
 export function filterTitles(
-  titles: EntertainmentTitle[],
+  titles: LibraryTitle[],
   category: CategoryId,
   filter: LibraryFilter,
-): EntertainmentTitle[] {
+): LibraryTitle[] {
   const query = filter.query.trim().toLowerCase()
   return titles.filter((title) => {
     if (!inCategory(title, category)) return false
@@ -135,7 +135,7 @@ export function defaultDir(key: SortKey): SortDir {
   return key === 'name' || key === 'kind' || key === 'status' ? 'asc' : 'desc'
 }
 
-function sortValue(title: EntertainmentTitle, key: SortKey): string | number | null {
+function sortValue(title: LibraryTitle, key: SortKey): string | number | null {
   switch (key) {
     case 'name':
       return title.name.toLowerCase()
@@ -153,11 +153,7 @@ function sortValue(title: EntertainmentTitle, key: SortKey): string | number | n
 }
 
 /** Sorts by one column; empty values always sink to the bottom, ties fall back to name. */
-export function sortTitles(
-  titles: EntertainmentTitle[],
-  key: SortKey,
-  dir: SortDir,
-): EntertainmentTitle[] {
+export function sortTitles(titles: LibraryTitle[], key: SortKey, dir: SortDir): LibraryTitle[] {
   const sign = dir === 'asc' ? 1 : -1
   return [...titles].sort((a, b) => {
     const left = sortValue(a, key)
@@ -171,8 +167,8 @@ export function sortTitles(
   })
 }
 
-export function statusCounts(titles: EntertainmentTitle[]): Record<EntertainmentStatus, number> {
-  const counts: Record<EntertainmentStatus, number> = {
+export function statusCounts(titles: LibraryTitle[]): Record<LibraryStatus, number> {
+  const counts: Record<LibraryStatus, number> = {
     queued: 0,
     in_progress: 0,
     done: 0,
@@ -182,7 +178,7 @@ export function statusCounts(titles: EntertainmentTitle[]): Record<Entertainment
   return counts
 }
 
-export function tagsIn(titles: EntertainmentTitle[]): { slug: string; name: string }[] {
+export function tagsIn(titles: LibraryTitle[]): { slug: string; name: string }[] {
   const tags = new Map<string, string>()
   for (const title of titles) {
     for (const topic of title.topics) tags.set(topic.slug, topic.name)
@@ -201,11 +197,7 @@ export function slugify(text: string): string {
 }
 
 /** A slug for a new title that does not collide with one already in the library. */
-export function uniqueTitleSlug(
-  name: string,
-  kind: EntertainmentKind,
-  taken: Iterable<string>,
-): string {
+export function uniqueTitleSlug(name: string, kind: LibraryKind, taken: Iterable<string>): string {
   const used = new Set(taken)
   const base = slugify(name)
   if (base === '' || !used.has(base)) return base

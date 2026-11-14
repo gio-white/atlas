@@ -1,5 +1,5 @@
 from atlas.domain import (
-    EntertainmentKind,
+    LibraryKind,
     kind_from_url,
     oembed_url,
     parse_page_meta,
@@ -25,11 +25,11 @@ def test_oembed_url_only_for_known_providers():
 
 
 def test_kind_from_url_reads_host_and_path():
-    assert kind_from_url("https://www.youtube.com/watch?v=1") is EntertainmentKind.VIDEO
-    assert kind_from_url("https://open.spotify.com/episode/1") is EntertainmentKind.PODCAST
-    assert kind_from_url("https://open.spotify.com/album/1") is EntertainmentKind.MUSIC
-    assert kind_from_url("https://www.themoviedb.org/tv/1399") is EntertainmentKind.SERIES
-    assert kind_from_url("https://www.imdb.com/title/tt0816692/") is EntertainmentKind.FILM
+    assert kind_from_url("https://www.youtube.com/watch?v=1") is LibraryKind.VIDEO
+    assert kind_from_url("https://open.spotify.com/episode/1") is LibraryKind.PODCAST
+    assert kind_from_url("https://open.spotify.com/album/1") is LibraryKind.MUSIC
+    assert kind_from_url("https://www.themoviedb.org/tv/1399") is LibraryKind.SERIES
+    assert kind_from_url("https://www.imdb.com/title/tt0816692/") is LibraryKind.FILM
     assert kind_from_url("https://example.com/post") is None
 
 
@@ -38,7 +38,7 @@ def test_page_meta_suggestion_resolves_relative_images():
     assert meta["title"] == "Dune by Frank Herbert | Goodreads"
     suggestion = suggest_from_sources("https://www.goodreads.com/book/show/234225", meta=meta)
     assert suggestion.name == "Dune"
-    assert suggestion.kind is EntertainmentKind.BOOK
+    assert suggestion.kind is LibraryKind.BOOK
     assert suggestion.creator == "Frank Herbert"
     assert suggestion.image_url == "https://www.goodreads.com/covers/dune.jpg"
 
@@ -55,7 +55,7 @@ def test_oembed_wins_and_site_suffix_is_stripped():
     )
     assert suggestion.name == "But what is a neural network?"
     assert suggestion.creator == "3Blue1Brown"
-    assert suggestion.kind is EntertainmentKind.VIDEO
+    assert suggestion.kind is LibraryKind.VIDEO
     title_only = suggest_from_sources(
         "https://example.com/watch", meta={"title": "Big Buck Bunny - YouTube"}
     )
@@ -73,6 +73,6 @@ def test_og_type_maps_to_kind_and_url_authors_are_ignored():
             "og:image": "data:image/png;base64,AAAA",
         },
     )
-    assert suggestion.kind is EntertainmentKind.FILM
+    assert suggestion.kind is LibraryKind.FILM
     assert suggestion.creator is None
     assert suggestion.image_url is None

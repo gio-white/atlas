@@ -24,7 +24,7 @@
   --sleep: #4f46e5;
   --health: #e11d48;
   --adventure: #0d9488;
-  --entertainment: #c026d3;
+  --library: #c026d3;
   --stage-deep: #6250d6;
   --stage-light: #1baf7a;
   --stage-rem: #2a78d6;
@@ -55,7 +55,7 @@
   --sleep: #818cf8;
   --health: #fb7185;
   --adventure: #2dd4bf;
-  --entertainment: #e879f9;
+  --library: #e879f9;
   --stage-deep: #9085e9;
   --stage-light: #199e70;
   --stage-rem: #3987e5;
@@ -90,7 +90,7 @@
   --color-sleep: var(--sleep);
   --color-health: var(--health);
   --color-adventure: var(--adventure);
-  --color-entertainment: var(--entertainment);
+  --color-library: var(--library);
   --color-stage-deep: var(--stage-deep);
   --color-stage-light: var(--stage-light);
   --color-stage-rem: var(--stage-rem);

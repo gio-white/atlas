@@ -7,9 +7,9 @@ from atlas.domain import (
     Aggregation,
     Comparator,
     Direction,
-    EntertainmentKind,
-    EntertainmentStatus,
     HabitKind,
+    LibraryKind,
+    LibraryStatus,
     MetricOrigin,
     Period,
     QuestStatus,
@@ -147,8 +147,8 @@ class ScreenSession(SQLModel, table=True):
     entry_id: int | None = Field(default=None, foreign_key="entry.id", unique=True)
 
 
-class EntertainmentTopic(SQLModel, table=True):
-    __tablename__ = "entertainment_topic"
+class LibraryTopic(SQLModel, table=True):
+    __tablename__ = "library_topic"
 
     id: int | None = Field(default=None, primary_key=True)
     slug: str = Field(unique=True, index=True)
@@ -156,16 +156,16 @@ class EntertainmentTopic(SQLModel, table=True):
     archived_at: datetime | None = None
 
 
-class EntertainmentTitle(SQLModel, table=True):
-    __tablename__ = "entertainment_title"
+class LibraryTitle(SQLModel, table=True):
+    __tablename__ = "library_title"
 
     id: int | None = Field(default=None, primary_key=True)
     slug: str = Field(unique=True, index=True)
     name: str
-    kind: EntertainmentKind
+    kind: LibraryKind
     creator: str | None = None
     recommended_by: str | None = None
-    status: EntertainmentStatus = EntertainmentStatus.QUEUED
+    status: LibraryStatus = LibraryStatus.QUEUED
     started_on: date | None = None
     finished_on: date | None = None
     progress: str | None = None
@@ -179,11 +179,11 @@ class EntertainmentTitle(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class EntertainmentTitleTopic(SQLModel, table=True):
-    __tablename__ = "entertainment_title_topic"
+class LibraryTitleTopic(SQLModel, table=True):
+    __tablename__ = "library_title_topic"
 
-    title_id: int = Field(foreign_key="entertainment_title.id", primary_key=True)
-    topic_id: int = Field(foreign_key="entertainment_topic.id", primary_key=True)
+    title_id: int = Field(foreign_key="library_title.id", primary_key=True)
+    topic_id: int = Field(foreign_key="library_topic.id", primary_key=True)
 
 
 class SleepSession(SQLModel, table=True):

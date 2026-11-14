@@ -79,7 +79,7 @@ def test_view_rolls_apps_into_category_and_waste_budget(session):
     assert [session_row.app for session_row in view.sessions] == ["instagram", "youtube", "coding"]
 
 
-def test_reclassify_entertainment_moves_minutes_out_of_waste(session):
+def test_reclassify_library_moves_minutes_out_of_waste(session):
     _taxonomy(session)
     log_entry(session, "instagram", 30.0, occurred_on=date(2026, 8, 14))
     update_screen_category(session, "entertainment", judgment=ScreenJudgment.USEFUL)

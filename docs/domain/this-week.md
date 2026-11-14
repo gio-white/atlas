@@ -48,7 +48,7 @@ Each number, per window:
 | Sleep | Time asleep, average; bedtime, average; wake time, average | `average_asleep`, `average_bed_offset`, `average_wake_offset` of the sleep view over the window's days ([sleep](sleep.md)); bedtime and wake time are minutes from local midnight, negative before midnight |
 | Sleep | Missing nights | days in the window without a night |
 | Screen time | Total, daily average, score, and the Good / Neutral / Bad split | the week dashboard for `as_of` (`screen_dashboard`, period week, which is clipped to Monday–`as_of`) ([screen time](screen-time.md)); the split is the `useful` / `neutral` / `waste` minutes |
-| Library | Titles finished | `finished_in_range` of the library dashboard, period week ([entertainment](entertainment.md)) |
+| Library | Titles finished | `finished_in_range` of the library dashboard, period week ([library](library.md)) |
 
 The habit rows' counts add up to Habits kept, so the two never disagree.
 

@@ -10,10 +10,9 @@ import type { QuestTask, ScheduledBlock, TimeBlock, TodayQuests } from '@/lib/ap
 import * as api from '@/lib/api'
 import { localToUtc, OUTCOME_LEARNED_KEY, utcToLocal } from '@/lib/timeBlocks'
 import { HomePage } from '@/pages/HomePage'
-
+import { HOUR_PX, PlanGrid } from './PlanGrid'
 import { TaskTimeBlocks } from './TaskTimeBlocks'
 import { TimeBlockDialog } from './TimeBlockDialog'
-import { HOUR_PX, WeekCalendar } from './WeekCalendar'
 
 vi.mock('@/lib/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api')>()
@@ -30,7 +29,7 @@ vi.mock('@/lib/api', async (importOriginal) => {
     getMainQuests: vi.fn(async () => Promise.reject(new Error('not in this test'))),
     getSleepView: vi.fn(async () => Promise.reject(new Error('not in this test'))),
     getScreenDashboard: vi.fn(async () => Promise.reject(new Error('not in this test'))),
-    listEntertainmentTitles: vi.fn(async () => Promise.reject(new Error('not in this test'))),
+    listLibraryTitles: vi.fn(async () => Promise.reject(new Error('not in this test'))),
     createTimeBlock: vi.fn(async () => ({})),
     updateTimeBlock: vi.fn(async () => ({})),
     deleteTimeBlock: vi.fn(async () => undefined),
@@ -202,7 +201,7 @@ describe('Home: today’s sessions', () => {
   })
 })
 
-describe('WeekCalendar', () => {
+describe('PlanGrid', () => {
   it('draws a block in its day column at its hour', () => {
     const item = {
       block: block({
@@ -212,7 +211,7 @@ describe('WeekCalendar', () => {
       task: task(),
     }
     render(
-      <WeekCalendar
+      <PlanGrid
         monday="2026-11-09"
         blocks={[item]}
         today={TODAY}
@@ -232,7 +231,7 @@ describe('WeekCalendar', () => {
     const cancelled = { block: block({ id: 1, status: 'cancelled' }), task: task() }
     const overlapping = { block: block({ id: 2, overlaps: true }), task: task() }
     const { rerender } = render(
-      <WeekCalendar
+      <PlanGrid
         monday="2026-11-09"
         blocks={[cancelled, overlapping]}
         today={TODAY}
@@ -244,7 +243,7 @@ describe('WeekCalendar', () => {
     expect(screen.queryByTestId('cal-block-1')).toBeNull()
     expect(screen.getByTestId('cal-block-2')).toHaveAccessibleName(/overlaps another session/)
     rerender(
-      <WeekCalendar
+      <PlanGrid
         monday="2026-11-09"
         blocks={[cancelled, overlapping]}
         today={TODAY}
@@ -259,7 +258,7 @@ describe('WeekCalendar', () => {
   it('opens an empty slot with its date and hour', () => {
     const onSlot = vi.fn()
     render(
-      <WeekCalendar
+      <PlanGrid
         monday="2026-11-09"
         blocks={[]}
         today={TODAY}

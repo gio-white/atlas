@@ -55,12 +55,10 @@ def test_breaks_archive_edit_and_delete(client):
     assert status["excused"] is True
     assert status["skipped_today"] is True
 
-    calendar = client.get(
-        "/views/habits/calendar", params={"period": "week", "as_of": "2026-08-10"}
-    ).json()
-    assert calendar["habits"][0]["kind"] == "check"
-    assert calendar["habits"][0]["weekdays"] is None
-    monday = calendar["habits"][0]["days"][0]
+    grid = client.get("/views/habits/grid", params={"period": "week", "as_of": "2026-08-10"}).json()
+    assert grid["habits"][0]["kind"] == "check"
+    assert grid["habits"][0]["weekdays"] is None
+    monday = grid["habits"][0]["days"][0]
     assert monday["excused"] is True
     assert monday["satisfied"] is None
 

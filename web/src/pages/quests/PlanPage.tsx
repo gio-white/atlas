@@ -3,10 +3,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { PageError, PageHeader } from '@/components/PageState'
+import { PlanGrid } from '@/components/quests/time/PlanGrid'
+import { TaskLine } from '@/components/quests/time/TaskLine'
 import { TimeBlockDialog } from '@/components/quests/time/TimeBlockDialog'
-import { WeekCalendar } from '@/components/quests/time/WeekCalendar'
 import { Button } from '@/components/ui/button'
-import { ApiError, getQuestCalendar, type ScheduledBlock } from '@/lib/api'
+import { ApiError, getPlan, type QuestTask, type ScheduledBlock } from '@/lib/api'
 import { useShell } from '@/lib/asOf'
 import { addDays, weekLabel, weekRangeUtc, weekStart } from '@/lib/timeBlocks'
 import { todayIso } from '@/lib/utils'
@@ -15,15 +16,17 @@ type DialogState =
   | { kind: 'new'; date: string; start: string }
   | { kind: 'new-any' }
   | { kind: 'edit'; item: ScheduledBlock }
+  | { kind: 'task'; task: QuestTask }
 
 /** Week view of sessions. The week follows the shell's `?on=` date, so it lives in the URL. */
-export function CalendarPage() {
+export function PlanPage() {
   const { asOf } = useShell()
   const [params, setParams] = useSearchParams()
   const monday = weekStart(asOf)
   const today = todayIso()
   const thisWeek = monday === weekStart(today)
   const [blocks, setBlocks] = useState<ScheduledBlock[] | null>(null)
+  const [notScheduled, setNotScheduled] = useState<QuestTask[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showCancelled, setShowCancelled] = useState(false)
   const [dialog, setDialog] = useState<DialogState | null>(null)
@@ -31,11 +34,12 @@ export function CalendarPage() {
   const load = useCallback(async () => {
     const range = weekRangeUtc(monday)
     try {
-      const view = await getQuestCalendar(range.start, range.end)
+      const view = await getPlan(range.start, range.end)
       setBlocks(view.blocks)
+      setNotScheduled(view.not_scheduled)
       setError(null)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Couldn’t load the calendar.')
+      setError(err instanceof ApiError ? err.message : 'Couldn’t load your plan.')
     }
   }, [monday])
 
@@ -111,31 +115,75 @@ export function CalendarPage() {
       </div>
 
       {error !== null && <PageError message={error} />}
-      {blocks === null && error === null ? (
-        <div className="h-[60svh] animate-pulse rounded-2xl bg-raised" role="status">
-          <span className="sr-only">Loading</span>
+      <div className="flex flex-col gap-5 xl:flex-row xl:items-start">
+        <div className="min-w-0 flex-1">
+          {blocks === null && error === null ? (
+            <div className="h-[60svh] animate-pulse rounded-2xl bg-raised" role="status">
+              <span className="sr-only">Loading</span>
+            </div>
+          ) : (
+            <PlanGrid
+              key={monday}
+              monday={monday}
+              blocks={blocks ?? []}
+              today={today}
+              showCancelled={showCancelled}
+              onSlot={(date, start) => setDialog({ kind: 'new', date, start })}
+              onBlock={(item) => setDialog({ kind: 'edit', item })}
+            />
+          )}
         </div>
-      ) : (
-        <WeekCalendar
-          key={monday}
-          monday={monday}
-          blocks={blocks ?? []}
-          today={today}
-          showCancelled={showCancelled}
-          onSlot={(date, start) => setDialog({ kind: 'new', date, start })}
-          onBlock={(item) => setDialog({ kind: 'edit', item })}
-        />
-      )}
+        {notScheduled !== null && (
+          <NotScheduled
+            tasks={notScheduled}
+            onSchedule={(task) => setDialog({ kind: 'task', task })}
+          />
+        )}
+      </div>
 
       <TimeBlockDialog
         open={dialog !== null}
         onOpenChange={(open) => !open && setDialog(null)}
         block={dialog?.kind === 'edit' ? dialog.item.block : null}
-        task={dialog?.kind === 'edit' ? dialog.item.task : null}
+        task={
+          dialog?.kind === 'edit' ? dialog.item.task : dialog?.kind === 'task' ? dialog.task : null
+        }
         initial={dialog?.kind === 'new' ? { date: dialog.date, start: dialog.start } : null}
         onSaved={load}
       />
     </div>
+  )
+}
+
+/**
+ * Each active goal's and side quest's next action that has no upcoming session, whatever week is
+ * shown. Choosing one plans a session for it.
+ */
+function NotScheduled({
+  tasks,
+  onSchedule,
+}: {
+  tasks: QuestTask[]
+  onSchedule: (task: QuestTask) => void
+}) {
+  return (
+    <section
+      aria-labelledby="not-scheduled-title"
+      className="flex flex-col gap-1 rounded-2xl border border-line bg-surface p-4 xl:w-80 xl:shrink-0"
+    >
+      <h3 id="not-scheduled-title" className="text-sm font-semibold text-ink">
+        Not scheduled yet
+      </h3>
+      {tasks.length === 0 ? (
+        <p className="py-2 text-sm text-muted">Everything next has a session.</p>
+      ) : (
+        <ul className="flex flex-col divide-y divide-line">
+          {tasks.map((task) => (
+            <TaskLine key={task.id} task={task} onSchedule={onSchedule} compact />
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }
 

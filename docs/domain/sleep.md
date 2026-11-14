@@ -18,7 +18,7 @@ Where the data comes from: [data sources](../data-sources/sleep.md).
 
 ### SleepSession
 
-One stored night (or nap): when you went to bed and when you woke up. Sleep is a dedicated fact store like entertainment: it does not dual-write entries and has no metric or area. `occurred_on` is the **local wake date** in `ATLAS_TZ`, so last night's sleep belongs to today. Nights arrive through `POST /sleep/sessions`, the ingestion contract for a future pipeline ([data sources](../data-sources/sleep.md)); stages are optional. The web app has no form for it.
+One stored night (or nap): when you went to bed and when you woke up. Sleep is a dedicated fact store like the library: it does not dual-write entries and has no metric or area. `occurred_on` is the **local wake date** in `ATLAS_TZ`, so last night's sleep belongs to today. Nights arrive through `POST /sleep/sessions`, the ingestion contract for a future pipeline ([data sources](../data-sources/sleep.md)); stages are optional. The web app has no form for it.
 
 | Field         | Type        | Notes                                              |
 | ------------- | ----------- | -------------------------------------------------- |

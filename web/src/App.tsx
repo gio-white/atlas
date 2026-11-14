@@ -25,18 +25,18 @@ const ScreenTimeSetupPage = lazy(() =>
     default: m.ScreenTimeSetupPage,
   })),
 )
-const EntertainmentCategoryPage = lazy(() =>
-  import('@/pages/EntertainmentCategoryPage').then((m) => ({
-    default: m.EntertainmentCategoryPage,
+const LibraryCategoryPage = lazy(() =>
+  import('@/pages/LibraryCategoryPage').then((m) => ({
+    default: m.LibraryCategoryPage,
   })),
 )
-const EntertainmentInsightsPage = lazy(() =>
-  import('@/pages/EntertainmentInsightsPage').then((m) => ({
-    default: m.EntertainmentInsightsPage,
+const LibraryInsightsPage = lazy(() =>
+  import('@/pages/LibraryInsightsPage').then((m) => ({
+    default: m.LibraryInsightsPage,
   })),
 )
-const EntertainmentPage = lazy(() =>
-  import('@/pages/EntertainmentPage').then((m) => ({ default: m.EntertainmentPage })),
+const LibraryPage = lazy(() =>
+  import('@/pages/LibraryPage').then((m) => ({ default: m.LibraryPage })),
 )
 const EntriesPage = lazy(() =>
   import('@/pages/EntriesPage').then((m) => ({ default: m.EntriesPage })),
@@ -49,8 +49,8 @@ const SleepPage = lazy(() => import('@/pages/SleepPage').then((m) => ({ default:
 const AmbitionPage = lazy(() =>
   import('@/pages/quests/AmbitionPage').then((m) => ({ default: m.AmbitionPage })),
 )
-const CalendarPage = lazy(() =>
-  import('@/pages/quests/CalendarPage').then((m) => ({ default: m.CalendarPage })),
+const PlanPage = lazy(() =>
+  import('@/pages/quests/PlanPage').then((m) => ({ default: m.PlanPage })),
 )
 const GoalPage = lazy(() =>
   import('@/pages/quests/GoalPage').then((m) => ({ default: m.GoalPage })),
@@ -82,7 +82,7 @@ export default function App() {
             <Route path="/quests" element={<MainQuestsPage />} />
             <Route path="/quests/side-quests" element={<SideQuestsPage />} />
             <Route path="/quests/inbox" element={<InboxPage />} />
-            <Route path="/quests/plan" element={<CalendarPage />} />
+            <Route path="/quests/plan" element={<PlanPage />} />
           </Route>
           <Route path="/quests/ambitions/:id" element={<AmbitionPage />} />
           <Route path="/quests/goals/:id" element={<GoalPage />} />
@@ -100,9 +100,9 @@ export default function App() {
             <Route path="/stats/health" element={<HealthPage />} />
           </Route>
 
-          <Route path="/library" element={<EntertainmentPage />} />
-          <Route path="/library/insights" element={<EntertainmentInsightsPage />} />
-          <Route path="/library/:category" element={<EntertainmentCategoryPage />} />
+          <Route path="/library" element={<LibraryPage />} />
+          <Route path="/library/insights" element={<LibraryInsightsPage />} />
+          <Route path="/library/:category" element={<LibraryCategoryPage />} />
 
           <Route path="/settings" element={<Redirect to="/settings/appearance" />} />
           <Route element={<SectionLayout section="settings" />}>

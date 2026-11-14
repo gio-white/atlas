@@ -3,10 +3,10 @@ from collections.abc import Sequence
 from sqlmodel import Session, col, select
 
 from atlas.db.models import (
-    EntertainmentTitle,
-    EntertainmentTopic,
     Entry,
     Habit,
+    LibraryTitle,
+    LibraryTopic,
     Metric,
     ScreenApp,
     ScreenBudget,
@@ -75,17 +75,17 @@ def require_sleep_session(session: Session, session_id: int) -> SleepSession:
     return row
 
 
-def require_entertainment_topic(session: Session, slug: str) -> EntertainmentTopic:
-    row = session.exec(select(EntertainmentTopic).where(EntertainmentTopic.slug == slug)).first()
+def require_library_topic(session: Session, slug: str) -> LibraryTopic:
+    row = session.exec(select(LibraryTopic).where(LibraryTopic.slug == slug)).first()
     if row is None:
-        raise NotFoundError("entertainment_topic", slug)
+        raise NotFoundError("library_topic", slug)
     return row
 
 
-def require_entertainment_title(session: Session, slug: str) -> EntertainmentTitle:
-    row = session.exec(select(EntertainmentTitle).where(EntertainmentTitle.slug == slug)).first()
+def require_library_title(session: Session, slug: str) -> LibraryTitle:
+    row = session.exec(select(LibraryTitle).where(LibraryTitle.slug == slug)).first()
     if row is None:
-        raise NotFoundError("entertainment_title", slug)
+        raise NotFoundError("library_title", slug)
     return row
 
 
@@ -111,8 +111,8 @@ def ensure_unique_slug(
     | type[ScreenApp]
     | type[ScreenBudget]
     | type[ScreenDevice]
-    | type[EntertainmentTopic]
-    | type[EntertainmentTitle],
+    | type[LibraryTopic]
+    | type[LibraryTitle],
     slug: str,
 ) -> None:
     if session.exec(select(model).where(model.slug == slug)).first() is not None:

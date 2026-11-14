@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils'
 
 const PALETTE = [
-  { stroke: 'stroke-entertainment', swatch: 'bg-entertainment' },
+  { stroke: 'stroke-library', swatch: 'bg-library' },
   { stroke: 'stroke-iris', swatch: 'bg-iris' },
   { stroke: 'stroke-screen', swatch: 'bg-screen' },
   { stroke: 'stroke-goal', swatch: 'bg-goal' },

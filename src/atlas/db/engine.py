@@ -10,11 +10,14 @@ from sqlmodel import Session, SQLModel, col, create_engine, select
 from atlas.db.models import Entry, Habit, Metric, SchemaVersion, ScreenApp, ScreenSession
 from atlas.domain import MetricOrigin
 
-CURRENT_SCHEMA_VERSION = 12
+CURRENT_SCHEMA_VERSION = 13
 
 # Tables of the goal/milestone/task model that schema 11 replaced, keyed by a column only the
 # old shape has, so the drop is idempotent and never touches the new quest tables.
 _LEGACY_TABLE_MARKERS = (("task", "bucket"), ("milestone", "name"), ("goal", "slug"))
+
+# The Library's tables before schema 13 renamed them.
+_ENTERTAINMENT_TABLES = ("entertainment_topic", "entertainment_title", "entertainment_title_topic")
 
 
 def create_engine_for(db_path: Path) -> Engine:
@@ -49,6 +52,9 @@ def init_schema(engine: Engine) -> None:
     previous = _stored_version(engine)
     if previous is not None and previous < 11:
         _drop_legacy_goal_tables(engine)
+    if previous is not None and previous < 13:
+        # Before create_all, which would otherwise make empty library tables beside the old ones.
+        _rename_entertainment_to_library(engine)
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         row = session.get(SchemaVersion, 1)
@@ -56,7 +62,7 @@ def init_schema(engine: Engine) -> None:
             if previous < 5:
                 _backfill_screen_sessions(engine)
             if previous < 9:
-                _add_entertainment_rating_and_link(engine)
+                _add_library_rating_and_link(engine)
             if previous < 10:
                 _add_habit_kind_and_schedule(engine)
             if previous < 11:
@@ -245,16 +251,47 @@ def _backfill_screen_sessions(engine: Engine) -> None:
         session.commit()
 
 
-def _add_entertainment_rating_and_link(engine: Engine) -> None:
-    inspector = inspect(engine)
-    if "entertainment_title" not in inspector.get_table_names():
+def _rename_entertainment_to_library(engine: Engine) -> None:
+    """Schema 13: the `entertainment_*` tables become `library_*`, rows and ids untouched.
+
+    SQLite rewrites the foreign keys that point at a renamed table; the indexes keep their old
+    names, so each is recreated under the new one.
+    """
+    tables = set(inspect(engine).get_table_names())
+    renames = [
+        (old, old.replace("entertainment_", "library_", 1))
+        for old in _ENTERTAINMENT_TABLES
+        if old in tables and old.replace("entertainment_", "library_", 1) not in tables
+    ]
+    if not renames:
         return
-    columns = {column["name"] for column in inspector.get_columns("entertainment_title")}
+
+    def rename(connection: Connection) -> None:
+        for old, new in renames:
+            connection.execute(text(f"ALTER TABLE {old} RENAME TO {new}"))
+        indexes = connection.execute(
+            text(
+                "SELECT name, sql FROM sqlite_master "
+                "WHERE type = 'index' AND name LIKE 'ix_entertainment_%' AND sql IS NOT NULL"
+            )
+        ).all()
+        for name, sql in indexes:
+            connection.execute(text(f"DROP INDEX {name}"))
+            connection.execute(text(sql.replace("entertainment_", "library_")))
+
+    _without_foreign_keys(engine, rename)
+
+
+def _add_library_rating_and_link(engine: Engine) -> None:
+    inspector = inspect(engine)
+    if "library_title" not in inspector.get_table_names():
+        return
+    columns = {column["name"] for column in inspector.get_columns("library_title")}
     with engine.begin() as connection:
         if "rating" not in columns:
-            connection.execute(text("ALTER TABLE entertainment_title ADD COLUMN rating INTEGER"))
+            connection.execute(text("ALTER TABLE library_title ADD COLUMN rating INTEGER"))
         if "link" not in columns:
-            connection.execute(text("ALTER TABLE entertainment_title ADD COLUMN link VARCHAR"))
+            connection.execute(text("ALTER TABLE library_title ADD COLUMN link VARCHAR"))
 
 
 def _add_habit_kind_and_schedule(engine: Engine) -> None:

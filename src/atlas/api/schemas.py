@@ -6,9 +6,9 @@ from atlas.domain import (
     Aggregation,
     Comparator,
     Direction,
-    EntertainmentKind,
-    EntertainmentStatus,
     HabitKind,
+    LibraryKind,
+    LibraryStatus,
     MetricOrigin,
     Period,
     ScreenBudgetTargetKind,
@@ -237,7 +237,7 @@ class WeekHabitOut(BaseModel):
     weekdays: list[int] | None
 
 
-class HabitsCalendarOut(BaseModel):
+class HabitsGridOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     as_of: date
@@ -659,20 +659,20 @@ class JournalDayOut(BaseModel):
     entry_id: int | None
 
 
-class EntertainmentTopicCreate(BaseModel):
+class LibraryTopicCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     slug: str
     name: str | None = None
 
 
-class EntertainmentTopicUpdate(BaseModel):
+class LibraryTopicUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = None
 
 
-class EntertainmentTopicOut(BaseModel):
+class LibraryTopicOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -681,22 +681,22 @@ class EntertainmentTopicOut(BaseModel):
     archived_at: datetime | None
 
 
-class EntertainmentTopicRefOut(BaseModel):
+class LibraryTopicRefOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     slug: str
     name: str
 
 
-class EntertainmentTitleCreate(BaseModel):
+class LibraryTitleCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     slug: str
-    kind: EntertainmentKind
+    kind: LibraryKind
     name: str | None = None
     creator: str | None = None
     recommended_by: str | None = None
-    status: EntertainmentStatus = EntertainmentStatus.QUEUED
+    status: LibraryStatus = LibraryStatus.QUEUED
     started_on: date | None = None
     finished_on: date | None = None
     progress: str | None = None
@@ -707,14 +707,14 @@ class EntertainmentTitleCreate(BaseModel):
     image_url: str | None = None
 
 
-class EntertainmentTitleUpdate(BaseModel):
+class LibraryTitleUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = None
-    kind: EntertainmentKind | None = None
+    kind: LibraryKind | None = None
     creator: str | None = None
     recommended_by: str | None = None
-    status: EntertainmentStatus | None = None
+    status: LibraryStatus | None = None
     started_on: date | None = None
     finished_on: date | None = None
     progress: str | None = None
@@ -725,60 +725,60 @@ class EntertainmentTitleUpdate(BaseModel):
     image_url: str | None = None
 
 
-class EntertainmentTitleOut(BaseModel):
+class LibraryTitleOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     slug: str
     name: str
-    kind: EntertainmentKind
+    kind: LibraryKind
     creator: str | None
     recommended_by: str | None
-    status: EntertainmentStatus
+    status: LibraryStatus
     started_on: date | None
     finished_on: date | None
     progress: str | None
     note: str | None
     rating: int | None
     link: str | None
-    topics: list[EntertainmentTopicRefOut]
+    topics: list[LibraryTopicRefOut]
     image: str | None
     created_at: datetime | None
 
 
-class EntertainmentLinkLookupIn(BaseModel):
+class LibraryLinkLookupIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     url: str
 
 
-class EntertainmentLinkSuggestionOut(BaseModel):
+class LibraryLinkSuggestionOut(BaseModel):
     link: str
     name: str | None
-    kind: EntertainmentKind | None
+    kind: LibraryKind | None
     creator: str | None
     image_url: str | None
     existing: str | None
 
 
-class EntertainmentTitleFromLink(BaseModel):
+class LibraryTitleFromLink(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     url: str
-    kind: EntertainmentKind | None = None
-    status: EntertainmentStatus = EntertainmentStatus.QUEUED
+    kind: LibraryKind | None = None
+    status: LibraryStatus = LibraryStatus.QUEUED
     topics: list[str] = Field(default_factory=list)
     note: str | None = None
 
 
-class EntertainmentKindCountOut(BaseModel):
+class LibraryKindCountOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    kind: EntertainmentKind
+    kind: LibraryKind
     count: int
     share: float
 
 
-class EntertainmentTopicCountOut(BaseModel):
+class LibraryTopicCountOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     slug: str
@@ -787,16 +787,16 @@ class EntertainmentTopicCountOut(BaseModel):
     share: float
 
 
-class EntertainmentLibraryOut(BaseModel):
+class LibraryShelvesOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    queued: list[EntertainmentTitleOut]
-    in_progress: list[EntertainmentTitleOut]
-    done: list[EntertainmentTitleOut]
-    dropped: list[EntertainmentTitleOut]
+    queued: list[LibraryTitleOut]
+    in_progress: list[LibraryTitleOut]
+    done: list[LibraryTitleOut]
+    dropped: list[LibraryTitleOut]
 
 
-class EntertainmentDashboardOut(BaseModel):
+class LibraryDashboardOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     period: Period
@@ -809,10 +809,10 @@ class EntertainmentDashboardOut(BaseModel):
     in_progress: int
     done: int
     dropped: int
-    by_kind: list[EntertainmentKindCountOut]
-    by_topic: list[EntertainmentTopicCountOut]
-    recently_finished: list[EntertainmentTitleOut]
-    library: EntertainmentLibraryOut
+    by_kind: list[LibraryKindCountOut]
+    by_topic: list[LibraryTopicCountOut]
+    recently_finished: list[LibraryTitleOut]
+    library: LibraryShelvesOut
 
 
 class SleepStageIn(BaseModel):

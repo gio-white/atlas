@@ -1,5 +1,5 @@
 from atlas.db import CURRENT_SCHEMA_VERSION
-from atlas.domain import EntertainmentKind, EntertainmentStatus
+from atlas.domain import LibraryKind, LibraryStatus
 
 PNG = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
@@ -9,7 +9,7 @@ PNG = (
 
 
 def _topic(client, slug="physics"):
-    response = client.post("/entertainment/topics", json={"slug": slug})
+    response = client.post("/library/topics", json={"slug": slug})
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -17,7 +17,7 @@ def _topic(client, slug="physics"):
 def test_create_and_list_titles(client):
     _topic(client)
     created = client.post(
-        "/entertainment/titles",
+        "/library/titles",
         json={
             "slug": "interstellar",
             "kind": "film",
@@ -32,12 +32,12 @@ def test_create_and_list_titles(client):
     )
     assert created.status_code == 201, created.text
     body = created.json()
-    assert body["kind"] == EntertainmentKind.FILM
-    assert body["status"] == EntertainmentStatus.DONE
+    assert body["kind"] == LibraryKind.FILM
+    assert body["status"] == LibraryStatus.DONE
     assert body["topics"][0]["slug"] == "physics"
     assert body["image"] == "https://example.com/interstellar.jpg"
 
-    listed = client.get("/entertainment/titles", params={"kind": "film", "topic": "physics"})
+    listed = client.get("/library/titles", params={"kind": "film", "topic": "physics"})
     assert listed.status_code == 200
     assert [row["slug"] for row in listed.json()] == ["interstellar"]
 
@@ -45,7 +45,7 @@ def test_create_and_list_titles(client):
 def test_dashboard_and_view(client):
     _topic(client, "programming")
     client.post(
-        "/entertainment/titles",
+        "/library/titles",
         json={
             "slug": "lex",
             "kind": "podcast",
@@ -55,10 +55,10 @@ def test_dashboard_and_view(client):
         },
     )
     client.post(
-        "/entertainment/titles",
+        "/library/titles",
         json={"slug": "office", "kind": "series", "status": "in_progress"},
     )
-    dash = client.get("/entertainment/dashboard", params={"period": "week", "as_of": "2026-08-14"})
+    dash = client.get("/library/dashboard", params={"period": "week", "as_of": "2026-08-14"})
     assert dash.status_code == 200, dash.text
     payload = dash.json()
     assert payload["finished_in_range"] == 1
@@ -67,44 +67,44 @@ def test_dashboard_and_view(client):
 
 
 def test_image_upload_round_trip(client):
-    client.post("/entertainment/titles", json={"slug": "clip", "kind": "video"})
+    client.post("/library/titles", json={"slug": "clip", "kind": "video"})
     uploaded = client.put(
-        "/entertainment/titles/clip/image",
+        "/library/titles/clip/image",
         files={"file": ("poster.png", PNG, "image/png")},
     )
     assert uploaded.status_code == 200, uploaded.text
-    assert uploaded.json()["image"] == "/entertainment/titles/clip/image"
+    assert uploaded.json()["image"] == "/library/titles/clip/image"
 
-    downloaded = client.get("/entertainment/titles/clip/image")
+    downloaded = client.get("/library/titles/clip/image")
     assert downloaded.status_code == 200
     assert downloaded.content == PNG
     assert downloaded.headers["content-type"].startswith("image/png")
 
-    cleared = client.delete("/entertainment/titles/clip/image")
+    cleared = client.delete("/library/titles/clip/image")
     assert cleared.status_code == 200
     assert cleared.json()["image"] is None
-    missing = client.get("/entertainment/titles/clip/image")
+    missing = client.get("/library/titles/clip/image")
     assert missing.status_code == 404
 
 
-def test_export_includes_entertainment(client):
+def test_export_includes_the_library(client):
     _topic(client, "math")
     client.post(
-        "/entertainment/titles",
+        "/library/titles",
         json={"slug": "linear-algebra", "kind": "video", "topics": ["math"]},
     )
     exported = client.get("/export")
     assert exported.status_code == 200
     payload = exported.json()
     assert payload["schema_version"] == CURRENT_SCHEMA_VERSION
-    assert [row["slug"] for row in payload["entertainment_topics"]] == ["math"]
-    assert payload["entertainment_titles"][0]["topics"] == ["math"]
+    assert [row["slug"] for row in payload["library_topics"]] == ["math"]
+    assert payload["library_titles"][0]["topics"] == ["math"]
     assert payload["entries"] == []
 
 
 def test_rating_link_and_delete(client):
     created = client.post(
-        "/entertainment/titles",
+        "/library/titles",
         json={
             "slug": "kind-of-blue",
             "kind": "music",
@@ -120,18 +120,18 @@ def test_rating_link_and_delete(client):
     assert body["topics"] == [{"slug": "jazz", "name": "Jazz"}]
     assert body["created_at"] is not None
 
-    too_high = client.patch("/entertainment/titles/kind-of-blue", json={"rating": 6})
+    too_high = client.patch("/library/titles/kind-of-blue", json={"rating": 6})
     assert too_high.status_code == 400
 
-    cleared = client.patch("/entertainment/titles/kind-of-blue", json={"rating": None})
+    cleared = client.patch("/library/titles/kind-of-blue", json={"rating": None})
     assert cleared.status_code == 200
     assert cleared.json()["rating"] is None
     assert cleared.json()["link"] == "https://open.spotify.com/album/kind-of-blue"
 
-    deleted = client.delete("/entertainment/titles/kind-of-blue")
+    deleted = client.delete("/library/titles/kind-of-blue")
     assert deleted.status_code == 204
-    assert client.get("/entertainment/titles/kind-of-blue").status_code == 404
-    assert client.delete("/entertainment/titles/kind-of-blue").status_code == 404
+    assert client.get("/library/titles/kind-of-blue").status_code == 404
+    assert client.delete("/library/titles/kind-of-blue").status_code == 404
 
 
 def test_lookup_and_create_from_link(client):
@@ -147,7 +147,7 @@ def test_lookup_and_create_from_link(client):
 
     client.app.dependency_overrides[get_link_fetch] = lambda: fetch
     url = "https://open.spotify.com/album/1weenld61qoidwYuZ1GESA"
-    looked = client.post("/entertainment/lookup", json={"url": url})
+    looked = client.post("/library/lookup", json={"url": url})
     assert looked.status_code == 200, looked.text
     assert looked.json() == {
         "link": url,
@@ -158,14 +158,12 @@ def test_lookup_and_create_from_link(client):
         "existing": None,
     }
 
-    created = client.post("/entertainment/titles/from-link", json={"url": url, "topics": ["jazz"]})
+    created = client.post("/library/titles/from-link", json={"url": url, "topics": ["jazz"]})
     assert created.status_code == 201, created.text
     assert created.json()["slug"] == "kind-of-blue"
     assert created.json()["image"] == "https://i.scdn.co/kob.jpg"
-    assert client.post("/entertainment/lookup", json={"url": url}).json()["existing"] == (
-        "kind-of-blue"
-    )
-    assert client.post("/entertainment/titles/from-link", json={"url": url}).status_code == 409
+    assert client.post("/library/lookup", json={"url": url}).json()["existing"] == ("kind-of-blue")
+    assert client.post("/library/titles/from-link", json={"url": url}).status_code == 409
 
 
 def test_lookup_reports_unreachable_links_as_bad_gateway(client):
@@ -176,6 +174,6 @@ def test_lookup_reports_unreachable_links_as_bad_gateway(client):
         raise UpstreamError("could not reach example.com")
 
     client.app.dependency_overrides[get_link_fetch] = lambda: fetch
-    response = client.post("/entertainment/lookup", json={"url": "https://example.com/x"})
+    response = client.post("/library/lookup", json={"url": "https://example.com/x"})
     assert response.status_code == 502
     assert "example.com" in response.json()["detail"]

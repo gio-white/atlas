@@ -16,9 +16,9 @@ import {
   deleteHabit,
   deleteHabitBreak,
   getHabitDetail,
-  getHabitsCalendar,
+  getHabitsGrid,
   type HabitDetail,
-  type HabitsCalendar,
+  type HabitsGrid,
   unarchiveHabit,
 } from '@/lib/api'
 import { useAsOf } from '@/lib/asOf'
@@ -41,7 +41,7 @@ export function HabitPage() {
   const [params] = useSearchParams()
   const search = params.toString()
   const [detail, setDetail] = useState<HabitDetail | null>(null)
-  const [calendar, setCalendar] = useState<HabitsCalendar | null>(null)
+  const [grid, setGrid] = useState<HabitsGrid | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [editOpen, setEditOpen] = useState(false)
@@ -49,12 +49,12 @@ export function HabitPage() {
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const refresh = useCallback(async () => {
-    const [nextDetail, nextCalendar] = await Promise.all([
+    const [nextDetail, nextGrid] = await Promise.all([
       getHabitDetail(slug, asOf),
-      getHabitsCalendar('week', asOf),
+      getHabitsGrid('week', asOf),
     ])
     setDetail(nextDetail)
-    setCalendar(nextCalendar)
+    setGrid(nextGrid)
   }, [slug, asOf])
 
   useEffect(() => {
@@ -84,7 +84,7 @@ export function HabitPage() {
 
   const { habit, status, breaks, recent } = detail
   const archived = habit.archived_at !== null
-  const weekRow = calendar?.habits.find((row) => row.slug === habit.slug) ?? null
+  const weekRow = grid?.habits.find((row) => row.slug === habit.slug) ?? null
   const isQuit = habit.kind === 'quit'
 
   return (
@@ -187,12 +187,11 @@ export function HabitPage() {
         />
       </section>
 
-      {weekRow !== null && calendar !== null ? (
+      {weekRow !== null && grid !== null ? (
         <Card className="min-w-0">
           <CardHeader>
             <CardTitle className="text-base">
-              This week · {shortDateLabel(calendar.range_start)} –{' '}
-              {shortDateLabel(calendar.range_end)}
+              This week · {shortDateLabel(grid.range_start)} – {shortDateLabel(grid.range_end)}
             </CardTitle>
           </CardHeader>
           <WeekGrid habits={[weekRow]} search={search} />

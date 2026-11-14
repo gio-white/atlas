@@ -8,8 +8,8 @@ from sqlmodel import Session, select
 from atlas.db import CURRENT_SCHEMA_VERSION
 from atlas.db.models import (
     Ambition,
-    EntertainmentTitle,
     Goal,
+    LibraryTitle,
     Metric,
     ScreenCategory,
     SideQuest,
@@ -36,8 +36,8 @@ class SeedSummary:
     screen_apps: int
     screen_devices: int
     screen_sessions: int
-    entertainment_topics: int
-    entertainment_titles: int
+    library_topics: int
+    library_titles: int
     sleep_sessions: int
     ambitions: int = 0
     goals: int = 0
@@ -68,8 +68,8 @@ def seed_demo(
         screen_apps=len(payload["screen_apps"]),
         screen_devices=len(payload["screen_devices"]),
         screen_sessions=len(payload["screen_sessions"]),
-        entertainment_topics=len(payload["entertainment_topics"]),
-        entertainment_titles=len(payload["entertainment_titles"]),
+        library_topics=len(payload["library_topics"]),
+        library_titles=len(payload["library_titles"]),
         sleep_sessions=len(payload["sleep_sessions"]),
         ambitions=len(payload["ambitions"]),
         goals=len(payload["goals"]),
@@ -90,7 +90,7 @@ def _has_data(session: Session) -> bool:
         Goal,
         Ambition,
         SideQuest,
-        EntertainmentTitle,
+        LibraryTitle,
         SleepSession,
         ScreenCategory,
     )
@@ -108,8 +108,8 @@ def demo_payload(as_of: date, zone: tzinfo | None = None) -> dict[str, Any]:
         "screen_devices": _screen_devices(),
         "screen_budgets": _screen_budgets(start),
         "screen_sessions": _screen_sessions(start, as_of),
-        "entertainment_topics": _entertainment_topics(),
-        "entertainment_titles": _entertainment_titles(as_of),
+        "library_topics": _library_topics(),
+        "library_titles": _library_titles(as_of),
         "sleep_sessions": _sleep_sessions(start, as_of),
         **demo_quests(as_of, zone if zone is not None else load_settings().timezone),
         "entries": _entries(start, as_of),
@@ -336,7 +336,7 @@ def _entries(start: date, as_of: date) -> list[dict[str, Any]]:
     return entries
 
 
-def _entertainment_topics() -> list[dict[str, Any]]:
+def _library_topics() -> list[dict[str, Any]]:
     return [
         {"slug": "programming", "name": "Programming", "archived_at": None},
         {"slug": "physics", "name": "Physics", "archived_at": None},
@@ -345,9 +345,9 @@ def _entertainment_topics() -> list[dict[str, Any]]:
     ]
 
 
-def _entertainment_titles(as_of: date) -> list[dict[str, Any]]:
+def _library_titles(as_of: date) -> list[dict[str, Any]]:
     return [
-        _entertainment_title(
+        _library_title(
             "atomic-habits",
             "Atomic Habits",
             "book",
@@ -358,7 +358,7 @@ def _entertainment_titles(as_of: date) -> list[dict[str, Any]]:
             started_on=as_of - timedelta(days=24),
             rating=4,
         ),
-        _entertainment_title(
+        _library_title(
             "the-office",
             "The Office",
             "series",
@@ -367,7 +367,7 @@ def _entertainment_titles(as_of: date) -> list[dict[str, Any]]:
             progress="S3E4",
             started_on=as_of - timedelta(days=20),
         ),
-        _entertainment_title(
+        _library_title(
             "interstellar",
             "Interstellar",
             "film",
@@ -379,7 +379,7 @@ def _entertainment_titles(as_of: date) -> list[dict[str, Any]]:
             started_on=as_of - timedelta(days=3),
             rating=5,
         ),
-        _entertainment_title(
+        _library_title(
             "lex-fridman-109",
             "Lex Fridman #109",
             "podcast",
@@ -390,7 +390,7 @@ def _entertainment_titles(as_of: date) -> list[dict[str, Any]]:
             rating=3,
             link="https://lexfridman.com/podcast/",
         ),
-        _entertainment_title(
+        _library_title(
             "three-body",
             "The Three-Body Problem",
             "book",
@@ -399,7 +399,7 @@ def _entertainment_titles(as_of: date) -> list[dict[str, Any]]:
             status="queued",
             topics=["physics"],
         ),
-        _entertainment_title(
+        _library_title(
             "neon-genesis",
             "Neon Genesis Evangelion",
             "anime",
@@ -409,7 +409,7 @@ def _entertainment_titles(as_of: date) -> list[dict[str, Any]]:
             progress="S1E6",
             rating=2,
         ),
-        _entertainment_title(
+        _library_title(
             "kind-of-blue",
             "Kind of Blue",
             "music",
@@ -419,7 +419,7 @@ def _entertainment_titles(as_of: date) -> list[dict[str, Any]]:
             finished_on=as_of - timedelta(days=2),
             rating=5,
         ),
-        _entertainment_title(
+        _library_title(
             "3blue1brown-linear",
             "Essence of Linear Algebra",
             "video",
@@ -430,7 +430,7 @@ def _entertainment_titles(as_of: date) -> list[dict[str, Any]]:
             rating=5,
             link="https://www.3blue1brown.com/topics/linear-algebra",
         ),
-        _entertainment_title(
+        _library_title(
             "rich-dad",
             "Rich Dad Poor Dad",
             "book",
@@ -441,7 +441,7 @@ def _entertainment_titles(as_of: date) -> list[dict[str, Any]]:
     ]
 
 
-def _entertainment_title(
+def _library_title(
     slug: str,
     name: str,
     kind: str,

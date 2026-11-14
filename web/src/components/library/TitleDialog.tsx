@@ -1,7 +1,7 @@
 import { Sparkles } from 'lucide-react'
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 
-import { RatingStars } from '@/components/entertainment/RatingStars'
+import { RatingStars } from '@/components/library/RatingStars'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -15,17 +15,17 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import {
   ApiError,
-  createEntertainmentTitle,
-  deleteEntertainmentTitle,
-  type EntertainmentKind,
-  type EntertainmentStatus,
-  type EntertainmentTitle,
-  type EntertainmentTopic,
-  lookupEntertainmentLink,
-  updateEntertainmentTitle,
-  uploadEntertainmentImage,
+  createLibraryTitle,
+  deleteLibraryTitle,
+  type LibraryKind,
+  type LibraryStatus,
+  type LibraryTitle,
+  type LibraryTopic,
+  lookupLibraryLink,
+  updateLibraryTitle,
+  uploadLibraryImage,
 } from '@/lib/api'
-import { KIND_LABEL, KINDS, parseTags, STATUSES, uniqueTitleSlug } from '@/lib/entertainment'
+import { KIND_LABEL, KINDS, parseTags, STATUSES, uniqueTitleSlug } from '@/lib/library'
 import { isValidSlug } from '@/lib/slug'
 import { cn } from '@/lib/utils'
 
@@ -45,18 +45,18 @@ export function TitleDialog({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  title: EntertainmentTitle | null
+  title: LibraryTitle | null
   initialLink?: string | null
-  defaultKind: EntertainmentKind
-  topics: EntertainmentTopic[]
+  defaultKind: LibraryKind
+  topics: LibraryTopic[]
   takenSlugs: string[]
   onSaved: () => Promise<void>
 }) {
   const editing = title !== null
   const initialPoster = title?.image?.startsWith('http') ? title.image : ''
   const [name, setName] = useState('')
-  const [kind, setKind] = useState<EntertainmentKind>(defaultKind)
-  const [status, setStatus] = useState<EntertainmentStatus>('queued')
+  const [kind, setKind] = useState<LibraryKind>(defaultKind)
+  const [status, setStatus] = useState<LibraryStatus>('queued')
   const [rating, setRating] = useState<number | null>(null)
   const [creator, setCreator] = useState('')
   const [recommendedBy, setRecommendedBy] = useState('')
@@ -86,7 +86,7 @@ export function TitleDialog({
     setLookingUp(true)
     setLookupNote(null)
     try {
-      const found = await lookupEntertainmentLink(cleaned)
+      const found = await lookupLibraryLink(cleaned)
       if (run !== lookupRun.current) return
       // A new title takes everything found; an existing one only fills blanks.
       const fill = (current: string, next: string | null) =>
@@ -168,7 +168,7 @@ export function TitleDialog({
     setError(null)
     setPending(true)
     try {
-      let saved: EntertainmentTitle
+      let saved: LibraryTitle
       if (title === null) {
         const slug = uniqueTitleSlug(cleaned, kind, takenSlugs)
         if (!isValidSlug(slug)) {
@@ -176,19 +176,19 @@ export function TitleDialog({
           setPending(false)
           return
         }
-        saved = await createEntertainmentTitle({
+        saved = await createLibraryTitle({
           slug,
           ...fields,
           image_url: posterFile ? null : posterUrl.trim() || null,
         })
       } else {
         const posterChanged = posterUrl.trim() !== initialPoster
-        saved = await updateEntertainmentTitle(title.slug, {
+        saved = await updateLibraryTitle(title.slug, {
           ...fields,
           ...(posterChanged && !posterFile ? { image_url: posterUrl.trim() || null } : {}),
         })
       }
-      if (posterFile) await uploadEntertainmentImage(saved.slug, posterFile)
+      if (posterFile) await uploadLibraryImage(saved.slug, posterFile)
       onOpenChange(false)
       await onSaved()
     } catch (caught) {
@@ -206,7 +206,7 @@ export function TitleDialog({
     }
     setPending(true)
     try {
-      await deleteEntertainmentTitle(title.slug)
+      await deleteLibraryTitle(title.slug)
       onOpenChange(false)
       await onSaved()
     } catch (caught) {
@@ -272,7 +272,7 @@ export function TitleDialog({
             <Select
               id="title-kind"
               value={kind}
-              onChange={(event) => setKind(event.target.value as EntertainmentKind)}
+              onChange={(event) => setKind(event.target.value as LibraryKind)}
             >
               {KINDS.map((item) => (
                 <option key={item} value={item}>
@@ -285,7 +285,7 @@ export function TitleDialog({
             <Select
               id="title-status"
               value={status}
-              onChange={(event) => setStatus(event.target.value as EntertainmentStatus)}
+              onChange={(event) => setStatus(event.target.value as LibraryStatus)}
             >
               {STATUSES.map((item) => (
                 <option key={item.id} value={item.id}>
@@ -349,7 +349,7 @@ export function TitleDialog({
                       className={cn(
                         'cursor-pointer rounded-full border px-3 py-1 text-xs',
                         checked
-                          ? 'border-entertainment bg-entertainment/15 text-ink'
+                          ? 'border-library bg-library/15 text-ink'
                           : 'border-line text-muted',
                       )}
                     >

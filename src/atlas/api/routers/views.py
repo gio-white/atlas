@@ -5,13 +5,13 @@ from fastapi import APIRouter
 from atlas.api.deps import SessionDep
 from atlas.api.schemas import (
     HabitsBoardOut,
-    HabitsCalendarOut,
+    HabitsGridOut,
     ThisWeekOut,
     WeekSoFarOut,
 )
 from atlas.domain import Period
 from atlas.services import (
-    habit_calendar,
+    habit_grid,
     habits_board,
     this_week,
     week_so_far,
@@ -20,13 +20,13 @@ from atlas.services import (
 router = APIRouter(prefix="/views", tags=["views"])
 
 
-@router.get("/habits/calendar", response_model=HabitsCalendarOut)
-def get_habits_calendar(
+@router.get("/habits/grid", response_model=HabitsGridOut)
+def get_habits_grid(
     session: SessionDep,
     period: Period = Period.WEEK,
     as_of: date | None = None,
-) -> HabitsCalendarOut:
-    return HabitsCalendarOut.model_validate(habit_calendar(session, period=period, as_of=as_of))
+) -> HabitsGridOut:
+    return HabitsGridOut.model_validate(habit_grid(session, period=period, as_of=as_of))
 
 
 @router.get("/habits", response_model=HabitsBoardOut)

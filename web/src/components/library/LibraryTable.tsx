@@ -2,17 +2,13 @@ import { ArrowDown, ArrowUp, ExternalLink, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
-import { Thumb } from '@/components/entertainment/Posters'
-import { RatingStars } from '@/components/entertainment/RatingStars'
+import { Thumb } from '@/components/library/Posters'
+import { RatingStars } from '@/components/library/RatingStars'
 import { EmptyState } from '@/components/PageState'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
-import {
-  type EntertainmentStatus,
-  type EntertainmentTitle,
-  updateEntertainmentTitle,
-} from '@/lib/api'
+import { type LibraryStatus, type LibraryTitle, updateLibraryTitle } from '@/lib/api'
 import { shortDateLabel } from '@/lib/dates'
 import {
   type CategoryId,
@@ -29,7 +25,7 @@ import {
   sortTitles,
   statusCounts,
   tagsIn,
-} from '@/lib/entertainment'
+} from '@/lib/library'
 import { cn } from '@/lib/utils'
 
 /** Filterable, sortable table of one category; status and rating edit inline. */
@@ -39,9 +35,9 @@ export function LibraryTable({
   onOpen,
   onRefresh,
 }: {
-  titles: EntertainmentTitle[]
+  titles: LibraryTitle[]
   category: CategoryId
-  onOpen: (title: EntertainmentTitle) => void
+  onOpen: (title: LibraryTitle) => void
   onRefresh: () => Promise<void>
 }) {
   const [params, setParams] = useSearchParams()
@@ -78,8 +74,8 @@ export function LibraryTable({
     setParams(copy, { replace: true })
   }
 
-  async function patch(slug: string, body: Parameters<typeof updateEntertainmentTitle>[1]) {
-    await updateEntertainmentTitle(slug, body)
+  async function patch(slug: string, body: Parameters<typeof updateLibraryTitle>[1]) {
+    await updateLibraryTitle(slug, body)
     await onRefresh()
   }
 
@@ -256,7 +252,7 @@ export function LibraryTable({
                       value={title.status}
                       onChange={(event) =>
                         void patch(title.slug, {
-                          status: event.target.value as EntertainmentStatus,
+                          status: event.target.value as LibraryStatus,
                         })
                       }
                     >
@@ -321,9 +317,7 @@ function StatusChip({
       aria-pressed={active}
       className={cn(
         'cursor-pointer rounded-full border px-3 py-1 text-xs motion-safe:transition-colors',
-        active
-          ? 'border-entertainment bg-entertainment/15 text-ink'
-          : 'border-line text-muted hover:text-ink',
+        active ? 'border-library bg-library/15 text-ink' : 'border-line text-muted hover:text-ink',
       )}
       onClick={onClick}
     >

@@ -13,16 +13,16 @@ def _seed_daily_pushups(client):
     assert created.status_code == 201, created.text
 
 
-def test_habits_calendar_week_covers_the_iso_week(client, seed_health):
+def test_habits_grid_week_covers_the_iso_week(client, seed_health):
     _seed_daily_pushups(client)
     client.post("/entries", json={"metric": "pushups", "value": 10, "occurred_on": "2026-08-10"})
 
-    calendar = client.get(
-        "/views/habits/calendar",
+    grid = client.get(
+        "/views/habits/grid",
         params={"period": "week", "as_of": "2026-08-13"},
     )
-    assert calendar.status_code == 200, calendar.text
-    body = calendar.json()
+    assert grid.status_code == 200, grid.text
+    body = grid.json()
     assert body["period"] == "week"
     assert body["range_start"] == "2026-08-10"
     assert body["range_end"] == "2026-08-16"
@@ -30,10 +30,10 @@ def test_habits_calendar_week_covers_the_iso_week(client, seed_health):
     assert body["habits"][0]["days"][0]["value"] == 10.0
 
 
-def test_habits_calendar_month_spans_august(client, seed_health):
+def test_habits_grid_month_spans_august(client, seed_health):
     _seed_daily_pushups(client)
     response = client.get(
-        "/views/habits/calendar",
+        "/views/habits/grid",
         params={"period": "month", "as_of": "2026-08-13"},
     )
     assert response.status_code == 200, response.text
