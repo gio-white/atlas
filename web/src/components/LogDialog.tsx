@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog'
 import { ApiError, listMetrics, type Metric } from '@/lib/api'
 import { longDateLabel } from '@/lib/dates'
+import { isManagedMetric } from '@/lib/labels'
 import { todayIso } from '@/lib/utils'
 
 type LogDialogProps = {
@@ -28,7 +29,8 @@ export function LogDialog({ open, onOpenChange, occurredOn }: LogDialogProps) {
     setError(null)
     listMetrics()
       .then((rows) => {
-        if (!cancelled) setMetrics(rows)
+        // Screen time comes from devices and notes are written on Home: only managed metrics.
+        if (!cancelled) setMetrics(rows.filter(isManagedMetric))
       })
       .catch((caught: unknown) => {
         if (!cancelled) {

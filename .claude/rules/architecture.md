@@ -18,12 +18,12 @@ domain    →  (stdlib / typing only)
 
 ```python
 # ❌ BAD — router talks to the session
-def create_area(session: Session, body: AreaCreate):
-    session.add(Area(**body.model_dump()))
+def create_metric(session: Session, body: MetricCreate):
+    session.add(Metric(**body.model_dump()))
 
 # ✅ GOOD — router calls a service
-def create_area(session: Session, body: AreaCreate):
-    return area_service.create_area(session, **body.model_dump())
+def create_metric(session: Session, body: MetricCreate):
+    return metric_service.create_metric(session, **body.model_dump())
 ```
 
 ## Data principles
@@ -31,5 +31,5 @@ def create_area(session: Session, body: AreaCreate):
 - **Entries are the stored facts for habits and goals.** Streaks, adherence, goal progress, and pace are computed on read from entries. Never persist derived columns.
 - **Screen time is a dedicated fact store.** Sessions live in `screen_session` (optional start/end interval plus duration). Capture dual-writes minutes onto the app's backing entry so habits on that metric still work. The screen dashboard reads sessions, not entries.
 - **Habits and goals reference metrics.** One capture path (`POST /entries`) serves everything except screen sessions (`POST /screen/sessions`).
-- **Slugs are the human key.** Integer PKs internally; unique slugs (`health`, `pushups`) on the wire.
+- **Slugs are the human key.** Integer PKs internally; unique slugs (`pushups`, `reading`) on the wire.
 - **Local dates for occurrence, UTC for bookkeeping.** `Entry.occurred_on` and `ScreenSession.occurred_on` are local dates in `ATLAS_TZ`. Interval timestamps and `created_at` are UTC.

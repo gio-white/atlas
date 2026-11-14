@@ -106,7 +106,7 @@ Service functions (in `src/atlas/services/`, each taking an explicit `Session` f
 
 ## Screens
 
-Capture is the **New entry** dialog (`LogDialog`), opened from **Add → Entry** in the header, wrapping the log form (`LogForm`, `POST /entries`). Its description is "Log a value for today." (or "for <date>" when *As of* is set). No metric is preselected: the select starts on "Choose…", except when only one metric is offered (the Home habit grid), which is picked automatically. The value field is empty with a placeholder per value type ("How many?", "Amount", "Minutes", "1 to 10", "Write something") and shows the metric's unit beside it ("min" for a duration without a unit). Yes/no values read "Yes" / "No"; the note is "Optional"; the button is "Save".
+Capture is the **New entry** dialog (`LogDialog`), opened from **Add → Entry** in the header, wrapping the log form (`LogForm`, `POST /entries`). Its description is "Log a value for today." (or "for <date>" when *As of* is set). It offers only the metrics you manage (`manual` and `habit`, `isManagedMetric` in `web/src/lib/labels.ts`): screen time comes from devices, and the journal note is written on Home. No metric is preselected: the select starts on "Choose…", except when only one metric is offered (the Home habit grid), which is picked automatically. The value field is empty with a placeholder per value type ("How many?", "Amount", "Minutes", "1 to 10", "Write something") and shows the metric's unit beside it ("min" for a duration without a unit). Yes/no values read "Yes" / "No"; the note is "Optional"; the button is "Save".
 
 **Settings → Metrics** (`/settings/metrics`, `web/src/pages/settings/MetricsPage.tsx`) is where metrics are managed; it took over from Catalog.
 
@@ -126,7 +126,7 @@ History of entries: [history](history.md). Route inventory with status: [navigat
 - `tests/services/test_metrics.py`, `tests/services/test_entries.py`
 - `tests/api/test_metrics.py`, `tests/api/test_entries.py`
 - `web/src/lib/value.test.ts`, `web/src/lib/entries.test.ts`
-- `web/src/components/LogForm.test.tsx`
+- `web/src/components/LogForm.test.tsx`, `web/src/components/LogDialog.test.tsx` (only managed metrics are offered)
 - `web/src/pages/settings/MetricsPage.test.tsx` (only managed metrics are listed, in plain words; create from a name; edit; archive asks first and names the habit), `web/src/lib/labels.test.ts`
 - `tests/db/test_schema.py` (the schema 12 migration from areas to origins), `tests/services/test_port.py` (exports from before schema 12)
 

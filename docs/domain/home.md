@@ -68,9 +68,12 @@ Left, in order:
    **Schedule**. Empty: "Nothing due today."
 4. **Up next** — the next action of each active goal and side quest, with **Schedule**. Empty:
    "No next steps yet. Add tasks to your quests."
-5. **Habits** — daily habits scheduled today, then weekly and monthly ones, each as the Habits
-   page's row with its one-tap **Mark done** or **Log value**; weekly and monthly ones show their
-   progress for the period ("3 this week"). **All habits** goes to `/habit`, where the
+5. **Habits** — daily habits scheduled today, then weekly and monthly ones, each as a row with
+   its one-tap control (**Done today?**, quick amounts such as "+10", or **Log a slip**). The line
+   under each row reads in the habit's own words: a quit habit "No slips today" / "1 slip today"
+   (red once there is a slip); a daily amount "10 of 40 today", then "Done"; a daily yes / no
+   habit nothing more; a weekly or monthly habit its progress for the period ("1 of 3", "4 days
+   left" or "Done"). Only amounts get a progress bar. **All habits** goes to `/habit`, where the
    Monday–Sunday grid lives. Empty: "No habits yet."; with habits but none today: "No habits
    scheduled today." (`HabitsTodayBlock.tsx`).
 6. **Note for today** — one line that grows to four while focused or once it holds more. **Save
@@ -113,7 +116,9 @@ Route inventory with status: [navigation](../product/navigation.md).
 - `tests/api/test_views.py` — `GET /views/week-so-far`
 - `web/src/components/home/home.test.tsx` — the four weekly numbers and their "—", a block that
   fails alone, Main quests order and limit, the screen cap shown only for an active daily cap on
-  all screen time, In progress, Note for today (first write, then amend; grows when focused)
+  all screen time, In progress, Note for today (first write, then amend; grows when focused),
+  habit rows (a quit habit reads slips today and logs a slip in one tap; daily and weekly
+  amounts)
 - `web/src/components/quests/time/execution.test.tsx` — Home's sessions: time range and path,
   Session done never completes the task, Outcome achieved, To confirm answered as done or as
   didn't happen

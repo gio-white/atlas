@@ -48,6 +48,6 @@ route or SPA route is missing from the docs (`tests/test_docs_drift.py`,
 # (docs/domain/habits.md still lacks the new PATCH field)
 
 # ✅ GOOD — same commit updates the API table and adds the changelog fragment
-# docs/domain/habits.md: PATCH /habits/{slug} row lists `area`
-# docs/changelog/unreleased/feature-ui-copy-and-fixes.md: - **2026-11-08 —** `habit-area` — …
+# docs/domain/habits.md: PATCH /habits/{slug} row lists `target`
+# docs/changelog/unreleased/feature-ui-copy-and-fixes.md: - **2026-11-08 —** `habit-target` — …
 ```

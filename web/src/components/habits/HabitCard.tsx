@@ -120,6 +120,8 @@ export function HabitCard({
 
   if (layout === 'row') {
     const target = targetFor(status)
+    // A bar only means something for an amount: not for a slip count or a daily yes / no.
+    const showBar = status.kind !== 'quit' && !(status.kind === 'check' && status.period === 'day')
     return (
       <article className="flex flex-col gap-2 rounded-2xl border border-line bg-surface p-4">
         <div className="flex items-center justify-between gap-3">
@@ -133,7 +135,7 @@ export function HabitCard({
                 type="button"
                 variant="ghost"
                 size="icon"
-                aria-label={`Undo last check-in for ${status.name}`}
+                aria-label={`${status.kind === 'quit' ? 'Undo last slip' : 'Undo last check-in'} for ${status.name}`}
                 disabled={pending}
                 onClick={undo}
               >
@@ -143,23 +145,18 @@ export function HabitCard({
             <QuickAdds status={status} pending={pending} onAdd={add} todayDone={loggedToday} />
           </div>
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-raised">
-          <div
-            className={cn(
-              'h-full rounded-full motion-safe:transition-[width] motion-safe:duration-300',
-              status.satisfied ? 'bg-good' : 'bg-iris',
-            )}
-            style={{ width: `${Math.round((progress ?? 0) * 100)}%` }}
-          />
-        </div>
-        <p className="flex justify-between text-xs text-muted">
-          <span>
-            {formatAmount(status.current_value, status.kind, status.unit)} of{' '}
-            {formatAmount(target, status.kind, status.unit)}
-            {target !== status.target_value ? ' (adjusted for your break)' : ''}
-          </span>
-          <span>{status.satisfied ? 'Done' : daysLeftLabel(status)}</span>
-        </p>
+        {showBar ? (
+          <div className="h-2 overflow-hidden rounded-full bg-raised">
+            <div
+              className={cn(
+                'h-full rounded-full motion-safe:transition-[width] motion-safe:duration-300',
+                status.satisfied ? 'bg-good' : 'bg-iris',
+              )}
+              style={{ width: `${Math.round((progress ?? 0) * 100)}%` }}
+            />
+          </div>
+        ) : null}
+        <RowSummary status={status} target={target} />
         {error ? (
           <p className="text-xs text-bad" role="alert">
             {error}
@@ -359,6 +356,40 @@ export function HabitCard({
   )
 }
 
+/** The line under a habit row: what counts for this habit, in its own words. */
+function RowSummary({ status, target }: { status: HabitStatus; target: number }) {
+  if (status.kind === 'quit') {
+    const slips = Math.round(status.today_value ?? 0)
+    return (
+      <p className={cn('text-xs', slips > 0 ? 'text-bad' : 'text-muted')}>
+        {slips === 0 ? 'No slips today' : slips === 1 ? '1 slip today' : `${slips} slips today`}
+      </p>
+    )
+  }
+  if (status.period === 'day') {
+    if (status.kind === 'check') return null
+    return (
+      <p className="flex justify-between text-xs text-muted">
+        <span>
+          {formatAmount(status.today_value, status.kind, status.unit)} of{' '}
+          {formatAmount(target, status.kind, status.unit)} today
+        </span>
+        {status.satisfied ? <span>Done</span> : null}
+      </p>
+    )
+  }
+  return (
+    <p className="flex justify-between text-xs text-muted">
+      <span>
+        {formatAmount(status.current_value, status.kind, status.unit)} of{' '}
+        {formatAmount(target, status.kind, status.unit)}
+        {target !== status.target_value ? ' (adjusted for your break)' : ''}
+      </span>
+      <span>{status.satisfied ? 'Done' : daysLeftLabel(status)}</span>
+    </p>
+  )
+}
+
 function QuickAdds({
   status,
   pending,
@@ -370,6 +401,13 @@ function QuickAdds({
   todayDone: boolean
   onAdd: (amount?: number) => Promise<void>
 }) {
+  if (status.kind === 'quit') {
+    return (
+      <Button type="button" variant="outline" size="sm" disabled={pending} onClick={() => onAdd()}>
+        Log a slip
+      </Button>
+    )
+  }
   if (status.kind === 'check') {
     return (
       <Button
