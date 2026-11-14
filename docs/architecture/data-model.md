@@ -7,7 +7,7 @@ All tables at a glance. Field-level tables live in each feature's doc:
 | `Metric`, `Entry` | [trackers and entries](../domain/trackers-and-entries.md#data-model) |
 | `Ambition`, `Goal`, `Milestone`, `SideQuest`, `Chapter`, `Task` | [quests](../domain/quests.md#data-model) |
 | `TimeBlock` | [time blocks](../domain/time-blocks.md#data-model) |
-| `Habit`, `HabitBreak` | [habits](../domain/habits.md#data-model) |
+| `Habit`, `HabitBreak`, `HabitSupport` | [habits](../domain/habits.md#data-model) |
 | `ScreenCategory`, `ScreenApp`, `ScreenBudget`, `ScreenDevice`, `ScreenSession` | [screen time](../domain/screen-time.md#data-model) |
 | `SleepSession`, `SleepSessionStage` | [sleep](../domain/sleep.md#data-model) |
 | The journal's metric (journal rows) | [journal](../domain/journal.md#data-model) |
@@ -39,7 +39,7 @@ flowchart TD
   SleepSession[SleepSession: one night] -->|has many| SleepSessionStage[SleepSessionStage: deep light rem awake]
 ```
 
-Quest tables (no link to metrics or habits):
+Quest tables (no link to metrics; habits link in through `habit_support`, below):
 
 ```mermaid
 erDiagram
@@ -53,4 +53,19 @@ erDiagram
   SIDE_QUEST ||--o{ TASK : "direct tasks"
   CHAPTER ||--o{ TASK : contains
   TASK ||--o{ TIME_BLOCK : "scheduled as"
+```
+
+A habit supports quest items at any level through `habit_support`, one row per link, each
+pointing at exactly one item ([habits](../domain/habits.md#habitsupport)). No quest rule reads
+it, so it never changes progress ([decision 0009](../decisions/0009-habits-support-quest-items-at-any-level.md)):
+
+```mermaid
+erDiagram
+  HABIT ||--o{ HABIT_SUPPORT : supports
+  HABIT_SUPPORT }o--o| AMBITION : "one of"
+  HABIT_SUPPORT }o--o| GOAL : "one of"
+  HABIT_SUPPORT }o--o| MILESTONE : "one of"
+  HABIT_SUPPORT }o--o| SIDE_QUEST : "one of"
+  HABIT_SUPPORT }o--o| CHAPTER : "one of"
+  HABIT_SUPPORT }o--o| TASK : "one of"
 ```

@@ -11,6 +11,7 @@ from atlas.db import (
     Chapter,
     Goal,
     Habit,
+    HabitSupport,
     Milestone,
     SchemaVersion,
     SideQuest,
@@ -21,7 +22,8 @@ from atlas.db import (
     init_schema,
     make_session_factory,
 )
-from atlas.domain import TaskStatus
+from atlas.domain import HabitKind, Period, TaskStatus
+from atlas.services import create_habit
 
 NOW = datetime(2026, 11, 8, 9, 0, tzinfo=UTC)
 QUEST_TABLES = {"ambition", "goal", "milestone", "side_quest", "chapter", "task", "time_block"}
@@ -239,3 +241,43 @@ def test_v10_migration_is_idempotent(tmp_path):
     with Session(engine) as session:
         assert [goal.title for goal in session.exec(select(Goal)).all()] == ["New goal"]
         assert session.get(SchemaVersion, 1).version == CURRENT_SCHEMA_VERSION
+
+
+def _habit_id(session: Session) -> int:
+    return create_habit(session, "read", kind=HabitKind.CHECK, period=Period.DAY).id
+
+
+def test_habit_support_points_at_exactly_one_quest_item(session):
+    habit_id = _habit_id(session)
+    goal = _add(session, Goal(title="Ship"))
+    side_quest = _add(session, SideQuest(title="Trip"))
+    session.add(HabitSupport(habit_id=habit_id))
+    with pytest.raises(IntegrityError):
+        session.commit()
+    session.rollback()
+    session.add(HabitSupport(habit_id=habit_id, goal_id=goal.id, side_quest_id=side_quest.id))
+    with pytest.raises(IntegrityError):
+        session.commit()
+    session.rollback()
+    _add(session, HabitSupport(habit_id=habit_id, goal_id=goal.id))
+    session.add(HabitSupport(habit_id=habit_id, goal_id=goal.id))
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_habit_support_foreign_keys_are_restrict_and_indexed(engine):
+    inspector = inspect(engine)
+    indexed = {c for i in inspector.get_indexes("habit_support") for c in i["column_names"]}
+    keys = inspector.get_foreign_keys("habit_support")
+    assert {key["referred_table"] for key in keys} == {
+        "habit",
+        "ambition",
+        "goal",
+        "milestone",
+        "side_quest",
+        "chapter",
+        "task",
+    }
+    for key in keys:
+        assert key["options"].get("ondelete") == "RESTRICT", key
+        assert set(key["constrained_columns"]) <= indexed, key

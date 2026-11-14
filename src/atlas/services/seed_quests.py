@@ -121,7 +121,7 @@ def demo_quests(as_of: date, zone: tzinfo) -> dict[str, list[dict[str, Any]]]:
     q = _Builder(as_of, zone)
 
     engineer = q.container("ambitions", "Become a better software engineer", target_on=None)
-    q.container("ambitions", "Live a calmer life")
+    calmer = q.container("ambitions", "Live a calmer life")
 
     job = q.container(
         "goals",
@@ -190,4 +190,13 @@ def demo_quests(as_of: date, zone: tzinfo) -> dict[str, list[dict[str, Any]]]:
     q.block(plan, 0, (18, 0), 45, "scheduled")
     q.block(csv, 1, (9, 30), 90, "scheduled")
     q.block(cv, 1, (11, 30), 30, "scheduled")
+
+    # Habits that support quest items, at several levels (informational only).
+    q.data["habit_supports"] = [
+        {"habit": "meditated-daily", "kind": "ambition", "id": calmer},
+        {"habit": "runs-weekly", "kind": "goal", "id": marathon},
+        {"habit": "runs-weekly", "kind": "milestone", "id": ten_k},
+        {"habit": "deep-work-weekdays", "kind": "chapter", "id": basics},
+        {"habit": "deep-work-weekdays", "kind": "task", "id": book},
+    ]
     return q.data

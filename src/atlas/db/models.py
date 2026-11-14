@@ -364,6 +364,62 @@ class Task(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=_utcnow)
 
 
+class HabitSupport(SQLModel, table=True):
+    """A habit supports one quest item, at any level. Informational only: no quest rule reads it.
+
+    Exactly one of the item columns is set, so every link has a real foreign key.
+    """
+
+    __tablename__ = "habit_support"
+    __table_args__ = (
+        CheckConstraint(
+            "(ambition_id IS NOT NULL) + (goal_id IS NOT NULL) + (milestone_id IS NOT NULL)"
+            " + (side_quest_id IS NOT NULL) + (chapter_id IS NOT NULL) + (task_id IS NOT NULL)"
+            " = 1",
+            name="ck_habit_support_one_item",
+        ),
+        *(
+            Index(
+                f"ux_habit_support_{column}",
+                "habit_id",
+                column,
+                unique=True,
+                sqlite_where=text(f"{column} IS NOT NULL"),
+            )
+            for column in (
+                "ambition_id",
+                "goal_id",
+                "milestone_id",
+                "side_quest_id",
+                "chapter_id",
+                "task_id",
+            )
+        ),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    habit_id: int = Field(foreign_key="habit.id", ondelete="RESTRICT", index=True)
+    ambition_id: int | None = Field(
+        default=None, foreign_key="ambition.id", ondelete="RESTRICT", index=True
+    )
+    goal_id: int | None = Field(
+        default=None, foreign_key="goal.id", ondelete="RESTRICT", index=True
+    )
+    milestone_id: int | None = Field(
+        default=None, foreign_key="milestone.id", ondelete="RESTRICT", index=True
+    )
+    side_quest_id: int | None = Field(
+        default=None, foreign_key="side_quest.id", ondelete="RESTRICT", index=True
+    )
+    chapter_id: int | None = Field(
+        default=None, foreign_key="chapter.id", ondelete="RESTRICT", index=True
+    )
+    task_id: int | None = Field(
+        default=None, foreign_key="task.id", ondelete="RESTRICT", index=True
+    )
+    created_at: datetime = Field(default_factory=_utcnow)
+
+
 class TimeBlock(SQLModel, table=True):
     __tablename__ = "time_block"
     __table_args__ = (

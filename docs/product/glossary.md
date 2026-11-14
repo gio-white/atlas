@@ -34,6 +34,7 @@ changes, change it here, in the UI, and in the API together.
 | Empty / Not started / In progress / Completed | same | chapter `state`: `empty`, `not_started`, `in_progress`, `completed` | [quests](../domain/quests.md) |
 | The task to work on next | Next | `next_action` | [quests](../domain/quests.md) |
 | A planned session on Plan | Session (time block) | `TimeBlock`, `/time-blocks` | [time blocks](../domain/time-blocks.md) |
+| A habit that helps a quest item along (informational, never counts toward progress) | Supports (no screen yet) | `HabitSupport`, `/habits/{slug}/supports`, `GET /{item}/{id}/habits` | [habits](../domain/habits.md#quest-links) |
 | Next tasks with no upcoming session | Not scheduled yet (on Plan) | `not_scheduled` on `GET /views/plan` | [time blocks](../domain/time-blocks.md) |
 | Recording that a session happened (the task stays open) | Session done | `POST /time-blocks/{id}/complete` | [time blocks](../domain/time-blocks.md) |
 | Completing the task itself from a session | Outcome achieved | task `status: completed` via `PATCH /tasks/{id}` | [time blocks](../domain/time-blocks.md) |

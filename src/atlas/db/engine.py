@@ -10,7 +10,7 @@ from sqlmodel import Session, SQLModel, col, create_engine, select
 from atlas.db.models import Entry, Habit, Metric, SchemaVersion, ScreenApp, ScreenSession
 from atlas.domain import MetricOrigin
 
-CURRENT_SCHEMA_VERSION = 13
+CURRENT_SCHEMA_VERSION = 14
 
 # Tables of the goal/milestone/task model that schema 11 replaced, keyed by a column only the
 # old shape has, so the drop is idempotent and never touches the new quest tables.

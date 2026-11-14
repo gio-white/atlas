@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from atlas.domain import (
     ChapterState,
+    HabitKind,
     ParentKind,
     QuestStatus,
     TaskPriority,
@@ -358,3 +359,31 @@ class TimeBlockCreate(_Write):
 class TimeBlockUpdate(_Write):
     start_at: datetime | None = None
     end_at: datetime | None = None
+
+
+# --- Habit links (a habit supports quest items at any level) --------------------------------
+
+
+class HabitSupportCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: QuestKind
+    id: int
+
+
+class HabitSupportOut(_Read):
+    kind: QuestKind
+    id: int
+    title: str
+    path: list[ItemRefOut]
+    archived: bool
+    created_at: datetime
+
+
+class SupportingHabitOut(_Read):
+    slug: str
+    name: str
+    kind: HabitKind
+    archived: bool
+    linked_to: ItemRefOut
+    direct: bool

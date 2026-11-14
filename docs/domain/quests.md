@@ -248,6 +248,7 @@ completing an ineligible item without `override` → 409. Bad shapes (an `estima
 | `PATCH` | `/tasks/{id}` | Edit title, description, `status`, `priority`, `estimate_minutes`, `due_on`, `weight`, `position`, `archived` | implemented |
 | `DELETE` | `/tasks/{id}` | Delete an Inbox task without time blocks (else 409) | implemented |
 | `POST` | `/tasks/{id}/organize` | `{parent_kind, parent_id}` or `{standalone: true}`; keeps id, status, blocks | implemented |
+| `GET` | `/ambitions/{id}/habits`, `/goals/{id}/habits`, `/milestones/{id}/habits`, `/side-quests/{id}/habits`, `/chapters/{id}/habits`, `/tasks/{id}/habits` | Habits that support the item (`direct: true`) or an item under it, at any depth: `slug`, `name`, `kind`, `archived`, `linked_to` (`{kind, id, title}`), `direct` ([habits](habits.md#quest-links)) | implemented |
 | `POST` | `/tasks/{id}/promote` | Inbox task → new `ambition`, `goal`, `side_quest`, `milestone`, or `chapter` (`kind`, `parent_kind`, `parent_id`); returns `{kind, id, title}` | implemented |
 | `GET` | `/views/main-quests` | Ambitions (each with goal cards and direct tasks; ambitions without goals included), then independent goals | implemented |
 | `GET` | `/views/ambitions/{id}` | One ambition: goals and direct tasks | implemented |
@@ -272,7 +273,11 @@ and task writes also return `blocks`.
 **Promote rule** (plan D6): only an Inbox task can be turned into something else; title and
 description are carried over and the task is deleted. A task with time blocks is refused (400)
 with a hint to organize it instead. A goal may name an ambition; a milestone needs a goal; a
-chapter needs a milestone or side quest.
+chapter needs a milestone or side quest. Habits that supported the task support the new item.
+
+**Habit links** ([habits](habits.md#quest-links)): a habit can support an item at any level. No
+rule on this page reads the link, so it never changes progress, completion, weights, chapter
+state, or Next action. Deleting an item deletes the links to it; archiving keeps them.
 
 Service functions (each takes an explicit `Session` first, and an optional `now` for tests):
 
@@ -397,6 +402,7 @@ null); rows carry a thin bar. Completed items turn `good` green. No tables.
 - `tests/services/test_quests.py` — acceptance criteria 1–21 through the services (in-memory SQLite), structure and delete rules, promote, organize, filters
 - `tests/api/test_quests.py` — every endpoint group through `TestClient`, error mapping
 - `tests/services/test_port.py` — quest export/import, v10 exports
+- `tests/services/test_habit_supports.py`, `tests/api/test_habit_supports.py` — habit links at every level never change progress, weights, or Next action
 - `tests/services/test_seed.py` — the demo seed covers every quest shape
 - `web/src/lib/quests.test.ts` — labels, links, sibling reorder, organize targets and search
 - `web/src/components/quests/QuestTree.test.tsx` — tree with mixed children and an empty chapter; completing only through the checkbox

@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime, timedelta
 
 from sqlmodel import Session, col, select
 
-from atlas.db.models import Entry, Habit, HabitBreak, Metric
+from atlas.db.models import Entry, Habit, HabitBreak, HabitSupport, Metric
 from atlas.domain import (
     Aggregation,
     Comparator,
@@ -272,10 +272,13 @@ def unarchive_habit(session: Session, slug: str) -> Habit:
 
 
 def delete_habit(session: Session, slug: str) -> None:
-    """Delete the habit and its breaks. Logged entries stay; a metric made for it is archived."""
+    """Delete the habit, its breaks, and its quest links. Logged entries stay; a metric made
+    for it is archived."""
     habit = require_habit(session, normalize_slug(slug))
     for row in session.exec(select(HabitBreak).where(HabitBreak.habit_id == habit.id)).all():
         session.delete(row)
+    for link in session.exec(select(HabitSupport).where(HabitSupport.habit_id == habit.id)).all():
+        session.delete(link)
     session.flush()
     metric = metric_by_id(session, habit.metric_id)
     session.delete(habit)

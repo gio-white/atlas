@@ -47,6 +47,7 @@ blocked commit should review, so keep it a plain two-column table.
 | `src/atlas/services/metrics.py` | `docs/domain/trackers-and-entries.md` |
 | `src/atlas/services/entries.py` | `docs/domain/trackers-and-entries.md`, `docs/domain/history.md` |
 | `src/atlas/services/habits.py` | `docs/domain/habits.md` |
+| `src/atlas/services/habit_supports.py` | `docs/domain/habits.md`, `docs/domain/quests.md` |
 | `src/atlas/services/quests.py` | `docs/domain/quests.md` |
 | `src/atlas/services/time_blocks.py` | `docs/domain/time-blocks.md` |
 | `src/atlas/services/week.py` | `docs/domain/this-week.md`, `docs/domain/home.md` |

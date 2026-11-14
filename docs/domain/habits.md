@@ -11,6 +11,8 @@ Recurring commitments over a metric: a schedule plus a target, with check-ins, s
 - **Check-in** — an ordinary entry written through the habit.
 - **Break** — a skip (one day) or pause (a range) that excuses buckets.
 - **Satisfied / missed / excused** — the outcome of one scheduled bucket.
+- **Supports** — a habit can support quest items at any level: an ambition, goal, milestone, side
+  quest, chapter, or task. The link is informational and never changes a quest's progress.
 
 ## Data model
 
@@ -36,7 +38,7 @@ A recurring commitment over a metric: a schedule plus a target.
 
 `at_most` is not an afterthought: "no more than one coffee a day" and "at least three runs a week" are the same machinery with a different comparator.
 
-Habits are created habit-first: without an explicit metric, `create_habit` makes one, marked with origin `habit` ([trackers and entries](trackers-and-entries.md#data-model)), with slug = habit slug (`-2`… on collision) and name = the habit's name and picks its shape from `kind`: `check` → `bool`, `count` → `count` (user unit), `duration` → `duration` (`min`), `quit` → `count` (`slips`, `lower_is_better`). Every made metric aggregates with `sum`. A `quit` habit is always `period = day`, `at_most 0`: any slip fails the day, and its streak is the run of clean days. Passing a metric keeps the older metric-first path; `kind` then defaults from the metric's value type, and `area_slug` is rejected (the area only applies to a metric made for the habit). A habit's area is chosen on create only; moving it later would mean moving its metric, which `update_habit` does not do.
+Habits are created habit-first: without an explicit metric, `create_habit` makes one, marked with origin `habit` ([trackers and entries](trackers-and-entries.md#data-model)), with slug = habit slug (`-2`… on collision) and name = the habit's name and picks its shape from `kind`: `check` → `bool`, `count` → `count` (user unit), `duration` → `duration` (`min`), `quit` → `count` (`slips`, `lower_is_better`). Every made metric aggregates with `sum`. A `quit` habit is always `period = day`, `at_most 0`: any slip fails the day, and its streak is the run of clean days. Passing a metric keeps the older metric-first path; `kind` then defaults from the metric's value type.
 
 ### HabitBreak
 
@@ -52,6 +54,28 @@ A skip or pause: a date range in which a habit is excused. A one-day break is a 
 | `created_at` | datetime    | UTC                          |
 
 Overlapping breaks are allowed; coverage is their union.
+
+### HabitSupport
+
+Table `habit_support` (schema 14): one row per quest item a habit supports
+([decision 0009](../decisions/0009-habits-support-quest-items-at-any-level.md)). Each row points at
+exactly one quest item through its own foreign key, so every link is a real reference.
+
+| Field           | Type          | Notes                                                       |
+| --------------- | ------------- | ----------------------------------------------------------- |
+| `id`            | int           | primary key                                                 |
+| `habit_id`      | int           | FK to `Habit`, RESTRICT, indexed                            |
+| `ambition_id`   | int \| None   | FK to `Ambition`, RESTRICT, indexed                         |
+| `goal_id`       | int \| None   | FK to `Goal`, RESTRICT, indexed                             |
+| `milestone_id`  | int \| None   | FK to `Milestone`, RESTRICT, indexed                        |
+| `side_quest_id` | int \| None   | FK to `SideQuest`, RESTRICT, indexed                        |
+| `chapter_id`    | int \| None   | FK to `Chapter`, RESTRICT, indexed                          |
+| `task_id`       | int \| None   | FK to `Task`, RESTRICT, indexed                             |
+| `created_at`    | datetime      | UTC                                                         |
+
+`ck_habit_support_one_item`: exactly one of the six item columns is set. A partial unique index
+per column (`ux_habit_support_<column>` on `habit_id` and that column, where it is not null) makes
+a habit support an item at most once.
 
 ## Rules and calculations
 
@@ -98,6 +122,32 @@ So a "3 runs per week" habit satisfied for the past four weeks reports a streak 
 
 `pooled_adherence_counts(start, as_of)` sums `adherence_counts` over every active habit: Habits kept on Home and on Stats → This week. `habit_week_progress(start, as_of)` gives, per active habit, the same counts over `[start, as_of]` (`kept` / `judged`) and its status on `as_of` (`value`, `target` as `effective_target`, `satisfied`): the habit rows of Stats → This week ([this week](this-week.md)).
 
+### Quest links
+
+`src/atlas/services/habit_supports.py`. A link says "this habit supports that quest item". It is
+informational: no quest rule reads `habit_support` (`QuestIndex` never loads it), so progress,
+completion and eligibility, weights and weight shares, chapter state, and Next action are the same
+with or without links.
+
+- **Any level.** The item is an ambition, goal, milestone, side quest, chapter, or task (`kind` +
+  `id`, the same `QuestKind` values as the quest API). A habit may support several items, at
+  several levels, and an item may be supported by several habits.
+- **Adding** (`add_habit_support`) refuses an unknown habit or item (404), an archived habit or an
+  archived item (400), and a link that already exists (409). Completed items can be linked.
+- **Removing** (`remove_habit_support`) deletes one link (404 if there is none). An archived habit
+  keeps its links and can still remove them.
+- **From the habit** (`list_habit_supports`): every item it supports, ambitions first, then goals,
+  milestones, side quests, chapters, and tasks, each by title, with the item's `path` (its
+  ancestors from the root, as on tasks) and `archived`.
+- **From the item** (`habits_supporting`): the habits linked to the item itself (`direct: true`)
+  and to every item under it, at any depth (`direct: false`). A goal lists habits on the goal, its
+  milestones, their chapters, and every task below; a side quest those on its chapters and tasks.
+  One row per link, each naming the item it is on (`linked_to`), direct links first, then by
+  habit name.
+- **Deleting** a habit deletes its links; deleting a quest item (only possible while it is empty,
+  or an Inbox task) deletes the links to it. **Promoting** an Inbox task moves its links to the
+  item it becomes. Archiving either side keeps the links.
+
 ## API
 
 Conventions shared by every endpoint (slugs, `as_of`, errors): [api-conventions](../architecture/api-conventions.md).
@@ -108,7 +158,7 @@ Conventions shared by every endpoint (slugs, `as_of`, errors): [api-conventions]
 | `POST`   | `/habits`                | Create a habit (habit-first `name` + `kind`, or over a `metric`). There is no `area`: sending one is a 422 | implemented |
 | `GET`    | `/habits/{slug}`         | Get one habit                                 | implemented |
 | `PATCH`  | `/habits/{slug}`         | Update name, target, comparator, weekdays, `active_to`, `time_of_day`, `unit` | implemented |
-| `DELETE` | `/habits/{slug}`         | Delete a habit and its breaks (entries stay)  | implemented |
+| `DELETE` | `/habits/{slug}`         | Delete a habit, its breaks, and its quest links (entries stay) | implemented |
 | `POST`   | `/habits/{slug}/archive` / `/unarchive` | Retire or restore a habit       | implemented |
 | `GET`    | `/habits/{slug}/detail`  | Habit, status, breaks, and recent check-ins   | implemented |
 | `POST`   | `/habits/{slug}/checkins` | Check in (`amount`, `on`, `note`; optional `as_of`) | implemented |
@@ -116,6 +166,9 @@ Conventions shared by every endpoint (slugs, `as_of`, errors): [api-conventions]
 | `GET`    | `/habits/{slug}/breaks`  | List skips and pauses                         | implemented |
 | `POST`   | `/habits/{slug}/breaks`  | Skip a day or pause a range (`start_on`, `end_on`, `note`) | implemented |
 | `DELETE` | `/habits/{slug}/breaks/{break_id}` | Remove a skip or pause              | implemented |
+| `GET`    | `/habits/{slug}/supports` | The quest items the habit supports: `kind`, `id`, `title`, `path` (`[{kind, id, title}]`), `archived`, `created_at` | implemented |
+| `POST`   | `/habits/{slug}/supports` | Link the habit to a quest item (`{kind, id}`; `kind` is `ambition`, `goal`, `milestone`, `side_quest`, `chapter`, or `task`); 201 with the item; 400 archived, 404 unknown, 409 already linked | implemented |
+| `DELETE` | `/habits/{slug}/supports/{kind}/{item_id}` | Remove one link (404 if there is none) | implemented |
 | `GET`    | `/habits/{slug}/status`  | Streaks and adherence for a habit             | implemented |
 | `PUT`    | `/habits/{slug}/days/{day}` | Confirm or clear a bool habit on a day (`{done}`, optional `as_of`) | implemented |
 | `GET`    | `/views/habits`          | Frequency-grouped statuses, scheduled/satisfied counts, 7/30-day completion | implemented |
@@ -125,9 +178,10 @@ Service functions (in `src/atlas/services/`, each taking an explicit `Session` f
 
 | Function | Role |
 | -------- | ---- |
-| `create_habit` / `list_habits` / `get_habit` / `update_habit` / `archive_habit` / `unarchive_habit` / `delete_habit` / `habit_status` / `habit_detail` / `habit_statuses` / `habits_board` / `set_habit_day` | Habits. `create_habit` is habit-first (see Habit) or takes an existing metric; slug defaults from the name. `update_habit` may change name, target, comparator, weekdays, `active_to`, time of day, and (for its own metric) unit; a quit habit's target and comparator are fixed. `archive_habit` hides a habit from boards; `delete_habit` removes it and its breaks, keeps its entries, and archives the metric when it was made for a habit (origin `habit`) and no other habit uses it. A metric set up by hand stays active. `set_habit_day(slug, day, done)` is the Home confirm toggle for **bool** metrics only. `habit_status` returns the habit's `kind` and `weekdays`, current/longest streak, adherence from `active_from` to `as_of`, the current bucket's rollup and range, `days_left`, `effective_target` (scaled, or `None` when excused), `excused`, `skipped_today`, `today_value`, and `last_entry_on`. `habit_detail` adds the breaks and the 30 latest check-ins. `habit_statuses` is every non-archived habit whose metric is active. `habits_board` groups those by frequency, counts non-excused scheduled/satisfied current buckets, and pools `adherence_counts` over the last 7 and 30 days (`completion_7d` / `completion_30d`). |
+| `create_habit` / `list_habits` / `get_habit` / `update_habit` / `archive_habit` / `unarchive_habit` / `delete_habit` / `habit_status` / `habit_detail` / `habit_statuses` / `habits_board` / `set_habit_day` | Habits. `create_habit` is habit-first (see Habit) or takes an existing metric; slug defaults from the name. `update_habit` may change name, target, comparator, weekdays, `active_to`, time of day, and (for its own metric) unit; a quit habit's target and comparator are fixed. `archive_habit` hides a habit from boards; `delete_habit` removes it, its breaks, and its quest links, keeps its entries, and archives the metric when it was made for a habit (origin `habit`) and no other habit uses it. A metric set up by hand stays active. `set_habit_day(slug, day, done)` is the Home confirm toggle for **bool** metrics only. `habit_status` returns the habit's `kind` and `weekdays`, current/longest streak, adherence from `active_from` to `as_of`, the current bucket's rollup and range, `days_left`, `effective_target` (scaled, or `None` when excused), `excused`, `skipped_today`, `today_value`, and `last_entry_on`. `habit_detail` adds the breaks and the 30 latest check-ins. `habit_statuses` is every non-archived habit whose metric is active. `habits_board` groups those by frequency, counts non-excused scheduled/satisfied current buckets, and pools `adherence_counts` over the last 7 and 30 days (`completion_7d` / `completion_30d`). |
 | `check_in` / `undo_check_in` | Habit check-ins. `check_in(slug, amount, on, note)` marks a `check` habit done (idempotent per day), adds `amount` to a count or duration (count and quit default to 1), or logs a slip on a quit habit; future days are rejected. `undo_check_in` deletes the day's latest entry (every entry for a bool habit). Both write ordinary entries and return the habit status. |
 | `add_habit_break` / `list_habit_breaks` / `delete_habit_break` | Skips and pauses. `add_habit_break(slug, start_on=today, end_on=start_on, note)`. |
+| `list_habit_supports` / `add_habit_support` / `remove_habit_support` / `habits_supporting` | Quest links (`src/atlas/services/habit_supports.py`), see [Quest links](#quest-links). |
 | `habit_grid` / `habits_board` | Review. `habit_grid` is one row per active habit (carrying its `kind` and sorted `weekdays`) with one cell per local date in `bucket_for(as_of, period)` (day / week / month), using the same scheduled / value / satisfied rules as the week grid; a day inside a break is `excused` (shown as skipped, never missed). `habits_board` is summary counts plus statuses grouped by habit frequency. |
 
 ## Screens
@@ -148,8 +202,12 @@ Route inventory with status: [navigation](../product/navigation.md).
 - `tests/services/test_seed.py` (habit names are written, not derived)
 - `web/src/lib/habits.test.ts`, `web/src/lib/habitsSummary.test.ts`
 - `tests/services/test_week.py` (each habit's progress for a week adds up to Habits kept)
+- `tests/services/test_habit_supports.py` — links at every level, the path from the habit, habits on an item and under it, no progress / weight / Next action change, refusals, removal, deletes and promote, export round trip and replace
+- `tests/api/test_habit_supports.py` — read, add, remove at every level; error codes; each item's `/habits`
+- `tests/db/test_quest_schema.py` — `habit_support` holds exactly one item, once per habit; RESTRICT, indexed foreign keys
+- `tests/services/test_seed.py` — the demo habits support items at several levels
 - `web/src/components/habits/HabitFormDialog.test.tsx` (the typed name is sent; there is no Area field and no `area` in the request)
 
 ## Status
 
-Implemented.
+Implemented. Quest links are backend only (redesign brief phase 6): no screen shows or edits them yet.

@@ -10,6 +10,7 @@ from atlas.db.models import (
     Entry,
     Habit,
     HabitBreak,
+    HabitSupport,
     LibraryTitle,
     LibraryTitleTopic,
     LibraryTopic,
@@ -38,8 +39,10 @@ from atlas.domain import (
     TimeOfDay,
     ValueType,
 )
+from atlas.domain.quests import QuestKind
 from atlas.services.errors import ValidationError
 from atlas.services.lookups import (
+    require_habit,
     require_library_topic,
     require_metric,
     require_screen_app,
@@ -53,11 +56,13 @@ from atlas.services.quest_port import (
     export_quests,
     import_quests,
 )
+from atlas.services.quests import SUPPORT_COLUMNS
 from atlas.services.slugs import normalize_slug
 
 QUESTS_SCHEMA_VERSION = 11
 ORIGIN_SCHEMA_VERSION = 12
 LIBRARY_SCHEMA_VERSION = 13
+SUPPORTS_SCHEMA_VERSION = 14
 AREAS_SECTION = "areas"
 
 # What an export older than schema 12 says about a metric through its area.
@@ -150,6 +155,7 @@ def export_all(session: Session) -> dict[str, Any]:
             _export_sleep_session(row, stages_by_sleep.get(row.id, [])) for row in sleep_sessions
         ],
         **export_quests(session),
+        "habit_supports": _export_habit_supports(session),
         "entries": [_export_entry(entry, metric_by_id) for entry in entries],
     }
 
@@ -217,7 +223,12 @@ def import_all(
         for raw in payload.get("sleep_sessions", []):
             _import_sleep_session(session, raw)
         if has_quests:
-            import_quests(session, {key: payload.get(key, []) for key in QUEST_SECTIONS})
+            quest_ids = import_quests(
+                session, {key: payload.get(key, []) for key in QUEST_SECTIONS}
+            )
+            if version >= SUPPORTS_SCHEMA_VERSION:
+                for raw in payload.get("habit_supports", []):
+                    _import_habit_support(session, raw, quest_ids)
         session.commit()
     except Exception:
         session.rollback()
@@ -226,6 +237,9 @@ def import_all(
 
 
 def _clear_user_data(session: Session) -> None:
+    for link in session.exec(select(HabitSupport)).all():
+        session.delete(link)
+    session.flush()
     clear_quests(session)
     for model in (
         HabitBreak,
@@ -246,6 +260,63 @@ def _clear_user_data(session: Session) -> None:
         for row in session.exec(select(model)).all():
             session.delete(row)
     session.flush()
+
+
+# The quest section whose file ids a habit link's `id` refers to, per kind.
+_SUPPORT_SECTIONS = {
+    "ambition": "ambitions",
+    "goal": "goals",
+    "milestone": "milestones",
+    "side_quest": "side_quests",
+    "chapter": "chapters",
+    "task": "tasks",
+}
+
+
+def _export_habit_supports(session: Session) -> list[dict[str, Any]]:
+    habit_slugs = {habit.id: habit.slug for habit in session.exec(select(Habit)).all()}
+    rows: list[dict[str, Any]] = []
+    for link in session.exec(select(HabitSupport).order_by(HabitSupport.id)).all():
+        kind, item_id = next(
+            (kind, getattr(link, column))
+            for kind, column in SUPPORT_COLUMNS.items()
+            if getattr(link, column) is not None
+        )
+        rows.append(
+            {
+                "habit": habit_slugs[link.habit_id],
+                "kind": kind.value,
+                "id": item_id,
+                "created_at": _iso_dt(link.created_at),
+            }
+        )
+    return rows
+
+
+def _import_habit_support(
+    session: Session, raw: dict[str, Any], quest_ids: dict[str, dict[int, int]]
+) -> None:
+    habit = require_habit(session, normalize_slug(_require(raw, "habit")))
+    kind = str(_require(raw, "kind"))
+    section = _SUPPORT_SECTIONS.get(kind)
+    if section is None:
+        raise ValidationError(f"import habit link kind {kind!r} is not a quest item")
+    file_id = int(_require(raw, "id"))
+    item_id = quest_ids[section].get(file_id)
+    if item_id is None:
+        raise ValidationError(f"import habit link id {file_id!r} is not in {section}")
+    column = getattr(HabitSupport, SUPPORT_COLUMNS[QuestKind(kind)])
+    exists = session.exec(
+        select(HabitSupport).where(HabitSupport.habit_id == habit.id, column == item_id)
+    ).first()
+    if exists is None:
+        session.add(
+            HabitSupport(
+                habit_id=habit.id,
+                created_at=_parse_datetime(raw.get("created_at")) or datetime.now(UTC),
+                **{SUPPORT_COLUMNS[QuestKind(kind)]: item_id},
+            )
+        )
 
 
 def _export_metric(metric: Metric) -> dict[str, Any]:

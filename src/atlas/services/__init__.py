@@ -7,6 +7,14 @@ from atlas.services.errors import (
     UpstreamError,
     ValidationError,
 )
+from atlas.services.habit_supports import (
+    SupportedItem,
+    SupportingHabit,
+    add_habit_support,
+    habits_supporting,
+    list_habit_supports,
+    remove_habit_support,
+)
 from atlas.services.habits import (
     HabitCheckIn,
     HabitDetail,
@@ -110,6 +118,12 @@ from atlas.services.views import (
 from atlas.services.week import ThisWeek, WeekNumbers, WeekSoFar, this_week, week_so_far
 
 __all__ = [
+    "SupportedItem",
+    "SupportingHabit",
+    "add_habit_support",
+    "habits_supporting",
+    "list_habit_supports",
+    "remove_habit_support",
     "ThisWeek",
     "WeekNumbers",
     "WeekSoFar",

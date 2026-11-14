@@ -529,7 +529,7 @@ def test_init_schema_replaces_areas_with_metric_origins(tmp_path):
 
     init_schema(engine)
 
-    assert CURRENT_SCHEMA_VERSION == 13
+    assert CURRENT_SCHEMA_VERSION == 14
     inspector = inspect(engine)
     assert "area" not in inspector.get_table_names()
     columns = {column["name"] for column in inspector.get_columns("metric")}
@@ -656,6 +656,6 @@ def test_init_schema_renames_entertainment_tables_to_library(tmp_path):
         title = session.exec(select(LibraryTitle)).one()
         assert (title.id, title.slug, title.status) == (3, "kind-of-blue", LibraryStatus.DONE)
         assert session.exec(select(LibraryTopic)).one().id == 7
-        assert session.get(SchemaVersion, 1).version == 13
+        assert session.get(SchemaVersion, 1).version == CURRENT_SCHEMA_VERSION
     with engine.connect() as connection:
         assert connection.execute(text("PRAGMA foreign_key_check")).all() == []

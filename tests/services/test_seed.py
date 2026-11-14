@@ -9,6 +9,7 @@ from atlas.services import (
     export_all,
     habit_statuses,
     list_entries,
+    list_habit_supports,
     screen_dashboard,
     seed_demo,
     sleep_view,
@@ -210,3 +211,17 @@ def test_seed_demo_covers_every_quest_structure(session, monkeypatch):
     ]
     assert [task.title for task in today.due_today] == ["Renew passport"]
     assert today.up_next
+
+
+def test_demo_habits_support_quest_items_at_several_levels(session):
+    seed_demo(session, as_of=date(2026, 11, 14))
+
+    assert [
+        (item.kind.value, item.title) for item in list_habit_supports(session, "runs-weekly")
+    ] == [
+        ("goal", "Run a half marathon"),
+        ("milestone", "Run 10 km without stopping"),
+    ]
+    kinds = {item.kind.value for item in list_habit_supports(session, "deep-work-weekdays")}
+    assert kinds == {"chapter", "task"}
+    assert list_habit_supports(session, "meditated-daily")[0].title == "Live a calmer life"
