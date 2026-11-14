@@ -40,6 +40,7 @@ changes, change it here, in the UI, and in the API together.
 | A session whose time came and that was not held | Didn't happen | `TimeBlockStatus.missed`, `POST /time-blocks/{id}/miss` | [time blocks](../domain/time-blocks.md) |
 | A session called off ahead of time | Cancel / Cancelled | `TimeBlockStatus.cancelled`, `POST /time-blocks/{id}/cancel` | [time blocks](../domain/time-blocks.md) |
 | Done sessions out of those due an answer this week | Sessions kept | `sessions_kept`, `GET /views/week-so-far` | [home](../domain/home.md) |
+| One week's numbers against the same days last week | This week | `this_week`, `GET /views/this-week`, `ThisWeekPage` | [this week](../domain/this-week.md) |
 | Pooled habit adherence this week | Habits kept | `habits_kept_share` | [home](../domain/home.md) |
 | A cap on all screen time | All screen time | `ScreenBudgetTargetKind.total`, `target_slug: all` | [screen time](../domain/screen-time.md) |
 | Total time planned in sessions | Planned time | `planned_minutes` (never "actual effort") | [time blocks](../domain/time-blocks.md) |

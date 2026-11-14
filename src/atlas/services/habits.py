@@ -538,6 +538,52 @@ def pooled_adherence_counts(session: Session, start: date, as_of: date) -> tuple
     return satisfied, judged
 
 
+@dataclass(frozen=True, slots=True)
+class HabitWeekProgress:
+    """One habit's progress over a week window [start, as_of].
+
+    `kept` / `judged` are its adherence counts over that window (complete, scheduled,
+    non-excused buckets, the rule behind Habits kept). `value` / `target` / `satisfied` are its
+    status on `as_of`: the day's, week's, or month's amount so far.
+    """
+
+    slug: str
+    name: str
+    kind: HabitKind
+    period: Period
+    comparator: Comparator
+    unit: str | None
+    kept: int
+    judged: int
+    value: float | None
+    target: float | None
+    satisfied: bool
+
+
+def habit_week_progress(session: Session, start: date, as_of: date) -> list[HabitWeekProgress]:
+    rows: list[HabitWeekProgress] = []
+    for habit, metric in active_habits(session):
+        views = [entry_view(entry) for entry in entries_for_metric(session, metric.id)]
+        kept, judged = adherence_counts(spec_for(session, habit, metric), views, start, as_of)
+        status = _status_for(session, habit, metric, as_of)
+        rows.append(
+            HabitWeekProgress(
+                slug=habit.slug,
+                name=habit.name,
+                kind=status.kind,
+                period=status.period,
+                comparator=status.comparator,
+                unit=status.unit,
+                kept=kept,
+                judged=judged,
+                value=status.current_value,
+                target=status.effective_target,
+                satisfied=status.satisfied,
+            )
+        )
+    return rows
+
+
 def _pooled_completion(
     session: Session,
     pairs: list[tuple[Habit, Metric]],

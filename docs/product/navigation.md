@@ -10,7 +10,7 @@ Page behaviour is described in each feature's doc under [domain/](../domain/) (s
 
 The structure comes from the [redesign brief](../plans/redesign-brief.md) and
 [decision 0007](../decisions/0007-five-destinations-on-a-rail.md). The brief lands in phases;
-this page describes what is built now. **Phases 1 (the shell), 2 (Settings), and 3 (Home) are built.** Other
+this page describes what is built now. **Phases 1 (the shell), 2 (Settings), 3 (Home), and 4 (Stats) are built.** Other
 pages keep their earlier content; the notes marked *until phase N* say what is still temporary.
 
 ## Destinations
@@ -22,7 +22,7 @@ Five destinations plus Settings. Labels, order, and addresses live in `web/src/l
 | Home | `/` | none | `/`, and `/journal` (Earlier notes, reached from Home) |
 | Quests | `/quests` | Main quests · Side quests · Inbox · Plan | everything under `/quests` |
 | Habits | `/habit` | none | everything under `/habit` |
-| Stats | `/stats` | Sleep · Screen time · Health (This week joins in phase 4) | everything under `/stats` |
+| Stats | `/stats` | This week · Sleep · Screen time · Health | everything under `/stats` |
 | Library | `/library` | none | everything under `/library` |
 | Settings | `/settings` | Appearance · Screen time setup · Devices · Metrics · All entries | everything under `/settings` |
 
@@ -76,6 +76,7 @@ Habits keeps the address `/habit`: `/habits` is the API's list of habits.
 | `/quests/side-quests/:id` | One side quest: edit, completion, its chapters and direct tasks (the same tree as a milestone) | implemented |
 | `/habit` | Today checklist by time of day with one-tap check-ins, this week / this month progress, 7/30-day completion, week/month overview grid | implemented |
 | `/habit/:slug` | Habit detail: check-in, streaks, adherence, this week, recent check-ins (slips for quit habits), pauses & skips; edit, archive, delete | implemented |
+| `/stats/week` | Stats → This week: one Monday–Sunday week (`?on=` picks it; previous and next move by whole weeks) in five blocks, Quests, Habits, Sleep, Screen time, and Library, each number with its change from the same days last week ([this week](../domain/this-week.md)) | implemented |
 | `/stats/sleep` | Stats → Sleep, display-only: Week / Month / 90 days range, time asleep trend, bedtime and wake consistency, stage split, read-only nights list with No data gaps | implemented |
 | `/stats/screen-time` | Stats → Screen time, display-only period dashboard: totals, score, charts, heatmap, insights, cap status; a link to its setup in Settings | implemented |
 | `/stats/health` | Stats → Health: an empty state, "No health data yet / This fills in once a device is connected." Health only ever shows device data | implemented |
@@ -95,7 +96,7 @@ query string (so the As of date and filters survive), and the hash.
 
 | Path | Goes to |
 | ---- | ------- |
-| `/stats` | `/stats/sleep` (the first Stats tab; `/stats/week` from phase 4) |
+| `/stats` | `/stats/week` (the first Stats tab) |
 | `/settings` | `/settings/appearance` |
 | `/week` | `/habit?period=week` |
 | `/side-quests` | `/quests/side-quests` |

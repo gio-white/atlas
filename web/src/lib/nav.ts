@@ -50,6 +50,7 @@ export const SECTIONS: Record<SectionId, Section> = {
   stats: {
     title: 'Stats',
     tabs: [
+      { label: 'This week', to: '/stats/week' },
       { label: 'Sleep', to: '/stats/sleep' },
       { label: 'Screen time', to: '/stats/screen-time' },
       { label: 'Health', to: '/stats/health' },

@@ -1314,3 +1314,57 @@ export type WeekSoFar = {
 export function getWeekSoFar(asOf?: string): Promise<WeekSoFar> {
   return request(`/views/week-so-far${queryString({ as_of: asOf })}`)
 }
+
+/** One Monday-to-`as_of` window of This week; minutes for sleep and screen time. */
+export type WeekNumbers = {
+  as_of: string
+  week_start: string
+  sessions_kept: number
+  sessions_total: number
+  tasks_completed: number
+  milestones_completed: number
+  habits_kept: number
+  habits_judged: number
+  habits_kept_share: number | null
+  sleep_average_minutes: number | null
+  /** Minutes from local midnight; negative is the evening before. */
+  sleep_average_bedtime: number | null
+  sleep_average_wake: number | null
+  sleep_nights: number
+  sleep_missing_nights: number
+  screen_total: number | null
+  screen_daily_average: number | null
+  screen_score: number | null
+  screen_good: number | null
+  screen_neutral: number | null
+  screen_bad: number | null
+  titles_finished: number
+}
+
+export type HabitWeekProgress = {
+  slug: string
+  name: string
+  kind: HabitKind
+  period: Period
+  comparator: Comparator
+  unit: string | null
+  kept: number
+  judged: number
+  value: number | null
+  target: number | null
+  satisfied: boolean
+}
+
+export type ThisWeek = {
+  as_of: string
+  week_start: string
+  week_end: string
+  complete: boolean
+  current: WeekNumbers
+  previous: WeekNumbers
+  habits: HabitWeekProgress[]
+}
+
+export function getThisWeek(asOf?: string): Promise<ThisWeek> {
+  return request(`/views/this-week${queryString({ as_of: asOf })}`)
+}

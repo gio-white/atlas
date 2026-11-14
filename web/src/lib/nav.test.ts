@@ -22,7 +22,12 @@ describe('destinations', () => {
       'Inbox',
       'Plan',
     ])
-    expect(SECTIONS.stats.tabs.map((tab) => tab.label)).toEqual(['Sleep', 'Screen time', 'Health'])
+    expect(SECTIONS.stats.tabs.map((tab) => tab.label)).toEqual([
+      'This week',
+      'Sleep',
+      'Screen time',
+      'Health',
+    ])
     expect(SECTIONS.settings.tabs.map((tab) => tab.label)).toEqual([
       'Appearance',
       'Screen time setup',

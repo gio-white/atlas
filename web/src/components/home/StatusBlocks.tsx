@@ -46,6 +46,7 @@ export function WeekSoFarBlock({
     <HomeBlock
       id="week"
       title="This week so far"
+      action={{ label: 'This week', to: '/stats/week' }}
       search={search}
       unavailable={week === null}
       className={className}

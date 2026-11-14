@@ -42,6 +42,9 @@ const EntriesPage = lazy(() =>
   import('@/pages/EntriesPage').then((m) => ({ default: m.EntriesPage })),
 )
 const ScreenPage = lazy(() => import('@/pages/ScreenPage').then((m) => ({ default: m.ScreenPage })))
+const ThisWeekPage = lazy(() =>
+  import('@/pages/ThisWeekPage').then((m) => ({ default: m.ThisWeekPage })),
+)
 const SleepPage = lazy(() => import('@/pages/SleepPage').then((m) => ({ default: m.SleepPage })))
 const AmbitionPage = lazy(() =>
   import('@/pages/quests/AmbitionPage').then((m) => ({ default: m.AmbitionPage })),
@@ -89,8 +92,9 @@ export default function App() {
           <Route path="/habit/:slug" element={<HabitPage />} />
           <Route path="/week" element={<WeekPage />} />
 
-          <Route path="/stats" element={<Redirect to="/stats/sleep" />} />
+          <Route path="/stats" element={<Redirect to="/stats/week" />} />
           <Route element={<SectionLayout section="stats" />}>
+            <Route path="/stats/week" element={<ThisWeekPage />} />
             <Route path="/stats/sleep" element={<SleepPage />} />
             <Route path="/stats/screen-time" element={<ScreenPage />} />
             <Route path="/stats/health" element={<HealthPage />} />

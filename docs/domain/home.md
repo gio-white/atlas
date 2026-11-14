@@ -21,7 +21,8 @@ library through their own endpoints, plus `GET /views/week-so-far`.
 ## Rules and calculations
 
 `week_so_far` (`src/atlas/services/week.py`) returns, for the week from the local Monday to the
-end of `as_of`, each number by reusing its section's own calculation:
+end of `as_of`, four of the numbers of Stats → This week (`week_numbers`,
+[this week](this-week.md)), each by reusing its section's own calculation:
 
 - **Sessions kept** — `sessions_kept` in `src/atlas/domain/quests.py`. Of the sessions starting
   in the week that are due an answer, how many were done. Due an answer: done, didn't happen
@@ -84,8 +85,8 @@ Left, in order:
 Right, in order (`StatusBlocks.tsx`):
 
 1. **This week so far** — "Sessions kept 5 of 7", "Habits kept 82%", "Sleep, average 6h 50m",
-   "Screen score 61"; "—" where a number cannot be computed yet. The link to Stats → This week
-   arrives with that page in phase 4.
+   "Screen score 61"; "—" where a number cannot be computed yet. **This week** goes to Stats →
+   This week ([this week](this-week.md)).
 2. **Main quests** — active goals in the order of Main quests (each ambition's goals, then
    independent ones), at most five, each with its progress ring, title (to its quest map), and
    "Next: …". **All quests** goes to `/quests`. Empty: "No goals yet." with **Add a goal**.

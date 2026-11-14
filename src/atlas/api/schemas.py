@@ -262,6 +262,60 @@ class WeekSoFarOut(BaseModel):
     screen_score: int | None
 
 
+class WeekNumbersOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    as_of: date
+    week_start: date
+    sessions_kept: int
+    sessions_total: int
+    tasks_completed: int
+    milestones_completed: int
+    habits_kept: int
+    habits_judged: int
+    habits_kept_share: float | None
+    sleep_average_minutes: float | None
+    sleep_average_bedtime: float | None
+    sleep_average_wake: float | None
+    sleep_nights: int
+    sleep_missing_nights: int
+    screen_total: float | None
+    screen_daily_average: float | None
+    screen_score: int | None
+    screen_good: float | None
+    screen_neutral: float | None
+    screen_bad: float | None
+    titles_finished: int
+
+
+class HabitWeekProgressOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    slug: str
+    name: str
+    kind: HabitKind
+    period: Period
+    comparator: Comparator
+    unit: str | None
+    kept: int
+    judged: int
+    value: float | None
+    target: float | None
+    satisfied: bool
+
+
+class ThisWeekOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    as_of: date
+    week_start: date
+    week_end: date
+    complete: bool
+    current: WeekNumbersOut
+    previous: WeekNumbersOut
+    habits: list[HabitWeekProgressOut]
+
+
 class HabitsBoardOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

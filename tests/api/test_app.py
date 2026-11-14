@@ -72,6 +72,7 @@ IMPLEMENTED_PATHS = frozenset(
         "/views/inbox",
         "/views/today",
         "/views/week-so-far",
+        "/views/this-week",
         "/views/calendar",
         "/journal",
         "/entertainment/dashboard",
