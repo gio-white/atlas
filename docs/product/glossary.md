@@ -14,6 +14,7 @@ changes, change it here, in the UI, and in the API together.
 | Entries written by a device rather than typed | Automatic data | `include_automatic` on `GET /entries` | [history](../domain/history.md) |
 | A recurring commitment | Habit | `Habit`, `/habits` | [habits](../domain/habits.md) |
 | How often and how a habit is checked, from a given day | Rule ("Every day · You tick it") | `HabitRule` (one version per change), `PATCH /habits/{slug}` with `apply` | [habits](../domain/habits.md#rule-versions) |
+| Whether a rule change also re-judges past days | Apply this change: From today / To all past days too | `apply`: `from_today`, `all_days` on `PATCH /habits/{slug}` | [habits](../domain/habits.md#screens) |
 | A habit you answer yourself | You tick it | `check: manual` | [habits](../domain/habits.md#concepts) |
 | A habit Atlas answers from sleep, screen time, or sessions | From your data | `check: data`, `source`, `threshold`, `value` | [habits](../domain/habits.md#sources) |
 | Your answer for one day: a tick, or Done / Not done set by you | Tick, Set by you | `HabitMark` (`result`: `done`, `not_done`), `PUT` / `DELETE /habits/{slug}/days/{day}` | [habits](../domain/habits.md#answering-a-day) |

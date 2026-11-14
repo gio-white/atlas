@@ -565,6 +565,43 @@ export function getHabitDetail(slug: string, asOf?: string): Promise<HabitDetail
   return request(`/views/habit/${encodeURIComponent(slug)}${queryString({ as_of: asOf })}`)
 }
 
+/** A rule as the API takes it: a habit you tick has no data fields. */
+export type HabitRuleInput = {
+  frequency: HabitFrequency
+  check: HabitCheck
+  weekdays: number[] | null
+  times: number | null
+  source: HabitSource | null
+  source_ref: string | null
+  threshold: HabitThreshold | null
+  value: number | null
+}
+
+export function createHabit(body: {
+  name: string
+  time_of_day: TimeOfDay
+  rule: HabitRuleInput
+  first_day?: string
+}): Promise<Habit> {
+  return request('/habits', { method: 'POST', body: JSON.stringify(body) })
+}
+
+/** Rename, move, or change the rule; a rule change applies from today or to all past days. */
+export function updateHabit(
+  slug: string,
+  body: {
+    name?: string
+    time_of_day?: TimeOfDay
+    rule?: HabitRuleInput
+    apply?: 'from_today' | 'all_days'
+  },
+): Promise<Habit> {
+  return request(`/habits/${encodeURIComponent(slug)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+}
+
 export function archiveHabit(slug: string): Promise<Habit> {
   return request(`/habits/${encodeURIComponent(slug)}/archive`, { method: 'POST' })
 }

@@ -1,6 +1,6 @@
 import { lazy } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
-
+import { NewHabitButton } from '@/components/habits/NewHabitButton'
 import { Layout } from '@/components/Layout'
 import { Redirect } from '@/components/shell/Redirect'
 import { SectionLayout } from '@/components/shell/SectionLayout'
@@ -88,7 +88,7 @@ export default function App() {
           <Route path="/quests/goals/:id" element={<GoalPage />} />
           <Route path="/quests/side-quests/:id" element={<SideQuestPage />} />
 
-          <Route element={<SectionLayout section="habits" />}>
+          <Route element={<SectionLayout section="habits" action={<NewHabitButton />} />}>
             <Route path="/habits" element={<HabitsDayPage />} />
             <Route path="/habits/week" element={<HabitsWeekPage />} />
           </Route>

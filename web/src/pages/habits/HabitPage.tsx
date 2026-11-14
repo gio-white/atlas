@@ -3,6 +3,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { DayMenu } from '@/components/habits/DayMenu'
+import { FreezeSheet } from '@/components/habits/FreezeSheet'
+import { HabitSheet } from '@/components/habits/HabitSheet'
 import { HistoryGrid } from '@/components/habits/HistoryGrid'
 import { StatusIcon } from '@/components/habits/StatusIcon'
 import { useDayActions } from '@/components/habits/useDayActions'
@@ -31,6 +33,7 @@ import {
   dateRangeLabel,
   dayLine,
   keptFigure,
+  notifyHabitsChanged,
   ownDayFreeze,
   progressShare,
   rowActions,
@@ -59,6 +62,8 @@ export function HabitPage() {
   const [pageError, setPageError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [freezing, setFreezing] = useState(false)
 
   const on = params.get('on')
   const search = on === null ? '' : new URLSearchParams({ on }).toString()
@@ -149,6 +154,16 @@ export function HabitPage() {
           <p className="text-sm text-muted">{ruleSummary(habit)}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {!archived && (
+            <>
+              <Button variant="secondary" disabled={saving} onClick={() => setEditing(true)}>
+                Edit
+              </Button>
+              <Button variant="secondary" disabled={saving} onClick={() => setFreezing(true)}>
+                Freeze…
+              </Button>
+            </>
+          )}
           {archived ? (
             <Button
               variant="secondary"
@@ -280,6 +295,29 @@ export function HabitPage() {
           </>
         )}
       </section>
+
+      <HabitSheet
+        open={editing}
+        onOpenChange={setEditing}
+        habit={habit}
+        onSaved={() => {
+          notifyHabitsChanged()
+          void load()
+            .then(setDetail)
+            .catch(() => undefined)
+        }}
+      />
+      <FreezeSheet
+        open={freezing}
+        onOpenChange={setFreezing}
+        habit={habit}
+        day={detail.as_of}
+        onSaved={() => {
+          void load()
+            .then(setDetail)
+            .catch(() => undefined)
+        }}
+      />
 
       <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <DialogContent>

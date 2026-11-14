@@ -156,6 +156,29 @@ describe('HabitPage', () => {
     expect(await screen.findByText('Week tab')).toBeVisible()
   })
 
+  it('opens Edit with the habit filled in, and Freeze… from the As of day', async () => {
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+    const edit = await screen.findByRole('dialog', { name: 'Edit habit' })
+    expect(within(edit).getByLabelText('What do you want to do?')).toHaveValue('Wake up early')
+    expect(within(edit).getByRole('radio', { name: 'From your data' })).toBeChecked()
+    fireEvent.click(within(edit).getByRole('button', { name: 'Cancel' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Freeze…' }))
+    const freeze = await screen.findByRole('dialog', { name: 'Freeze Wake up early' })
+    expect(within(freeze).getByLabelText('From')).toHaveValue('2026-11-14')
+  })
+
+  it('hides Edit and Freeze… on an archived habit', async () => {
+    api.getHabitDetail.mockResolvedValue({
+      ...DETAIL,
+      habit: { ...WAKE, archived_at: '2026-11-14T09:00:00' },
+    })
+    renderPage()
+    expect(await screen.findByRole('button', { name: 'Restore' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Freeze…' })).toBeNull()
+  })
+
   it('says when there is no such habit', async () => {
     api.getHabitDetail.mockRejectedValue(new ApiError(404, 'habit not found'))
     renderPage('nope')

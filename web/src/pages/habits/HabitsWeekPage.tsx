@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { HabitWeekRow, WEEK_CELLS } from '@/components/habits/HabitWeekRow'
+import { NewHabitButton } from '@/components/habits/NewHabitButton'
 import { useDayActions } from '@/components/habits/useDayActions'
 import { PageError, PageHeader, PageLoading } from '@/components/PageState'
 import { Button } from '@/components/ui/button'
@@ -17,7 +18,7 @@ import {
 } from '@/lib/api'
 import { useAsOf } from '@/lib/asOf'
 import { parseIsoDate } from '@/lib/dates'
-import { dayGroups, keptFigure, ruleSummary, weekOfLabel } from '@/lib/habits'
+import { dayGroups, HABITS_CHANGED_EVENT, keptFigure, ruleSummary, weekOfLabel } from '@/lib/habits'
 import { weekSteps } from '@/lib/thisWeek'
 import { cn, todayIso } from '@/lib/utils'
 
@@ -60,6 +61,16 @@ export function HabitsWeekPage() {
     return () => {
       cancelled = true
     }
+  }, [asOf, load])
+
+  useEffect(() => {
+    function refresh() {
+      load(asOf)
+        .then(setLoaded)
+        .catch(() => undefined)
+    }
+    window.addEventListener(HABITS_CHANGED_EVENT, refresh)
+    return () => window.removeEventListener(HABITS_CHANGED_EVENT, refresh)
   }, [asOf, load])
 
   const actions = useDayActions(async () => {
@@ -115,8 +126,12 @@ export function HabitsWeekPage() {
       {actions.error !== null && <PageError message={actions.error} />}
 
       {view.rows.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-line bg-raised/70 px-4 py-8 text-center">
-          <p className="font-medium text-ink">No habits yet</p>
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-line bg-raised/70 px-4 py-8 text-center">
+          <div className="flex flex-col gap-1">
+            <p className="font-medium text-ink">No habits yet</p>
+            <p className="text-sm text-muted">Habits you add show here, day by day.</p>
+          </div>
+          <NewHabitButton size="sm" />
         </div>
       ) : (
         <div className="flex flex-col gap-4">

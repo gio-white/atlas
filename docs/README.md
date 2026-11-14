@@ -109,6 +109,7 @@ blocked commit should review, so keep it a plain two-column table.
 | `web/src/components/settings/*` | `docs/domain/screen-time.md`, `docs/data-sources/overview.md` |
 | `web/src/lib/freshness.ts` | `docs/domain/sleep.md`, `docs/domain/screen-time.md` |
 | `web/src/lib/habits.ts` | `docs/domain/habits.md` |
+| `web/src/lib/habitForm.ts` | `docs/domain/habits.md` |
 | `web/src/pages/HealthPage.tsx` | `docs/product/navigation.md` |
 | `web/src/pages/ThisWeekPage.tsx` | `docs/domain/this-week.md` |
 | `web/src/lib/thisWeek.ts` | `docs/domain/this-week.md` |

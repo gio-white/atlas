@@ -29,8 +29,8 @@ Five destinations plus Settings. Labels, order, and addresses live in `web/src/l
 `/habits` and `/habits/week` are also API addresses (the list of habits, and `GET /habits/{slug}`);
 the server sends the SPA for a browser's page load there ([frontend](../architecture/frontend.md)).
 The habits rebuild ([habits brief](../plans/habits-brief.md), [habits plan](../plans/habits-plan.md))
-lands in seven phases; phases 1–4 are built (the model, the calculations, the Day and Week tabs,
-and the habit page), and the New habit, Edit, and Freeze sheets come in phase 5.
+lands in seven phases; phases 1–5 are built (the model, the calculations, the Day and Week tabs,
+the habit page, and the New habit, Edit, and Freeze sheets); Home follows in phase 6.
 
 ## Shell
 
@@ -53,6 +53,7 @@ and the habit page), and the New habit, Edit, and Freeze sheets come in phase 5.
   screens the row scrolls sideways. A tab page keeps its own name as a screen-reader heading
   (`PageHeader` with `tab`), since the tab already shows it. Detail pages (an ambition, a goal,
   a side quest, a habit, a Library category) show no tabs; the quest ones keep their breadcrumb.
+  A section can put one action beside its title (`action`): Habits shows **New habit** there.
 - **Header**: the date, which is also the **As of** control, and **Add**.
   - Pressing the date opens the date picker. While another date is chosen it reads
     "As of 7 Nov 2026" in the attention colour, with **Back to today** ("Today" on narrow
@@ -78,9 +79,9 @@ and the habit page), and the New habit, Edit, and Freeze sheets come in phase 5.
 | `/quests/ambitions/:id` | One ambition: edit, complete or reopen, its goal cards (reorder, add) and direct tasks | implemented |
 | `/quests/goals/:id` | One goal's quest map: breadcrumb, success description, completion (with override), a path of expandable milestones with chapters and tasks, direct tasks, add and reorder at every level | implemented |
 | `/quests/side-quests/:id` | One side quest: edit, completion, its chapters and direct tasks (the same tree as a milestone) | implemented |
-| `/habits` | Habits → Day: a Monday–Sunday strip (each day a ring of its share done; `?on=` picks the day, ‹ › move a week, days after today are off), the day and "3 of 6 done", then the day's scheduled habits by time of day, each with its status icon (tap to tick a habit you tick), reason line, progress, and streak, and a row menu (Mark done, Mark not done, Use data again, Freeze this day / Unfreeze, Open habit). New habit arrives with the habit sheet ([habits](../domain/habits.md#screens)) | implemented |
+| `/habits` | Habits → Day: a Monday–Sunday strip (each day a ring of its share done; `?on=` picks the day, ‹ › move a week, days after today are off), the day and "3 of 6 done", then the day's scheduled habits by time of day, each with its status icon (tap to tick a habit you tick), reason line, progress, and streak, and a row menu (Mark done, Mark not done, Use data again, Freeze this day / Unfreeze, Open habit). New habit (beside the title, and in the empty state) opens the habit sheet ([habits](../domain/habits.md#screens)) | implemented |
 | `/habits/week` | Habits → Week: Monday–Sunday of the `?on=` week (‹ › move a whole week) for every active habit, grouped like Day: each day's status (tap to tick a habit you tick, or open that day's row menu), "2 of 4" for a weekly or monthly habit, and the streak; Habits kept this week and last week; then Archived habits. A habit's name opens its page ([habits](../domain/habits.md#screens)) | implemented |
-| `/habit/:slug` | One habit: its rule in one line; Current streak, Best streak, Kept, last 4 weeks; 12 weeks of history; the last 14 days (each opens the row menu); upcoming and past freezes, each removable; Archive or Restore, and Delete (asks first) ([habits](../domain/habits.md#screens)) | implemented |
+| `/habit/:slug` | One habit: its rule in one line; Current streak, Best streak, Kept, last 4 weeks; 12 weeks of history; the last 14 days (each opens the row menu); upcoming and past freezes, each removable; Edit and Freeze… (their sheets; not on an archived habit); Archive or Restore, and Delete (asks first) ([habits](../domain/habits.md#screens)) | implemented |
 | `/stats/week` | Stats → This week: one Monday–Sunday week (`?on=` picks it; previous and next move by whole weeks) in five blocks, Quests, Habits, Sleep, Screen time, and Library, each number with its change from the same days last week ([this week](../domain/this-week.md)) | implemented |
 | `/stats/sleep` | Stats → Sleep, display-only: Week / Month / 90 days range, time asleep trend, bedtime and wake consistency, stage split, read-only nights list with No data gaps | implemented |
 | `/stats/screen-time` | Stats → Screen time, display-only period dashboard: totals, score, charts, heatmap, insights, cap status; a link to its setup in Settings | implemented |

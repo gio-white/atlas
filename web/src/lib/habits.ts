@@ -429,3 +429,11 @@ export function dayLine(row: Pick<HabitDayRow, 'habit' | 'result'>): string {
   const parts = [word, reason === word ? null : reason].filter((part) => part !== null)
   return parts.length === 0 ? DAY_STATUS_LABEL.blank : parts.join(' · ')
 }
+
+/** Window event the Day and Week tabs listen to, so a habit created or changed in a sheet shows
+ * at once. */
+export const HABITS_CHANGED_EVENT = 'atlas:habits-changed'
+
+export function notifyHabitsChanged(): void {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(HABITS_CHANGED_EVENT))
+}

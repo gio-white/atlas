@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { HabitDayRow } from '@/components/habits/HabitDayRow'
+import { NewHabitButton } from '@/components/habits/NewHabitButton'
 import { useDayActions } from '@/components/habits/useDayActions'
 import { WeekStrip } from '@/components/habits/WeekStrip'
 import { PageError, PageHeader, PageLoading } from '@/components/PageState'
@@ -14,7 +15,14 @@ import {
   listHabits,
 } from '@/lib/api'
 import { useAsOf } from '@/lib/asOf'
-import { dayCountLabel, dayGroups, dayHeading, ownDayFreeze, stripSteps } from '@/lib/habits'
+import {
+  dayCountLabel,
+  dayGroups,
+  dayHeading,
+  HABITS_CHANGED_EVENT,
+  ownDayFreeze,
+  stripSteps,
+} from '@/lib/habits'
 import { todayIso } from '@/lib/utils'
 
 type Loaded = { view: HabitsDay; freezes: HabitFreeze[]; hasHabits: boolean }
@@ -58,6 +66,16 @@ export function HabitsDayPage() {
     return () => {
       cancelled = true
     }
+  }, [asOf, load])
+
+  useEffect(() => {
+    function refresh() {
+      load(asOf)
+        .then(setLoaded)
+        .catch(() => undefined)
+    }
+    window.addEventListener(HABITS_CHANGED_EVENT, refresh)
+    return () => window.removeEventListener(HABITS_CHANGED_EVENT, refresh)
   }, [asOf, load])
 
   const actions = useDayActions(async () => {
@@ -104,8 +122,12 @@ export function HabitsDayPage() {
       {actions.error !== null && <PageError message={actions.error} />}
 
       {!hasHabits ? (
-        <div className="rounded-2xl border border-dashed border-line bg-raised/70 px-4 py-8 text-center">
-          <p className="font-medium text-ink">No habits yet</p>
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-line bg-raised/70 px-4 py-8 text-center">
+          <div className="flex flex-col gap-1">
+            <p className="font-medium text-ink">No habits yet</p>
+            <p className="text-sm text-muted">Habits you add show here, day by day.</p>
+          </div>
+          <NewHabitButton size="sm" />
         </div>
       ) : groups.length === 0 ? (
         <p className="text-sm text-muted">No habits scheduled on this day.</p>
