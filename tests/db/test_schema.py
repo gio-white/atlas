@@ -7,7 +7,6 @@ from sqlmodel import Session, select
 
 from atlas.db import (
     CURRENT_SCHEMA_VERSION,
-    Area,
     EntertainmentTitle,
     EntertainmentTopic,
     Entry,
@@ -32,6 +31,7 @@ from atlas.domain import (
     EntertainmentKind,
     EntertainmentStatus,
     HabitKind,
+    MetricOrigin,
     Period,
     ScreenJudgment,
     Source,
@@ -54,17 +54,8 @@ def session(engine):
         yield db_session
 
 
-def _area(session: Session, slug: str = "health") -> Area:
-    area = Area(slug=slug, name=slug.title())
-    session.add(area)
-    session.commit()
-    session.refresh(area)
-    return area
-
-
-def _metric(session: Session, area: Area, slug: str = "pushups") -> Metric:
+def _metric(session: Session, slug: str = "pushups") -> Metric:
     metric = Metric(
-        area_id=area.id,
         slug=slug,
         name=slug.title(),
         value_type=ValueType.COUNT,
@@ -108,14 +99,13 @@ def test_entry_is_indexed_on_metric_and_occurred_on(engine):
     assert ("metric_id", "occurred_on") in column_sets
 
 
-@pytest.mark.parametrize("model", [Area, Metric, Habit])
+@pytest.mark.parametrize("model", [Metric, Habit])
 def test_slug_is_unique(session, model):
-    area = _area(session)
-    metric = _metric(session, area)
-    first = _row_for(model, slug="dup", area=area, metric=metric)
+    metric = _metric(session)
+    first = _row_for(model, slug="dup", metric=metric)
     session.add(first)
     session.commit()
-    session.add(_row_for(model, slug="dup", area=area, metric=metric))
+    session.add(_row_for(model, slug="dup", metric=metric))
 
     with pytest.raises(IntegrityError):
         session.commit()
@@ -134,8 +124,7 @@ def test_screen_slugs_are_unique(session):
         session.commit()
     session.rollback()
 
-    area = _area(session, slug="screen")
-    metric = _metric(session, area, slug="instagram")
+    metric = _metric(session, slug="instagram")
     session.add(
         ScreenApp(
             slug="instagram",
@@ -309,7 +298,7 @@ def test_init_schema_backfills_sessions_from_screen_app_entries(tmp_path):
 
 
 def test_multiple_entries_per_day_are_allowed(session):
-    metric = _metric(session, _area(session))
+    metric = _metric(session)
     day = date(2026, 8, 13)
     session.add(Entry(metric_id=metric.id, occurred_on=day, value_num=10, source=Source.CLI))
     session.add(Entry(metric_id=metric.id, occurred_on=day, value_num=20, source=Source.API))
@@ -319,23 +308,16 @@ def test_multiple_entries_per_day_are_allowed(session):
     assert len(rows) == 2
 
 
-def test_foreign_key_rejects_unknown_area(session):
-    session.add(
-        Metric(
-            area_id=999,
-            slug="orphan",
-            name="Orphan",
-            value_type=ValueType.COUNT,
-            aggregation=Aggregation.SUM,
-            direction=Direction.NEUTRAL,
-        )
-    )
-    with pytest.raises(IntegrityError):
-        session.commit()
+def test_a_metric_is_manual_unless_told_otherwise_and_belongs_to_no_area(session, engine):
+    metric = _metric(session)
+
+    assert MetricOrigin(metric.origin) is MetricOrigin.MANUAL
+    assert "area_id" not in {column["name"] for column in inspect(engine).get_columns("metric")}
+    assert "area" not in inspect(engine).get_table_names()
 
 
 def test_habit_weekdays_round_trip_as_json(session):
-    metric = _metric(session, _area(session))
+    metric = _metric(session)
     habit = Habit(
         metric_id=metric.id,
         slug="weekday-runs",
@@ -353,12 +335,9 @@ def test_habit_weekdays_round_trip_as_json(session):
     assert habit.weekdays == [1, 2, 3, 4, 5]
 
 
-def _row_for(model, *, slug: str, area: Area, metric: Metric):
-    if model is Area:
-        return Area(slug=slug, name=slug)
+def _row_for(model, *, slug: str, metric: Metric):
     if model is Metric:
         return Metric(
-            area_id=area.id,
             slug=slug,
             name=slug,
             value_type=ValueType.BOOL,
@@ -480,3 +459,156 @@ def test_init_schema_adds_habit_kind_schedule_and_breaks(tmp_path):
         assert habit.time_of_day is TimeOfDay.ANYTIME
         assert habit.archived_at is None
         assert session.get(SchemaVersion, 1).version == CURRENT_SCHEMA_VERSION
+
+
+def _v11_database_with_areas(path):
+    """A schema 11 database: metrics belong to areas, and nothing says where a metric came from."""
+    engine = create_engine_for(path)
+    statements = [
+        "CREATE TABLE area (id INTEGER PRIMARY KEY, slug VARCHAR NOT NULL, name VARCHAR NOT NULL,"
+        " description VARCHAR, archived_at DATETIME)",
+        "CREATE UNIQUE INDEX ix_area_slug ON area (slug)",
+        "CREATE TABLE metric (id INTEGER PRIMARY KEY, area_id INTEGER NOT NULL REFERENCES area(id),"
+        " slug VARCHAR NOT NULL, name VARCHAR NOT NULL, value_type VARCHAR NOT NULL,"
+        " unit VARCHAR, aggregation VARCHAR NOT NULL, direction VARCHAR NOT NULL,"
+        " archived_at DATETIME)",
+        "CREATE UNIQUE INDEX ix_metric_slug ON metric (slug)",
+        "CREATE TABLE entry (id INTEGER PRIMARY KEY,"
+        " metric_id INTEGER NOT NULL REFERENCES metric(id), occurred_on DATE NOT NULL,"
+        " occurred_at DATETIME, value_num FLOAT, value_bool BOOLEAN, value_text VARCHAR,"
+        " note VARCHAR, source VARCHAR NOT NULL, created_at DATETIME NOT NULL)",
+        "CREATE TABLE habit (id INTEGER PRIMARY KEY,"
+        " metric_id INTEGER NOT NULL REFERENCES metric(id), slug VARCHAR NOT NULL,"
+        " name VARCHAR NOT NULL, period VARCHAR NOT NULL, target_value FLOAT NOT NULL,"
+        " comparator VARCHAR NOT NULL, weekdays JSON, active_from DATE NOT NULL, active_to DATE,"
+        " kind VARCHAR NOT NULL, time_of_day VARCHAR NOT NULL, archived_at DATETIME)",
+        "CREATE UNIQUE INDEX ix_habit_slug ON habit (slug)",
+        "CREATE TABLE screen_category (id INTEGER PRIMARY KEY, slug VARCHAR NOT NULL,"
+        " name VARCHAR NOT NULL, judgment VARCHAR NOT NULL, archived_at DATETIME)",
+        "CREATE TABLE screen_app (id INTEGER PRIMARY KEY, slug VARCHAR NOT NULL,"
+        " name VARCHAR NOT NULL, category_id INTEGER NOT NULL REFERENCES screen_category(id),"
+        " metric_id INTEGER NOT NULL REFERENCES metric(id), archived_at DATETIME)",
+        "CREATE TABLE schema_version (id INTEGER PRIMARY KEY, version INTEGER NOT NULL)",
+        "INSERT INTO schema_version VALUES (1, 11)",
+        "INSERT INTO area VALUES (1, 'health', 'Health', NULL, NULL)",
+        "INSERT INTO area VALUES (2, 'habits', 'Habits', NULL, NULL)",
+        "INSERT INTO area VALUES (3, 'screen', 'Screen', NULL, NULL)",
+        "INSERT INTO area VALUES (4, 'life', 'Life', NULL, NULL)",
+        "INSERT INTO area VALUES (5, 'old', 'Old', NULL, '2026-05-01 00:00:00')",
+        "INSERT INTO metric VALUES (1, 1, 'pushups', 'Pushups', 'COUNT', 'reps', 'SUM',"
+        " 'HIGHER_IS_BETTER', NULL)",
+        "INSERT INTO metric VALUES (2, 2, 'meditate', 'Meditate', 'BOOL', NULL, 'SUM',"
+        " 'HIGHER_IS_BETTER', NULL)",
+        "INSERT INTO metric VALUES (3, 3, 'instagram', 'Instagram', 'DURATION', 'min', 'SUM',"
+        " 'LOWER_IS_BETTER', NULL)",
+        "INSERT INTO metric VALUES (4, 4, 'journal', 'Journal', 'TEXT', NULL, 'LAST',"
+        " 'NEUTRAL', NULL)",
+        "INSERT INTO metric VALUES (5, 5, 'retired', 'Retired', 'COUNT', NULL, 'SUM',"
+        " 'NEUTRAL', NULL)",
+        "INSERT INTO metric VALUES (6, 5, 'retired-earlier', 'Retired earlier', 'COUNT', NULL,"
+        " 'SUM', 'NEUTRAL', '2026-01-01 00:00:00')",
+        # A screen app whose metric was filed under a user's own area still counts as screen.
+        "INSERT INTO metric VALUES (7, 1, 'youtube', 'YouTube', 'DURATION', 'min', 'SUM',"
+        " 'LOWER_IS_BETTER', NULL)",
+        "INSERT INTO screen_category VALUES (1, 'social', 'Social', 'WASTE', NULL)",
+        "INSERT INTO screen_app VALUES (1, 'instagram', 'Instagram', 1, 3, NULL)",
+        "INSERT INTO screen_app VALUES (2, 'youtube', 'YouTube', 1, 7, NULL)",
+        "INSERT INTO entry VALUES (1, 1, '2026-08-13', NULL, 40, NULL, NULL, 'morning', 'CLI',"
+        " '2026-08-13 08:00:00')",
+        "INSERT INTO habit VALUES (1, 2, 'meditate', 'Meditate', 'DAY', 1, 'AT_LEAST', NULL,"
+        " '2026-08-01', NULL, 'CHECK', 'MORNING', NULL)",
+    ]
+    with engine.begin() as connection:
+        for statement in statements:
+            connection.execute(text(statement))
+    return engine
+
+
+def test_init_schema_replaces_areas_with_metric_origins(tmp_path):
+    engine = _v11_database_with_areas(tmp_path / "v11.db")
+
+    init_schema(engine)
+
+    assert CURRENT_SCHEMA_VERSION == 12
+    inspector = inspect(engine)
+    assert "area" not in inspector.get_table_names()
+    columns = {column["name"] for column in inspector.get_columns("metric")}
+    assert "area_id" not in columns
+    assert "origin" in columns
+    assert any(
+        index["unique"] and index["column_names"] == ["slug"]
+        for index in inspector.get_indexes("metric")
+    )
+    with Session(engine) as session:
+        assert session.get(SchemaVersion, 1).version == CURRENT_SCHEMA_VERSION
+        origins = {
+            metric.slug: MetricOrigin(metric.origin)
+            for metric in session.exec(select(Metric)).all()
+        }
+        assert origins == {
+            "pushups": MetricOrigin.MANUAL,
+            "meditate": MetricOrigin.HABIT,
+            "instagram": MetricOrigin.SCREEN,
+            "journal": MetricOrigin.JOURNAL,
+            "retired": MetricOrigin.MANUAL,
+            "retired-earlier": MetricOrigin.MANUAL,
+            "youtube": MetricOrigin.SCREEN,
+        }
+
+
+def test_the_area_migration_keeps_ids_values_and_what_points_at_metrics(tmp_path):
+    engine = _v11_database_with_areas(tmp_path / "v11.db")
+
+    init_schema(engine)
+
+    with Session(engine) as session:
+        pushups = session.exec(select(Metric).where(Metric.slug == "pushups")).one()
+        assert (pushups.id, pushups.name, pushups.unit) == (1, "Pushups", "reps")
+        assert pushups.value_type is ValueType.COUNT
+        assert pushups.aggregation is Aggregation.SUM
+        assert pushups.direction is Direction.HIGHER_IS_BETTER
+        entry = session.exec(select(Entry)).one()
+        assert (entry.metric_id, entry.value_num, entry.note) == (1, 40.0, "morning")
+        habit = session.exec(select(Habit)).one()
+        assert (habit.slug, habit.metric_id) == ("meditate", 2)
+        apps = {app.slug: app.metric_id for app in session.exec(select(ScreenApp)).all()}
+        assert apps == {"instagram": 3, "youtube": 7}
+    with engine.connect() as connection:
+        assert connection.execute(text("PRAGMA foreign_key_check")).all() == []
+        assert connection.execute(text("PRAGMA foreign_keys")).scalar() == 1
+
+
+def test_the_area_migration_archives_metrics_of_an_archived_area(tmp_path):
+    engine = _v11_database_with_areas(tmp_path / "v11.db")
+
+    init_schema(engine)
+
+    with Session(engine) as session:
+        archived = {
+            metric.slug: metric.archived_at for metric in session.exec(select(Metric)).all()
+        }
+    assert archived["pushups"] is None
+    assert archived["retired"] is not None
+    assert (archived["retired"].year, archived["retired"].month) == (2026, 5)
+    assert (archived["retired-earlier"].year, archived["retired-earlier"].month) == (2026, 1)
+
+
+def test_the_area_migration_runs_once(tmp_path):
+    engine = _v11_database_with_areas(tmp_path / "v11.db")
+    init_schema(engine)
+    with Session(engine) as session:
+        session.add(
+            Metric(
+                slug="weight",
+                name="Weight",
+                value_type=ValueType.QUANTITY,
+                aggregation=Aggregation.LAST,
+                direction=Direction.LOWER_IS_BETTER,
+            )
+        )
+        session.commit()
+
+    init_schema(engine)
+
+    with Session(engine) as session:
+        assert len(session.exec(select(Metric)).all()) == 8

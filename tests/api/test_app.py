@@ -6,9 +6,6 @@ IMPLEMENTED_PATHS = frozenset(
     {
         "/entries",
         "/entries/{entry_id}",
-        "/areas",
-        "/areas/{slug}",
-        "/areas/{slug}/archive",
         "/metrics",
         "/metrics/{slug}",
         "/metrics/{slug}/archive",
@@ -25,7 +22,6 @@ IMPLEMENTED_PATHS = frozenset(
         "/habits/{slug}/unarchive",
         "/views/habits",
         "/views/habits/calendar",
-        "/views/areas/{slug}",
         "/screen/view",
         "/sleep/view",
         "/sleep/sessions",

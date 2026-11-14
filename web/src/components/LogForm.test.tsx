@@ -11,7 +11,7 @@ function metric(slug: string, name: string, overrides: Partial<Metric> = {}): Me
     id: slug.length,
     slug,
     name,
-    area: 'health',
+    origin: 'manual',
     value_type: 'count',
     unit: null,
     aggregation: 'sum',

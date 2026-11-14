@@ -26,6 +26,7 @@ from atlas.domain import (
     Comparator,
     Direction,
     HabitKind,
+    MetricOrigin,
     Period,
     ScreenBudgetTargetKind,
     ScreenJudgment,
@@ -34,7 +35,6 @@ from atlas.domain import (
     ValueType,
 )
 from atlas.services import (
-    list_areas,
     list_metrics,
     list_screen_apps,
     list_screen_categories,
@@ -42,14 +42,6 @@ from atlas.services import (
     sleep_stages,
     title_view_for,
 )
-
-
-def area_slug_by_id(session: Session) -> dict[int, str]:
-    return {
-        area.id: area.slug
-        for area in list_areas(session, include_archived=True)
-        if area.id is not None
-    }
 
 
 def metric_slug_by_id(session: Session) -> dict[int, str]:
@@ -60,11 +52,11 @@ def metric_slug_by_id(session: Session) -> dict[int, str]:
     }
 
 
-def metric_out(metric: Any, area_slug: str) -> MetricOut:
+def metric_out(metric: Any) -> MetricOut:
     return MetricOut(
         id=metric.id,
         slug=metric.slug,
-        area=area_slug,
+        origin=MetricOrigin(metric.origin),
         name=metric.name,
         value_type=ValueType(metric.value_type),
         unit=metric.unit,
@@ -72,11 +64,6 @@ def metric_out(metric: Any, area_slug: str) -> MetricOut:
         direction=Direction(metric.direction),
         archived_at=metric.archived_at,
     )
-
-
-def metrics_out(session: Session, metrics: list[Any]) -> list[MetricOut]:
-    areas = area_slug_by_id(session)
-    return [metric_out(metric, areas[metric.area_id]) for metric in metrics]
 
 
 def entry_out(entry: Any, metric_slug: str) -> EntryOut:

@@ -84,7 +84,7 @@ def test_list_entries_filters_and_orders_newest_first(client, seed_health):
     assert client.get("/entries", params={"limit": 0}).status_code == 422
 
 
-def test_list_entries_can_exclude_an_area(client, seed_health):
+def test_list_entries_can_leave_out_automatic_data(client, seed_health):
     client.post("/screen/categories", json={"slug": "entertainment", "judgment": "waste"})
     client.post("/screen/apps", json={"slug": "instagram", "category": "entertainment"})
     session = client.post(
@@ -97,15 +97,15 @@ def test_list_entries_can_exclude_an_area(client, seed_health):
     everything = client.get("/entries")
     assert {row["metric"] for row in everything.json()} == {"instagram", "pushups"}
 
-    hidden = client.get("/entries", params={"exclude_area": "screen"})
+    hidden = client.get("/entries", params={"include_automatic": False})
     assert hidden.status_code == 200, hidden.text
     assert [row["metric"] for row in hidden.json()] == ["pushups"]
 
 
-def test_excluding_an_unknown_area_excludes_nothing(client, seed_health):
+def test_leaving_out_automatic_data_keeps_everything_typed(client, seed_health):
     client.post("/entries", json={"metric": "pushups", "value": 20, "occurred_on": "2026-08-13"})
 
-    response = client.get("/entries", params={"exclude_area": "screen"})
+    response = client.get("/entries", params={"include_automatic": False})
 
     assert response.status_code == 200
     assert [row["metric"] for row in response.json()] == ["pushups"]

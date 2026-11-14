@@ -34,9 +34,6 @@ import {
 } from '@/lib/entries'
 import { cn } from '@/lib/utils'
 
-/** Area whose entries are written by device data, not typed: screen time sessions. */
-const AUTOMATIC_AREA = 'screen'
-
 function message(caught: unknown, fallback: string): string {
   return caught instanceof ApiError || caught instanceof Error ? caught.message : fallback
 }
@@ -48,7 +45,7 @@ export function EntriesPage() {
   const metricFilter = params.get('metric') ?? ''
   const hideAutomatic = params.get('automatic') !== 'show'
   // Picking one metric shows it even when it is automatic; the switch only thins "All metrics".
-  const excludeArea = hideAutomatic && metricFilter === '' ? AUTOMATIC_AREA : undefined
+  const includeAutomatic = hideAutomatic && metricFilter === '' ? false : undefined
   const start = params.get('from') ?? defaults.start
   const end = params.get('to') ?? defaults.end
   const [entries, setEntries] = useState<Entry[] | null>(null)
@@ -60,16 +57,16 @@ export function EntriesPage() {
     const [nextEntries, nextMetrics] = await Promise.all([
       listEntries({
         metric: metricFilter || undefined,
-        exclude_area: excludeArea,
+        include_automatic: includeAutomatic,
         start_on: start,
         end_on: end,
         limit: 500,
       }),
-      listMetrics(undefined, true),
+      listMetrics(true),
     ])
     setEntries(nextEntries)
     setMetrics(nextMetrics)
-  }, [metricFilter, excludeArea, start, end])
+  }, [metricFilter, includeAutomatic, start, end])
 
   useEffect(() => {
     let cancelled = false

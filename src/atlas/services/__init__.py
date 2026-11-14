@@ -1,4 +1,3 @@
-from atlas.services.areas import archive_area, create_area, get_area, list_areas, update_area
 from atlas.services.entertainment import (
     clear_title_image,
     create_entertainment_title,
@@ -34,7 +33,6 @@ from atlas.services.errors import (
     ValidationError,
 )
 from atlas.services.habits import (
-    HABITS_AREA_SLUG,
     HabitCheckIn,
     HabitDetail,
     HabitsBoard,
@@ -104,23 +102,18 @@ from atlas.services.sleep import (
     sleep_view,
 )
 from atlas.services.views import (
-    AreaView,
     HabitsCalendar,
-    MetricSnapshot,
     WeekDayCell,
     WeekHabit,
-    area_view,
     habit_calendar,
 )
 
 __all__ = [
     "AlreadyExistsError",
     "ConflictError",
-    "AreaView",
     "HabitStatus",
     "ImportSummary",
     "HabitsBoard",
-    "HABITS_AREA_SLUG",
     "HabitCheckIn",
     "HabitDetail",
     "add_habit_break",
@@ -134,7 +127,6 @@ __all__ = [
     "undo_check_in",
     "HabitsCalendar",
     "JournalDay",
-    "MetricSnapshot",
     "NotFoundError",
     "SeedSummary",
     "ScreenBudgetStatus",
@@ -151,11 +143,8 @@ __all__ = [
     "WeekDayCell",
     "WeekHabit",
     "amend_entry",
-    "archive_area",
     "archive_metric",
-    "area_view",
     "clear_title_image",
-    "create_area",
     "create_entertainment_title",
     "create_entertainment_topic",
     "delete_entertainment_title",
@@ -170,7 +159,6 @@ __all__ = [
     "demo_payload",
     "entertainment_dashboard",
     "export_all",
-    "get_area",
     "get_entertainment_title",
     "get_entertainment_topic",
     "get_habit",
@@ -187,7 +175,6 @@ __all__ = [
     "habits_board",
     "import_all",
     "journal_day",
-    "list_areas",
     "list_entertainment_titles",
     "list_entertainment_topics",
     "list_entries",
@@ -208,7 +195,6 @@ __all__ = [
     "title_image_href",
     "title_topics",
     "title_view_for",
-    "update_area",
     "update_entertainment_title",
     "update_entertainment_topic",
     "update_habit",

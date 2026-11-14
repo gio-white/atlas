@@ -15,7 +15,7 @@ def _client(spa_dir: Path | None = None) -> TestClient:
 
 def test_cors_allows_vite_origin(client):
     response = client.options(
-        "/areas",
+        "/metrics",
         headers={
             "Origin": VITE_ORIGINS[0],
             "Access-Control-Request-Method": "GET",
@@ -28,7 +28,7 @@ def test_cors_allows_vite_origin(client):
 
 def test_cors_rejects_non_vite_origin(client):
     response = client.options(
-        "/areas",
+        "/metrics",
         headers={
             "Origin": "http://example.com",
             "Access-Control-Request-Method": "GET",
@@ -74,12 +74,14 @@ def test_spa_does_not_shadow_api_routes(tmp_path):
     (dist / "index.html").write_text("<!doctype html><title>Atlas</title>", encoding="utf-8")
 
     client = _client(spa_dir=dist)
-    created = client.post("/areas", json={"slug": "health", "name": "Health"})
+    created = client.post(
+        "/metrics", json={"name": "Pushups", "value_type": "count", "aggregation": "sum"}
+    )
     assert created.status_code == 201, created.text
 
-    listed = client.get("/areas")
+    listed = client.get("/metrics")
     assert listed.status_code == 200
-    assert listed.json()[0]["slug"] == "health"
+    assert listed.json()[0]["slug"] == "pushups"
     assert listed.headers["content-type"].startswith("application/json")
 
     docs = client.get("/docs")

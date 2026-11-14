@@ -36,6 +36,19 @@ class Comparator(StrEnum):
     EXACTLY = "exactly"
 
 
+class MetricOrigin(StrEnum):
+    """How a metric came to exist. Only `manual` ones are set up by hand."""
+
+    MANUAL = "manual"
+    HABIT = "habit"
+    SCREEN = "screen"
+    JOURNAL = "journal"
+
+
+AUTOMATIC_METRIC_ORIGINS = frozenset({MetricOrigin.SCREEN})
+"""Origins whose entries are written by device data, never typed."""
+
+
 class Source(StrEnum):
     CLI = "cli"
     API = "api"

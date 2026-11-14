@@ -22,6 +22,7 @@ from atlas.domain.entertainment_link import (
     suggest_from_sources,
 )
 from atlas.domain.enums import (
+    AUTOMATIC_METRIC_ORIGINS,
     Aggregation,
     ChapterState,
     Comparator,
@@ -29,6 +30,7 @@ from atlas.domain.enums import (
     EntertainmentKind,
     EntertainmentStatus,
     HabitKind,
+    MetricOrigin,
     ParentKind,
     Period,
     QuestStatus,
@@ -137,8 +139,10 @@ __all__ = [
     "suggest_from_sources",
     "EntryView",
     "BucketOutcome",
+    "AUTOMATIC_METRIC_ORIGINS",
     "HabitKind",
     "HabitSpec",
+    "MetricOrigin",
     "TimeOfDay",
     "adherence_counts",
     "available_days",

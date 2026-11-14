@@ -1,17 +1,17 @@
-import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 
 from sqlmodel import Session, col, select
 
-from atlas.db.models import Area, Entry, Habit, HabitBreak, Metric
+from atlas.db.models import Entry, Habit, HabitBreak, Metric
 from atlas.domain import (
     Aggregation,
     Comparator,
     Direction,
     HabitKind,
     HabitSpec,
+    MetricOrigin,
     Period,
     Source,
     TimeOfDay,
@@ -34,18 +34,15 @@ from atlas.services.lookups import (
     entries_for_metric,
     metric_by_id,
     normalize_weekdays,
-    require_active_area,
     require_active_metric,
     require_habit,
 )
 from atlas.services.mapping import entry_view, habit_spec
 from atlas.services.metrics import create_metric
-from atlas.services.slugs import display_name, normalize_slug
+from atlas.services.slugs import display_name, normalize_slug, slug_from_name
 
-HABITS_AREA_SLUG = "habits"
 RECENT_CHECKINS = 30
 _UNSET = object()
-_SLUG_CHUNK = re.compile(r"[^a-z0-9]+")
 
 # What a habit-first create makes underneath: the metric's type, unit, and direction.
 _KIND_METRICS: dict[HabitKind, tuple[ValueType, str | None]] = {
@@ -131,10 +128,9 @@ def create_habit(
     time_of_day: TimeOfDay = TimeOfDay.ANYTIME,
     active_from: date | None = None,
     active_to: date | None = None,
-    area_slug: str | None = None,
 ) -> Habit:
-    """Create a habit. Without `metric_slug` its metric is made for it, in `area_slug` when
-    given and otherwise in the internal Habits area."""
+    """Create a habit. Without `metric_slug` a metric is made for it and marked as habit-made,
+    so deleting the habit can retire it."""
     if slug is None:
         if name is None or not name.strip():
             raise ValidationError("a habit needs a name or a slug")
@@ -145,9 +141,6 @@ def create_habit(
     metric = require_active_metric(session, normalize_slug(metric_slug)) if metric_slug else None
     if metric is not None and ValueType(metric.value_type) is ValueType.TEXT:
         raise ValidationError("habits cannot target a text metric")
-    if metric is not None and area_slug:
-        raise ValidationError("area applies only to a metric made for the habit")
-    area = require_active_area(session, normalize_slug(area_slug)) if area_slug else None
     kind = HabitKind(kind) if kind is not None else _kind_for_metric(metric)
     if kind is HabitKind.QUIT:
         period, comparator, target_value, weekdays = Period.DAY, Comparator.AT_MOST, 0.0, None
@@ -164,7 +157,7 @@ def create_habit(
         raise ValidationError("active_to must be on or after active_from")
     normalized_weekdays = normalize_weekdays(weekdays, period)
     if metric is None:
-        metric = _create_habit_metric(session, slug, name, kind, comparator, unit, area)
+        metric = _create_habit_metric(session, slug, name, kind, comparator, unit)
     habit = Habit(
         metric_id=metric.id,
         slug=slug,
@@ -182,13 +175,6 @@ def create_habit(
     session.commit()
     session.refresh(habit)
     return habit
-
-
-def slug_from_name(name: str) -> str:
-    slug = _SLUG_CHUNK.sub("-", name.strip().lower()).strip("-")
-    if not slug:
-        raise ValidationError(f"cannot derive a slug from {name!r}")
-    return slug
 
 
 def list_habits(
@@ -294,9 +280,8 @@ def delete_habit(session: Session, slug: str) -> None:
     metric = metric_by_id(session, habit.metric_id)
     session.delete(habit)
     session.flush()
-    area = session.get(Area, metric.area_id)
     still_used = session.exec(select(Habit).where(Habit.metric_id == metric.id)).first()
-    if area is not None and area.slug == HABITS_AREA_SLUG and still_used is None:
+    if MetricOrigin(metric.origin) is MetricOrigin.HABIT and still_used is None:
         metric.archived_at = datetime.now(UTC)
         session.add(metric)
     session.commit()
@@ -488,9 +473,6 @@ def active_habits(session: Session) -> list[tuple[Habit, Metric]]:
         metric = metric_by_id(session, habit.metric_id)
         if metric.archived_at is not None:
             continue
-        area = session.get(Area, metric.area_id)
-        if area is None or area.archived_at is not None:
-            continue
         rows.append((habit, metric))
     return rows
 
@@ -585,39 +567,19 @@ def _create_habit_metric(
     kind: HabitKind,
     comparator: Comparator,
     unit: str | None,
-    area: Area | None = None,
 ) -> Metric:
-    area_slug = area.slug if area is not None else _ensure_habits_area(session).slug
     value_type, default_unit = _KIND_METRICS[kind]
     lower_is_better = kind is HabitKind.QUIT or comparator is Comparator.AT_MOST
     return create_metric(
         session,
         _free_metric_slug(session, slug),
-        area_slug=area_slug,
         value_type=value_type,
         aggregation=Aggregation.SUM,
+        origin=MetricOrigin.HABIT,
         name=name.strip() if name is not None and name.strip() else display_name(slug),
         unit=(unit.strip() or None) if unit is not None else default_unit,
         direction=Direction.LOWER_IS_BETTER if lower_is_better else Direction.HIGHER_IS_BETTER,
     )
-
-
-def _ensure_habits_area(session: Session) -> Area:
-    area = session.exec(select(Area).where(Area.slug == HABITS_AREA_SLUG)).first()
-    if area is not None:
-        if area.archived_at is not None:
-            area.archived_at = None
-            session.add(area)
-            session.flush()
-        return area
-    area = Area(
-        slug=HABITS_AREA_SLUG,
-        name="Habits",
-        description="Measurements created for habits.",
-    )
-    session.add(area)
-    session.flush()
-    return area
 
 
 def _free_metric_slug(session: Session, slug: str) -> str:

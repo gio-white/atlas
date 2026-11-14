@@ -43,19 +43,6 @@ def test_habits_calendar_month_spans_august(client, seed_health):
     assert len(body["habits"][0]["days"]) == 31
 
 
-def test_area_view_groups_metrics_and_habits(client, seed_health):
-    _seed_daily_pushups(client)
-    client.post("/entries", json={"metric": "pushups", "value": 30, "occurred_on": "2026-08-13"})
-
-    response = client.get("/views/areas/health", params={"as_of": "2026-08-13"})
-    assert response.status_code == 200
-    body = response.json()
-    assert body["slug"] == "health"
-    assert {metric["slug"] for metric in body["metrics"]} == {"meditated", "pushups", "weight"}
-    assert [habit["slug"] for habit in body["habits"]] == ["pushups-daily"]
-    assert "goals" not in body
-
-
 def test_habits_board_view(client, seed_health):
     _seed_daily_pushups(client)
     created = client.post(

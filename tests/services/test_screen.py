@@ -3,7 +3,7 @@ from datetime import UTC, date, datetime
 import pytest
 
 from atlas.db import create_memory_engine, init_schema, make_session_factory
-from atlas.domain import Comparator, Direction, Period, ScreenJudgment, ValueType
+from atlas.domain import Comparator, Direction, MetricOrigin, Period, ScreenJudgment, ValueType
 from atlas.services import (
     AlreadyExistsError,
     NotFoundError,
@@ -17,7 +17,6 @@ from atlas.services import (
     export_all,
     get_metric,
     import_all,
-    list_areas,
     list_screen_apps,
     list_screen_sessions,
     log_entry,
@@ -49,11 +48,6 @@ def _taxonomy(session):
     )
 
 
-def test_create_category_creates_screen_area(session):
-    create_screen_category(session, "entertainment", judgment=ScreenJudgment.WASTE)
-    assert [area.slug for area in list_areas(session)] == ["screen"]
-
-
 def test_create_app_creates_duration_metric_mirroring_judgment(session):
     create_screen_category(session, "entertainment", judgment=ScreenJudgment.WASTE)
     app = create_screen_app(session, "instagram", category_slug="entertainment", name="Instagram")
@@ -64,6 +58,7 @@ def test_create_app_creates_duration_metric_mirroring_judgment(session):
     assert metric.unit == "min"
     assert metric.direction is Direction.LOWER_IS_BETTER
     assert metric.name == "Instagram"
+    assert MetricOrigin(metric.origin) is MetricOrigin.SCREEN
 
 
 def test_view_rolls_apps_into_category_and_waste_budget(session):

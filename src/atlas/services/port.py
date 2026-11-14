@@ -7,7 +7,6 @@ from sqlmodel import Session, select
 
 from atlas.db import CURRENT_SCHEMA_VERSION
 from atlas.db.models import (
-    Area,
     EntertainmentTitle,
     EntertainmentTitleTopic,
     EntertainmentTopic,
@@ -30,6 +29,7 @@ from atlas.domain import (
     EntertainmentKind,
     EntertainmentStatus,
     HabitKind,
+    MetricOrigin,
     Period,
     ScreenBudgetTargetKind,
     ScreenJudgment,
@@ -40,7 +40,6 @@ from atlas.domain import (
 )
 from atlas.services.errors import ValidationError
 from atlas.services.lookups import (
-    require_area,
     require_entertainment_topic,
     require_metric,
     require_screen_app,
@@ -57,6 +56,12 @@ from atlas.services.quest_port import (
 from atlas.services.slugs import normalize_slug
 
 QUESTS_SCHEMA_VERSION = 11
+ORIGIN_SCHEMA_VERSION = 12
+AREAS_SECTION = "areas"
+
+# What an export older than schema 12 says about a metric through its area.
+_ORIGIN_BY_LEGACY_AREA = {"habits": MetricOrigin.HABIT, "screen": MetricOrigin.SCREEN}
+_JOURNAL_METRIC_SLUG = "journal"
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,17 +71,22 @@ class ImportSummary:
 
     @property
     def notes(self) -> list[str]:
-        if not self.ignored_sections:
-            return []
-        names = ", ".join(self.ignored_sections)
-        return [
-            f"Skipped {names} from this version {self.schema_version} export: "
-            "quests replaced the old goals and tasks."
-        ]
+        notes: list[str] = []
+        legacy = [name for name in self.ignored_sections if name != AREAS_SECTION]
+        if legacy:
+            notes.append(
+                f"Skipped {', '.join(legacy)} from this version {self.schema_version} export: "
+                "quests replaced the old goals and tasks."
+            )
+        if AREAS_SECTION in self.ignored_sections:
+            notes.append(
+                f"Skipped areas from this version {self.schema_version} export: Atlas no longer "
+                "groups metrics into areas. Every metric and habit was kept."
+            )
+        return notes
 
 
 def export_all(session: Session) -> dict[str, Any]:
-    areas = list(session.exec(select(Area).order_by(Area.slug)).all())
     metrics = list(session.exec(select(Metric).order_by(Metric.slug)).all())
     habits = list(session.exec(select(Habit).order_by(Habit.slug)).all())
     breaks_by_habit: dict[int | None, list[HabitBreak]] = {}
@@ -102,7 +112,6 @@ def export_all(session: Session) -> dict[str, Any]:
     )
     entries = list(session.exec(select(Entry).order_by(Entry.occurred_on, Entry.id)).all())
 
-    area_by_id = {area.id: area.slug for area in areas}
     metric_by_id = {metric.id: metric.slug for metric in metrics}
     category_by_id = {category.id: category.slug for category in screen_categories}
     device_by_id = {device.id: device.slug for device in screen_devices}
@@ -122,8 +131,7 @@ def export_all(session: Session) -> dict[str, Any]:
 
     return {
         "schema_version": CURRENT_SCHEMA_VERSION,
-        "areas": [_export_area(area) for area in areas],
-        "metrics": [_export_metric(metric, area_by_id) for metric in metrics],
+        "metrics": [_export_metric(metric) for metric in metrics],
         "habits": [
             _export_habit(habit, metric_by_id, breaks_by_habit.get(habit.id, []))
             for habit in habits
@@ -161,14 +169,19 @@ def import_all(
         )
     has_quests = version >= QUESTS_SCHEMA_VERSION
     ignored = () if has_quests else tuple(key for key in LEGACY_SECTIONS if payload.get(key))
+    legacy_areas = payload.get(AREAS_SECTION, []) if version < ORIGIN_SCHEMA_VERSION else []
+    if legacy_areas:
+        ignored = (*ignored, AREAS_SECTION)
+    archived_areas = {
+        normalize_slug(_require(raw, "slug")): _parse_datetime(raw.get("archived_at"))
+        for raw in legacy_areas
+        if raw.get("archived_at")
+    }
     try:
         if replace:
             _clear_user_data(session)
-        for raw in payload.get("areas", []):
-            _import_area(session, raw)
-        session.flush()
         for raw in payload.get("metrics", []):
-            _import_metric(session, raw)
+            _import_metric(session, raw, archived_areas)
         session.flush()
         for raw in payload.get("habits", []):
             _import_habit(session, raw)
@@ -231,26 +244,16 @@ def _clear_user_data(session: Session) -> None:
         ScreenDevice,
         ScreenCategory,
         Metric,
-        Area,
     ):
         for row in session.exec(select(model)).all():
             session.delete(row)
     session.flush()
 
 
-def _export_area(area: Area) -> dict[str, Any]:
-    return {
-        "slug": area.slug,
-        "name": area.name,
-        "description": area.description,
-        "archived_at": _iso_dt(area.archived_at),
-    }
-
-
-def _export_metric(metric: Metric, area_by_id: dict[int | None, str]) -> dict[str, Any]:
+def _export_metric(metric: Metric) -> dict[str, Any]:
     return {
         "slug": metric.slug,
-        "area": area_by_id[metric.area_id],
+        "origin": str(metric.origin),
         "name": metric.name,
         "value_type": str(metric.value_type),
         "unit": metric.unit,
@@ -514,38 +517,41 @@ def _import_title_topics(session: Session, title: EntertainmentTitle, slugs: lis
         session.add(EntertainmentTitleTopic(title_id=title.id, topic_id=topic.id))
 
 
-def _import_area(session: Session, raw: dict[str, Any]) -> None:
-    slug = normalize_slug(_require(raw, "slug"))
-    existing = session.exec(select(Area).where(Area.slug == slug)).first()
-    if existing is None:
-        existing = Area(slug=slug, name=_require(raw, "name"))
-        session.add(existing)
-    existing.name = raw.get("name", existing.name)
-    existing.description = raw.get("description")
-    existing.archived_at = _parse_datetime(raw.get("archived_at"))
+def _metric_origin(raw: dict[str, Any], slug: str) -> MetricOrigin:
+    """The origin a metric is imported with. Exports from before schema 12 carry an `area`
+    instead: the internal habits and screen areas, and the journal metric, map onto origins."""
+    if "origin" in raw:
+        return MetricOrigin(raw["origin"])
+    if slug == _JOURNAL_METRIC_SLUG:
+        return MetricOrigin.JOURNAL
+    return _ORIGIN_BY_LEGACY_AREA.get(raw.get("area", ""), MetricOrigin.MANUAL)
 
 
-def _import_metric(session: Session, raw: dict[str, Any]) -> None:
+def _import_metric(
+    session: Session, raw: dict[str, Any], archived_areas: dict[str, datetime | None]
+) -> None:
     slug = normalize_slug(_require(raw, "slug"))
-    area = require_area(session, normalize_slug(_require(raw, "area")))
+    origin = _metric_origin(raw, slug)
     existing = session.exec(select(Metric).where(Metric.slug == slug)).first()
     if existing is None:
         existing = Metric(
             slug=slug,
-            area_id=area.id,
             name=_require(raw, "name"),
             value_type=ValueType(_require(raw, "value_type")),
             aggregation=Aggregation(_require(raw, "aggregation")),
             direction=Direction(raw.get("direction", Direction.NEUTRAL)),
         )
         session.add(existing)
-    existing.area_id = area.id
+    existing.origin = origin
     existing.name = raw.get("name", existing.name)
     existing.value_type = ValueType(raw.get("value_type", existing.value_type))
     existing.unit = raw.get("unit")
     existing.aggregation = Aggregation(raw.get("aggregation", existing.aggregation))
     existing.direction = Direction(raw.get("direction", existing.direction))
-    existing.archived_at = _parse_datetime(raw.get("archived_at"))
+    # A metric in an archived area counted as archived, so it stays that way without the area.
+    existing.archived_at = _parse_datetime(raw.get("archived_at")) or archived_areas.get(
+        raw.get("area", "")
+    )
 
 
 def _import_habit(session: Session, raw: dict[str, Any]) -> None:
@@ -630,6 +636,8 @@ def _import_screen_app(session: Session, raw: dict[str, Any]) -> None:
     existing.name = raw.get("name", existing.name)
     existing.category_id = category.id
     existing.metric_id = metric.id
+    metric.origin = MetricOrigin.SCREEN
+    session.add(metric)
     existing.archived_at = _parse_datetime(raw.get("archived_at"))
 
 

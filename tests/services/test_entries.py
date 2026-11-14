@@ -2,17 +2,18 @@ from datetime import date
 
 import pytest
 
-from atlas.domain import Aggregation, Direction, Source, ValueType
+from atlas.domain import ScreenJudgment, Source
 from atlas.services import (
     NotFoundError,
     ValidationError,
     amend_entry,
     archive_metric,
-    create_area,
-    create_metric,
+    create_screen_app,
+    create_screen_category,
     delete_entry,
     list_entries,
     log_entry,
+    log_screen_session,
 )
 from atlas.settings import load_settings
 from tests.services.helpers import seed_health
@@ -127,7 +128,7 @@ def test_list_entries_is_newest_first_with_metric_slugs(session):
     ]
 
 
-def test_list_entries_filters_by_metric_area_and_date_range(session):
+def test_list_entries_filters_by_metric_and_date_range(session):
     seed_health(session)
     log_entry(session, "pushups", 10, occurred_on=date(2026, 8, 9))
     kept = log_entry(session, "pushups", 20, occurred_on=date(2026, 8, 11))
@@ -137,7 +138,7 @@ def test_list_entries_filters_by_metric_area_and_date_range(session):
         session, metric_slug="pushups", start_on=date(2026, 8, 10), end_on=date(2026, 8, 12)
     )
     assert [entry.id for entry, _ in rows] == [kept.id]
-    assert len(list_entries(session, area_slug="health")) == 3
+    assert len(list_entries(session)) == 3
     assert len(list_entries(session, limit=2)) == 2
 
 
@@ -151,22 +152,15 @@ def test_list_entries_rejects_bad_filters(session):
         list_entries(session, limit=0)
 
 
-def test_list_entries_excludes_an_area(session):
+def test_list_entries_can_leave_out_automatic_data(session):
     seed_health(session)
-    create_area(session, "career", name="Career")
-    create_metric(
-        session,
-        "deep-work",
-        area_slug="career",
-        value_type=ValueType.DURATION,
-        aggregation=Aggregation.SUM,
-        direction=Direction.HIGHER_IS_BETTER,
-    )
+    create_screen_category(session, "social", judgment=ScreenJudgment.WASTE)
+    create_screen_app(session, "instagram", category_slug="social")
     log_entry(session, "pushups", 10, occurred_on=date(2026, 8, 13))
-    log_entry(session, "deep-work", 90, occurred_on=date(2026, 8, 13))
+    log_screen_session(session, "instagram", minutes=25, occurred_on=date(2026, 8, 13))
 
-    kept = list_entries(session, exclude_area_slug="health")
-    unknown = list_entries(session, exclude_area_slug="nowhere")
+    everything = list_entries(session)
+    typed = list_entries(session, include_automatic=False)
 
-    assert [slug for _, slug in kept] == ["deep-work"]
-    assert {slug for _, slug in unknown} == {"pushups", "deep-work"}
+    assert {slug for _, slug in everything} == {"pushups", "instagram"}
+    assert [slug for _, slug in typed] == ["pushups"]

@@ -5,7 +5,7 @@ Colour tokens, typography, theme, the shell, and shared UI states. Component pri
 
 ## Visual system
 
-Visual system is a night dashboard shell: near-black navy canvas, raised cards, Inter body, category accents (iris purple, ember orange, screen blue, goal green, quick yellow, sleep indigo, health rose, adventure teal, entertainment fuchsia). Light mode keeps a cream canvas so Catalog and review pages stay readable. Theme is stored as `atlas-theme` and applied in `index.html` before paint; first visit follows `prefers-color-scheme`; it is changed in Settings → Appearance. Display name is local-only (`atlas-display-name`, default Alex) and edited in the same place.
+Visual system is a night dashboard shell: near-black navy canvas, raised cards, Inter body, category accents (iris purple, ember orange, screen blue, goal green, quick yellow, sleep indigo, health rose, adventure teal, entertainment fuchsia). Light mode keeps a cream canvas so Settings and review pages stay readable. Theme is stored as `atlas-theme` and applied in `index.html` before paint; first visit follows `prefers-color-scheme`; it is changed in Settings → Appearance. Display name is local-only (`atlas-display-name`, default Alex) and edited in the same place.
 
 ## Shell
 
@@ -24,7 +24,7 @@ open a dialog is not modal, so the page stays clickable after the dialog closes.
 
 ## Status, empty, loading, and error states
 
-Status uses green / amber / red in both modes. Empty states include a Catalog action; loading uses skeletons; errors use `role="alert"`.
+Status uses green / amber / red in both modes. Empty states say what will appear and how to get it there; loading uses skeletons; errors use `role="alert"`.
 
 ## Sleep stage colours
 

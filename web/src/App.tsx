@@ -14,9 +14,16 @@ import { WeekPage } from '@/pages/WeekPage'
 
 // Home, Habits, and a few small pages are in the main bundle; every other page loads on first
 // visit, in its own chunk (Layout and SectionLayout wrap pages in Suspense).
-const AreaPage = lazy(() => import('@/pages/AreaPage').then((m) => ({ default: m.AreaPage })))
-const CatalogPage = lazy(() =>
-  import('@/pages/CatalogPage').then((m) => ({ default: m.CatalogPage })),
+const DevicesPage = lazy(() =>
+  import('@/pages/settings/DevicesPage').then((m) => ({ default: m.DevicesPage })),
+)
+const MetricsPage = lazy(() =>
+  import('@/pages/settings/MetricsPage').then((m) => ({ default: m.MetricsPage })),
+)
+const ScreenTimeSetupPage = lazy(() =>
+  import('@/pages/settings/ScreenTimeSetupPage').then((m) => ({
+    default: m.ScreenTimeSetupPage,
+  })),
 )
 const EntertainmentCategoryPage = lazy(() =>
   import('@/pages/EntertainmentCategoryPage').then((m) => ({
@@ -100,10 +107,11 @@ export default function App() {
           <Route path="/settings" element={<Redirect to="/settings/appearance" />} />
           <Route element={<SectionLayout section="settings" />}>
             <Route path="/settings/appearance" element={<AppearancePage />} />
+            <Route path="/settings/screen-time" element={<ScreenTimeSetupPage />} />
+            <Route path="/settings/devices" element={<DevicesPage />} />
+            <Route path="/settings/metrics" element={<MetricsPage />} />
             <Route path="/settings/entries" element={<EntriesPage />} />
-            <Route path="/catalog" element={<CatalogPage />} />
           </Route>
-          <Route path="/area/:slug" element={<AreaPage />} />
 
           {/* Addresses from before the rail. Each one lands on the page's new home. */}
           <Route path="/side-quests" element={<Redirect to="/quests/side-quests" />} />
@@ -116,6 +124,8 @@ export default function App() {
           <Route path="/adventure" element={<Redirect to="/" />} />
           <Route path="/entertainment/*" element={<Redirect to="/library/*" />} />
           <Route path="/history" element={<Redirect to="/settings/entries" />} />
+          <Route path="/catalog" element={<Redirect to="/settings/metrics" />} />
+          <Route path="/area/:slug" element={<Redirect to="/settings/metrics" />} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

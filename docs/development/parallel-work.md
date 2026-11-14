@@ -22,6 +22,11 @@ are the owners below. When a new plan defines new tracks, update the ownership t
 
 ## File ownership
 
+> The table is the November tracks' and is kept as their record. Some files it names are gone
+> (`sections.ts`, `ProfileDialog.tsx`, the Area and Catalog pages, `docs/domain/life-areas.md`):
+> the [redesign brief](../plans/redesign-brief.md) replaced track T2 and runs as one branch, in
+> phases, so it needs no ownership split.
+
 | Files | Owner |
 | ----- | ----- |
 | `docs/**` structure, `CLAUDE.md`, `.claude/rules/**`, `.claude/hooks/**`, `.claude/skills/docs-sync/**` | T1 |

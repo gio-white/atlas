@@ -18,7 +18,7 @@ import {
 
 describe('queryString', () => {
   it('omits empty values and names as_of for the API', () => {
-    expect(queryString({ as_of: '2026-08-13', area: '', include_archived: undefined })).toBe(
+    expect(queryString({ as_of: '2026-08-13', metric: '', include_archived: undefined })).toBe(
       '?as_of=2026-08-13',
     )
   })

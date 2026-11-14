@@ -27,7 +27,6 @@ def test_seed_demo_loads_the_demo_dataset(session):
     summary = seed_demo(session, as_of=as_of)
 
     assert summary.as_of == as_of
-    assert summary.areas == 6
     assert summary.metrics == 18
     assert summary.habits == 7
     assert summary.entries > 0
@@ -40,14 +39,12 @@ def test_seed_demo_loads_the_demo_dataset(session):
 
     payload = export_all(session)
     assert payload["schema_version"] == CURRENT_SCHEMA_VERSION
-    assert {area["slug"] for area in payload["areas"]} == {
-        "career",
-        "finance",
-        "health",
-        "relationships",
-        "screen",
-        "habits",
-    }
+    assert "areas" not in payload
+    origins = {metric["slug"]: metric["origin"] for metric in payload["metrics"]}
+    assert origins["pushups"] == "manual"
+    assert origins["no-doomscrolling"] == "habit"
+    assert origins["journal"] == "journal"
+    assert sorted(origins.values()).count("screen") == summary.screen_apps
     assert {habit["slug"] for habit in payload["habits"]} == {
         "coffee-daily",
         "deep-work-weekdays",

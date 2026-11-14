@@ -25,8 +25,10 @@ describe('destinations', () => {
     expect(SECTIONS.stats.tabs.map((tab) => tab.label)).toEqual(['Sleep', 'Screen time', 'Health'])
     expect(SECTIONS.settings.tabs.map((tab) => tab.label)).toEqual([
       'Appearance',
+      'Screen time setup',
+      'Devices',
+      'Metrics',
       'All entries',
-      'Catalog',
     ])
   })
 
@@ -69,9 +71,8 @@ describe('activeDestination', () => {
     expect(activeDestination('/habits-old')).toBe('home')
   })
 
-  it('keeps Catalog and area pages under Settings', () => {
+  it('marks Settings for every Settings tab', () => {
     expect(activeDestination('/settings/entries')).toBe('settings')
-    expect(activeDestination('/catalog')).toBe('settings')
-    expect(activeDestination('/area/health')).toBe('settings')
+    expect(activeDestination('/settings/metrics')).toBe('settings')
   })
 })

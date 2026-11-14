@@ -2,14 +2,13 @@ from datetime import UTC, date, datetime
 
 from sqlmodel import Session, col, select
 
-from atlas.db.models import Area, Entry, Metric, ScreenApp, ScreenSession
-from atlas.domain import Source, ValueType
+from atlas.db.models import Entry, Metric, ScreenApp, ScreenSession
+from atlas.domain import AUTOMATIC_METRIC_ORIGINS, Source, ValueType
 from atlas.services.clock import resolve_today
 from atlas.services.errors import ValidationError
 from atlas.services.lookups import (
     metric_by_id,
     require_active_metric,
-    require_area,
     require_entry,
     require_metric,
 )
@@ -87,16 +86,15 @@ def list_entries(
     session: Session,
     *,
     metric_slug: str | None = None,
-    area_slug: str | None = None,
-    exclude_area_slug: str | None = None,
+    include_automatic: bool = True,
     start_on: date | None = None,
     end_on: date | None = None,
     limit: int = 200,
 ) -> list[tuple[Entry, str]]:
     """Entries newest first, each paired with its metric slug.
 
-    `exclude_area_slug` drops entries whose metric lives in that area. An unknown area excludes
-    nothing (rather than 404), so History can always hide `screen` even before it exists.
+    `include_automatic=False` drops entries written by device data rather than typed (today:
+    the minutes each screen session writes onto its app's metric), so All entries can hide them.
     """
     if limit < 1:
         raise ValidationError("limit must be at least 1")
@@ -106,15 +104,8 @@ def list_entries(
     if metric_slug is not None:
         metric = require_metric(session, normalize_slug(metric_slug))
         statement = statement.where(Entry.metric_id == metric.id)
-    if area_slug is not None:
-        area = require_area(session, normalize_slug(area_slug))
-        statement = statement.where(Metric.area_id == area.id)
-    if exclude_area_slug is not None:
-        excluded = session.exec(
-            select(Area).where(Area.slug == normalize_slug(exclude_area_slug))
-        ).first()
-        if excluded is not None:
-            statement = statement.where(Metric.area_id != excluded.id)
+    if not include_automatic:
+        statement = statement.where(col(Metric.origin).not_in(AUTOMATIC_METRIC_ORIGINS))
     if start_on is not None:
         statement = statement.where(Entry.occurred_on >= start_on)
     if end_on is not None:

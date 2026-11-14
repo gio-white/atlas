@@ -97,19 +97,14 @@ def test_quit_habit_counts_clean_days(client):
     assert slipped["last_entry_on"] == "2026-08-10"
 
 
-def test_habit_create_accepts_an_area_for_its_metric(client):
-    client.post("/areas", json={"slug": "health", "name": "Health"})
+def test_habit_create_makes_a_habit_made_metric_and_takes_no_area(client):
     created = client.post(
-        "/habits",
-        json={"name": "Meditate", "kind": "check", "area": "health", "active_from": "2026-08-03"},
+        "/habits", json={"name": "Meditate", "kind": "check", "active_from": "2026-08-03"}
     )
     assert created.status_code == 201, created.text
     assert created.json()["name"] == "Meditate"
     metric = client.get(f"/metrics/{created.json()['metric']}").json()
-    assert metric["area"] == "health"
+    assert metric["origin"] == "habit"
 
-    default = client.post("/habits", json={"name": "Stretch", "kind": "check"}).json()
-    assert client.get(f"/metrics/{default['metric']}").json()["area"] == "habits"
-
-    missing = client.post("/habits", json={"name": "Walk", "kind": "check", "area": "nope"})
-    assert missing.status_code == 404
+    with_area = client.post("/habits", json={"name": "Walk", "kind": "check", "area": "health"})
+    assert with_area.status_code == 422

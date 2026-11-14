@@ -23,7 +23,7 @@ def test_export_and_import_round_trip(client, seed_health):
     assert exported.status_code == 200
     payload = exported.json()
     assert payload["schema_version"] == CURRENT_SCHEMA_VERSION
-    assert [area["slug"] for area in payload["areas"]] == ["health"]
+    assert "areas" not in payload
     assert {metric["slug"] for metric in payload["metrics"]} == {
         "meditated",
         "pushups",
@@ -37,7 +37,6 @@ def test_export_and_import_round_trip(client, seed_health):
     again = client.get("/export")
     assert again.status_code == 200
     restored = again.json()
-    assert restored["areas"] == payload["areas"]
     assert restored["metrics"] == payload["metrics"]
     assert restored["habits"] == payload["habits"]
     assert restored["screen_categories"] == []

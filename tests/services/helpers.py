@@ -1,15 +1,13 @@
 from datetime import date
 
 from atlas.domain import Aggregation, Comparator, Direction, Period, ValueType
-from atlas.services import create_area, create_habit, create_metric, log_entry
+from atlas.services import create_habit, create_metric, log_entry
 
 
 def seed_health(session):
-    area = create_area(session, "health", name="Health")
     pushups = create_metric(
         session,
         "pushups",
-        area_slug="health",
         value_type=ValueType.COUNT,
         aggregation=Aggregation.SUM,
         direction=Direction.HIGHER_IS_BETTER,
@@ -18,7 +16,6 @@ def seed_health(session):
     weight = create_metric(
         session,
         "weight",
-        area_slug="health",
         value_type=ValueType.QUANTITY,
         aggregation=Aggregation.LAST,
         direction=Direction.LOWER_IS_BETTER,
@@ -27,12 +24,11 @@ def seed_health(session):
     meditated = create_metric(
         session,
         "meditated",
-        area_slug="health",
         value_type=ValueType.BOOL,
         aggregation=Aggregation.SUM,
         direction=Direction.HIGHER_IS_BETTER,
     )
-    return area, pushups, weight, meditated
+    return pushups, weight, meditated
 
 
 def seed_daily_pushups(session, *, active_from: date = date(2026, 8, 1)):

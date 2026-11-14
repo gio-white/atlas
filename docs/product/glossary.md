@@ -7,9 +7,11 @@ changes, change it here, in the UI, and in the API together.
 
 | Concept | Shown in the UI as | In the code / API | Doc |
 | ------- | ------------------ | ----------------- | --- |
-| A part of life that groups what you measure | Area | `Area`, `/areas` | [life areas](../domain/life-areas.md) |
 | Something you measure | Metric | `Metric`, `/metrics` | [trackers and entries](../domain/trackers-and-entries.md) |
 | One logged value | Entry | `Entry`, `/entries` | [trackers and entries](../domain/trackers-and-entries.md) |
+| How a metric came to exist (never shown as a word; it decides where the metric appears) | "Made for a habit" for habit-made ones | `Metric.origin`: `manual`, `habit`, `screen`, `journal` | [trackers and entries](../domain/trackers-and-entries.md#data-model) |
+| What you record / Several values in one day / Which way is better | Yes / no, Count, … / Add up the day, … / More is better, … | `value_type`, `aggregation`, `direction`, labelled in `web/src/lib/labels.ts` | [trackers and entries](../domain/trackers-and-entries.md#screens) |
+| Entries written by a device rather than typed | Automatic data | `include_automatic` on `GET /entries` | [history](../domain/history.md) |
 | A recurring commitment | Habit | `Habit`, `/habits` | [habits](../domain/habits.md) |
 | A skip or pause of a habit | Skip / Pause | `HabitBreak`, `/habits/{slug}/breaks` | [habits](../domain/habits.md) |
 | Marking a habit done or logging toward it | Check in | check-in (an `Entry`), `/habits/{slug}/checkins` | [habits](../domain/habits.md) |
@@ -36,7 +38,7 @@ changes, change it here, in the UI, and in the API together.
 | Completing the task itself from a session | Outcome achieved | task `status: completed` via `PATCH /tasks/{id}` | [time blocks](../domain/time-blocks.md) |
 | A session whose time passed without an answer | Unconfirmed | derived: `scheduled` after `end_at` | [time blocks](../domain/time-blocks.md) |
 | Total time planned in sessions | Planned time | `planned_minutes` (never "actual effort") | [time blocks](../domain/time-blocks.md) |
-| A free-text daily note | Journal | `journal` metric in the `life` area, `/journal` | [journal](../domain/journal.md) |
+| A free-text daily note | Journal | `journal` metric (origin `journal`), `/journal` | [journal](../domain/journal.md) |
 | One night of sleep | Night | `SleepSession`, `/sleep/sessions` | [sleep](../domain/sleep.md) |
 | Deep / Light / REM / Awake | same | `SleepSessionStage.stage` | [sleep](../domain/sleep.md) |
 | Time spent in an app | Session | `ScreenSession`, `/screen/sessions` | [screen time](../domain/screen-time.md) |
@@ -63,3 +65,7 @@ rows are the only places where the UI word and the API word differ.
 | The week of planned sessions | Plan (`/quests/plan`) | `CalendarPage`, `GET /views/calendar` |
 
 History is shown as **All entries** (Settings → All entries); the API is `GET /entries` as before.
+
+**Area** is no longer a concept: metrics are not grouped, and there is no `/areas` in the API
+([decision 0008](../decisions/0008-areas-removed-metrics-carry-an-origin.md)). **Catalog** is gone
+too; metrics are managed in Settings → Metrics and habits on the Habits pages.

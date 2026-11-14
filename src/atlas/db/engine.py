@@ -7,9 +7,10 @@ from sqlalchemy.pool import StaticPool
 from sqlalchemy.schema import CreateIndex, CreateTable
 from sqlmodel import Session, SQLModel, col, create_engine, select
 
-from atlas.db.models import Entry, Habit, SchemaVersion, ScreenApp, ScreenSession
+from atlas.db.models import Entry, Habit, Metric, SchemaVersion, ScreenApp, ScreenSession
+from atlas.domain import MetricOrigin
 
-CURRENT_SCHEMA_VERSION = 11
+CURRENT_SCHEMA_VERSION = 12
 
 # Tables of the goal/milestone/task model that schema 11 replaced, keyed by a column only the
 # old shape has, so the drop is idempotent and never touches the new quest tables.
@@ -60,6 +61,8 @@ def init_schema(engine: Engine) -> None:
                 _add_habit_kind_and_schedule(engine)
             if previous < 11:
                 _drop_habit_goal_link(engine)
+            if previous < 12:
+                _replace_areas_with_metric_origin(engine)
             session.expire_all()
             row = session.get(SchemaVersion, 1)
         if row is None:
@@ -121,6 +124,65 @@ def _drop_habit_goal_link(engine: Engine) -> None:
         connection.execute(text("ALTER TABLE habit__new RENAME TO habit"))
         for index in Habit.__table__.indexes:
             connection.execute(CreateIndex(index, if_not_exists=True))
+
+    _without_foreign_keys(engine, rebuild)
+
+
+def _replace_areas_with_metric_origin(engine: Engine) -> None:
+    """Schema 12: areas are gone. Each metric keeps what its area used to say about it.
+
+    A metric in the internal `habits` or `screen` area (or backing a screen app) becomes a
+    habit-made or screen metric, the `journal` metric becomes the journal one, and the rest
+    are manual. A metric in an archived area was treated as archived, so it becomes archived.
+    """
+    inspector = inspect(engine)
+    tables = set(inspector.get_table_names())
+    if "metric" not in tables:
+        return
+    old_columns = {column["name"] for column in inspector.get_columns("metric")}
+    if "area_id" not in old_columns:
+        return
+    has_areas = "area" in tables
+    kept = [
+        column.name
+        for column in Metric.__table__.columns
+        if column.name in old_columns and column.name != "archived_at"
+    ]
+    screen_metric = (
+        "m.id IN (SELECT metric_id FROM screen_app WHERE metric_id IS NOT NULL)"
+        if "screen_app" in tables
+        else "0"
+    )
+    area_is = (lambda slug: f"a.slug = '{slug}'") if has_areas else (lambda slug: "0")
+    origin = (
+        "CASE"
+        f" WHEN {screen_metric} OR {area_is('screen')} THEN '{MetricOrigin.SCREEN.name}'"
+        f" WHEN m.slug = 'journal' THEN '{MetricOrigin.JOURNAL.name}'"
+        f" WHEN {area_is('habits')} THEN '{MetricOrigin.HABIT.name}'"
+        f" ELSE '{MetricOrigin.MANUAL.name}' END"
+    )
+    archived_at = "COALESCE(m.archived_at, a.archived_at)" if has_areas else "m.archived_at"
+    source = "metric m LEFT JOIN area a ON a.id = m.area_id" if has_areas else "metric m"
+    columns = ", ".join(kept)
+    selected = ", ".join(f"m.{name}" for name in kept)
+
+    def rebuild(connection: Connection) -> None:
+        create = str(CreateTable(Metric.__table__).compile(connection))
+        connection.execute(
+            text(create.replace("CREATE TABLE metric ", "CREATE TABLE metric__new ", 1))
+        )
+        connection.execute(
+            text(
+                f"INSERT INTO metric__new ({columns}, archived_at, origin) "
+                f"SELECT {selected}, {archived_at}, {origin} FROM {source}"
+            )
+        )
+        connection.execute(text("DROP TABLE metric"))
+        connection.execute(text("ALTER TABLE metric__new RENAME TO metric"))
+        for index in Metric.__table__.indexes:
+            connection.execute(CreateIndex(index, if_not_exists=True))
+        if has_areas:
+            connection.execute(text("DROP TABLE area"))
 
     _without_foreign_keys(engine, rebuild)
 

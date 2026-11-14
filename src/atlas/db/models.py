@@ -10,6 +10,7 @@ from atlas.domain import (
     EntertainmentKind,
     EntertainmentStatus,
     HabitKind,
+    MetricOrigin,
     Period,
     QuestStatus,
     ScreenBudgetTargetKind,
@@ -25,27 +26,17 @@ from atlas.domain import (
 )
 
 
-class Area(SQLModel, table=True):
-    __tablename__ = "area"
-
-    id: int | None = Field(default=None, primary_key=True)
-    slug: str = Field(unique=True, index=True)
-    name: str
-    description: str | None = None
-    archived_at: datetime | None = None
-
-
 class Metric(SQLModel, table=True):
     __tablename__ = "metric"
 
     id: int | None = Field(default=None, primary_key=True)
-    area_id: int = Field(foreign_key="area.id")
     slug: str = Field(unique=True, index=True)
     name: str
     value_type: ValueType
     unit: str | None = None
     aggregation: Aggregation
     direction: Direction
+    origin: MetricOrigin = MetricOrigin.MANUAL
     archived_at: datetime | None = None
 
 

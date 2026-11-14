@@ -28,8 +28,7 @@ export const SETTINGS: Destination = {
   id: 'settings',
   label: 'Settings',
   to: '/settings',
-  // Catalog and its area pages are managed from Settings until Metrics replaces them.
-  owns: ['/settings', '/catalog', '/area'],
+  owns: ['/settings'],
 }
 
 export type SectionId = 'quests' | 'stats' | 'settings'
@@ -60,8 +59,10 @@ export const SECTIONS: Record<SectionId, Section> = {
     title: 'Settings',
     tabs: [
       { label: 'Appearance', to: '/settings/appearance' },
+      { label: 'Screen time setup', to: '/settings/screen-time' },
+      { label: 'Devices', to: '/settings/devices' },
+      { label: 'Metrics', to: '/settings/metrics' },
       { label: 'All entries', to: '/settings/entries' },
-      { label: 'Catalog', to: '/catalog' },
     ],
   },
 }

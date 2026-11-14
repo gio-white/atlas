@@ -9,6 +9,7 @@ from atlas.domain import (
     EntertainmentKind,
     EntertainmentStatus,
     HabitKind,
+    MetricOrigin,
     Period,
     ScreenBudgetTargetKind,
     ScreenInsightKind,
@@ -21,36 +22,10 @@ from atlas.domain import (
 )
 
 
-class AreaCreate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    slug: str
-    name: str | None = None
-    description: str | None = None
-
-
-class AreaUpdate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    name: str | None = None
-    description: str | None = None
-
-
-class AreaOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    slug: str
-    name: str
-    description: str | None
-    archived_at: datetime | None
-
-
 class MetricCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    slug: str
-    area: str
+    slug: str | None = None
     value_type: ValueType
     aggregation: Aggregation
     name: str | None = None
@@ -69,7 +44,7 @@ class MetricUpdate(BaseModel):
 class MetricOut(BaseModel):
     id: int
     slug: str
-    area: str
+    origin: MetricOrigin
     name: str
     value_type: ValueType
     unit: str | None
@@ -125,7 +100,6 @@ class HabitCreate(BaseModel):
     time_of_day: TimeOfDay = TimeOfDay.ANYTIME
     active_from: date | None = None
     active_to: date | None = None
-    area: str | None = None
 
 
 class HabitUpdate(BaseModel):
@@ -285,28 +259,6 @@ class HabitsBoardOut(BaseModel):
     day: list[HabitStatusOut]
     week: list[HabitStatusOut]
     month: list[HabitStatusOut]
-
-
-class MetricSnapshotOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    slug: str
-    name: str
-    unit: str | None
-    aggregation: Aggregation
-    latest_on: date | None
-    latest_value: float | None
-
-
-class AreaViewOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    slug: str
-    name: str
-    description: str | None
-    as_of: date
-    metrics: list[MetricSnapshotOut]
-    habits: list[HabitStatusOut]
 
 
 class ScreenCategoryCreate(BaseModel):

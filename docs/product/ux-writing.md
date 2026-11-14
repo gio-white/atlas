@@ -43,7 +43,8 @@ The UI speaks about your life, not about the database. Nothing below may appear 
 ## Labelling options
 
 - Every enum shown in a select, chip, or badge goes through one label map in the web app
-  (planned: `web/src/lib/labels.ts`, Track T2). Do not inline raw values.
+  (`web/src/lib/labels.ts`: value type, how a day's values combine, and which way is better so
+  far; other enums still have their own maps next to their pages). Do not inline raw values.
 - Dates read as "7 Nov 2026"; times as "07:05".
 - Units sit next to the value ("40 reps", "75 kg"), not in a separate column header only.
 

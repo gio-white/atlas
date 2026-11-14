@@ -8,7 +8,6 @@ from atlas.db.engine import (
 )
 from atlas.db.models import (
     Ambition,
-    Area,
     Chapter,
     EntertainmentTitle,
     EntertainmentTitleTopic,
@@ -38,7 +37,6 @@ __all__ = [
     "SideQuest",
     "TimeBlock",
     "CURRENT_SCHEMA_VERSION",
-    "Area",
     "EntertainmentTitle",
     "EntertainmentTitleTopic",
     "EntertainmentTopic",

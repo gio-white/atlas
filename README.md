@@ -32,7 +32,7 @@ uv run atlas init
 uv run atlas seed
 ```
 
-`seed` loads a demo dataset dated relative to today so the web UI has something to show. It refuses if the database already has areas; pass `--replace` to wipe user data and load it again. `--on YYYY-MM-DD` pins the "today" the demo is built around.
+`seed` loads a demo dataset dated relative to today so the web UI has something to show. It refuses if the database already has data; pass `--replace` to wipe user data and load it again. `--on YYYY-MM-DD` pins the "today" the demo is built around.
 
 Back up and restore:
 

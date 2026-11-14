@@ -15,7 +15,7 @@ def print_imported(path: str, *, replace: bool, notes: list[str] | None = None) 
 def print_seeded(summary: SeedSummary) -> None:
     console.print(
         f"seeded demo as of {summary.as_of}: "
-        f"{summary.areas} areas, {summary.metrics} metrics, "
+        f"{summary.metrics} metrics, "
         f"{summary.habits} habits, {summary.entries} entries, "
         f"{summary.screen_categories} screen categories, "
         f"{summary.screen_apps} screen apps, "

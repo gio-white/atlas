@@ -4,13 +4,11 @@ from fastapi import APIRouter
 
 from atlas.api.deps import SessionDep
 from atlas.api.schemas import (
-    AreaViewOut,
     HabitsBoardOut,
     HabitsCalendarOut,
 )
 from atlas.domain import Period
 from atlas.services import (
-    area_view,
     habit_calendar,
     habits_board,
 )
@@ -30,8 +28,3 @@ def get_habits_calendar(
 @router.get("/habits", response_model=HabitsBoardOut)
 def get_habits_board(session: SessionDep, as_of: date | None = None) -> HabitsBoardOut:
     return HabitsBoardOut.model_validate(habits_board(session, as_of=as_of))
-
-
-@router.get("/areas/{slug}", response_model=AreaViewOut)
-def get_area_view(session: SessionDep, slug: str, as_of: date | None = None) -> AreaViewOut:
-    return AreaViewOut.model_validate(area_view(session, slug, as_of=as_of))

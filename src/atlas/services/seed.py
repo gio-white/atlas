@@ -3,10 +3,19 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta, tzinfo
 from typing import Any
 
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from atlas.db import CURRENT_SCHEMA_VERSION
-from atlas.services.areas import list_areas
+from atlas.db.models import (
+    Ambition,
+    EntertainmentTitle,
+    Goal,
+    Metric,
+    ScreenCategory,
+    SideQuest,
+    SleepSession,
+    Task,
+)
 from atlas.services.clock import resolve_today
 from atlas.services.errors import ValidationError
 from atlas.services.port import import_all
@@ -20,7 +29,6 @@ WEEKDAYS = [1, 2, 3, 4, 5]
 @dataclass(frozen=True, slots=True)
 class SeedSummary:
     as_of: date
-    areas: int
     metrics: int
     habits: int
     entries: int
@@ -47,13 +55,12 @@ def seed_demo(
     replace: bool = False,
 ) -> SeedSummary:
     as_of = resolve_today(as_of)
-    if not replace and list_areas(session, include_archived=True):
+    if not replace and _has_data(session):
         raise ValidationError("database already has data; pass --replace to overwrite")
     payload = demo_payload(as_of)
     import_all(session, payload, replace=replace)
     return SeedSummary(
         as_of=as_of,
-        areas=len(payload["areas"]),
         metrics=len(payload["metrics"]),
         habits=len(payload["habits"]),
         entries=len(payload["entries"]),
@@ -74,11 +81,26 @@ def seed_demo(
     )
 
 
+def _has_data(session: Session) -> bool:
+    """Whether anything a person (or a device) put in is already there. Every kind of data
+    hangs off one of these tables, so an empty set of them means an empty database."""
+    tables = (
+        Metric,
+        Task,
+        Goal,
+        Ambition,
+        SideQuest,
+        EntertainmentTitle,
+        SleepSession,
+        ScreenCategory,
+    )
+    return any(session.exec(select(table).limit(1)).first() is not None for table in tables)
+
+
 def demo_payload(as_of: date, zone: tzinfo | None = None) -> dict[str, Any]:
     start = as_of - timedelta(days=HISTORY_DAYS - 1)
     return {
         "schema_version": CURRENT_SCHEMA_VERSION,
-        "areas": _areas(),
         "metrics": _metrics(),
         "habits": _habits(start, as_of),
         "screen_categories": _screen_categories(),
@@ -94,59 +116,48 @@ def demo_payload(as_of: date, zone: tzinfo | None = None) -> dict[str, Any]:
     }
 
 
-def _areas() -> list[dict[str, Any]]:
-    return [
-        _area("health", "Health", "Body, energy, and daily practice."),
-        _area("career", "Career", "Deep work and making things."),
-        _area("finance", "Finance", "Runway and buffers."),
-        _area("relationships", "Relationships", "People who matter."),
-        _area("screen", "Screen", "Apps, categories, and budgets."),
-        _area("habits", "Habits", "Measurements created for habits."),
-    ]
-
-
 def _metrics() -> list[dict[str, Any]]:
     return [
-        _metric("pushups", "health", "count", "sum", unit="reps", direction="higher_is_better"),
+        _metric("pushups", "manual", "count", "sum", unit="reps", direction="higher_is_better"),
         _metric(
             "weight",
-            "health",
+            "manual",
             "quantity",
             "last",
             unit="kg",
             direction="lower_is_better",
         ),
-        _metric("meditated", "health", "bool", "sum", direction="higher_is_better"),
-        _metric("coffee", "health", "count", "sum", unit="cups", direction="lower_is_better"),
-        _metric("runs", "health", "count", "sum", direction="higher_is_better"),
+        _metric("meditated", "manual", "bool", "sum", direction="higher_is_better"),
+        _metric("coffee", "manual", "count", "sum", unit="cups", direction="lower_is_better"),
+        _metric("runs", "manual", "count", "sum", direction="higher_is_better"),
         _metric(
             "no-doomscrolling",
-            "habits",
+            "habit",
             "count",
             "sum",
             unit="slips",
             direction="lower_is_better",
         ),
-        _metric("mood", "health", "rating", "mean", direction="higher_is_better"),
+        _metric("mood", "manual", "rating", "mean", direction="higher_is_better"),
         _metric(
             "deep-work",
-            "career",
+            "manual",
             "duration",
             "sum",
             unit="min",
             direction="higher_is_better",
         ),
-        _metric("books", "career", "count", "sum", direction="higher_is_better"),
-        _metric("journal", "career", "text", "last"),
+        _metric("books", "manual", "count", "sum", direction="higher_is_better"),
+        _metric("journal", "journal", "text", "last"),
         _metric(
             "savings",
-            "finance",
+            "manual",
             "quantity",
             "last",
             unit="EUR",
             direction="higher_is_better",
         ),
-        _metric("called-family", "relationships", "bool", "sum", direction="higher_is_better"),
+        _metric("called-family", "manual", "bool", "sum", direction="higher_is_better"),
         _metric(
             "instagram",
             "screen",
@@ -662,13 +673,9 @@ def _duration(
     }
 
 
-def _area(slug: str, name: str, description: str) -> dict[str, Any]:
-    return {"slug": slug, "name": name, "description": description, "archived_at": None}
-
-
 def _metric(
     slug: str,
-    area: str,
+    origin: str,
     value_type: str,
     aggregation: str,
     *,
@@ -678,7 +685,7 @@ def _metric(
 ) -> dict[str, Any]:
     return {
         "slug": slug,
-        "area": area,
+        "origin": origin,
         "name": name if name is not None else slug.replace("-", " ").title(),
         "value_type": value_type,
         "unit": unit,

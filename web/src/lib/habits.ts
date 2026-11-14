@@ -1,4 +1,4 @@
-import type { Area, Habit, HabitKind, HabitStatus, Period, TimeOfDay } from './api'
+import type { Habit, HabitKind, HabitStatus, Period, TimeOfDay } from './api'
 import { formatMinutes } from './format'
 
 export const TIME_OF_DAY_ORDER: TimeOfDay[] = ['morning', 'afternoon', 'evening', 'anytime']
@@ -125,14 +125,4 @@ export function todaySummary(statuses: HabitStatus[]): { due: number; done: numb
     (status) => status.period === 'day' && status.scheduled && !status.excused,
   )
   return { due: due.length, done: due.filter((status) => status.satisfied).length }
-}
-
-/** Areas maintained by Atlas itself, never offered as a home for a habit. */
-export const INTERNAL_AREA_SLUGS = ['habits', 'screen', 'life']
-
-/** Areas a new habit can be filed under: active, user-made, sorted by name. */
-export function habitAreaOptions(areas: Area[]): Area[] {
-  return areas
-    .filter((area) => area.archived_at === null && !INTERNAL_AREA_SLUGS.includes(area.slug))
-    .sort((a, b) => a.name.localeCompare(b.name))
 }

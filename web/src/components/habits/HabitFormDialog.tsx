@@ -10,26 +10,17 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select } from '@/components/ui/select'
 import {
   ApiError,
-  type Area,
   type Comparator,
   createHabit,
   type Habit,
   type HabitKind,
-  listAreas,
   type Period,
   type TimeOfDay,
   updateHabit,
 } from '@/lib/api'
-import {
-  habitAreaOptions,
-  KIND_META,
-  TIME_OF_DAY_LABEL,
-  TIME_OF_DAY_ORDER,
-  WEEKDAY_SHORT,
-} from '@/lib/habits'
+import { KIND_META, TIME_OF_DAY_LABEL, TIME_OF_DAY_ORDER, WEEKDAY_SHORT } from '@/lib/habits'
 import { cn, todayIso } from '@/lib/utils'
 
 type Frequency = 'daily' | 'weekdays' | 'week' | 'month'
@@ -71,8 +62,6 @@ export function HabitFormDialog({
   const [comparator, setComparator] = useState<Comparator>('at_least')
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>('anytime')
   const [startOn, setStartOn] = useState(todayIso())
-  const [area, setArea] = useState('')
-  const [areas, setAreas] = useState<Area[]>([])
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -87,25 +76,9 @@ export function HabitFormDialog({
     setComparator(habit?.comparator ?? 'at_least')
     setTimeOfDay(habit?.time_of_day ?? 'anytime')
     setStartOn(todayIso())
-    setArea('')
     setError(null)
     setPending(false)
   }, [open, habit])
-
-  useEffect(() => {
-    if (!open || editing) return
-    let cancelled = false
-    listAreas()
-      .then((rows) => {
-        if (!cancelled) setAreas(habitAreaOptions(rows))
-      })
-      .catch(() => {
-        if (!cancelled) setAreas([])
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [open, editing])
 
   const needsTarget = kind === 'count' || kind === 'duration' || frequency !== 'daily'
   const showTarget =
@@ -156,7 +129,6 @@ export function HabitFormDialog({
             weekdays: kind === 'quit' ? null : days,
             time_of_day: timeOfDay,
             active_from: startOn,
-            area: area === '' ? null : area,
           })
       onOpenChange(false)
       await onSaved(saved)
@@ -305,24 +277,6 @@ export function HabitFormDialog({
             value={timeOfDay}
             onChange={setTimeOfDay}
           />
-
-          {editing || areas.length === 0 ? null : (
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="habit-area">Area (optional)</Label>
-              <Select
-                id="habit-area"
-                value={area}
-                onChange={(event) => setArea(event.target.value)}
-              >
-                <option value="">None</option>
-                {areas.map((item) => (
-                  <option key={item.slug} value={item.slug}>
-                    {item.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          )}
 
           {editing ? null : (
             <div className="flex flex-col gap-1">

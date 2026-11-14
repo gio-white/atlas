@@ -1,5 +1,5 @@
-import { Suspense } from 'react'
-import { NavLink, Outlet, useSearchParams } from 'react-router-dom'
+import { Suspense, useEffect, useRef } from 'react'
+import { NavLink, Outlet, useLocation, useSearchParams } from 'react-router-dom'
 
 import { PageLoading } from '@/components/PageState'
 import { useShell } from '@/lib/asOf'
@@ -16,12 +16,23 @@ export function SectionLayout({ section }: { section: SectionId }) {
   const on = params.get('on')
   const search = on === null ? '' : new URLSearchParams({ on }).toString()
   const { title, tabs } = SECTIONS[section]
+  const { pathname } = useLocation()
+  const tabsRef = useRef<HTMLElement>(null)
+
+  // On a narrow screen the row scrolls sideways; keep the tab you are on in view.
+  useEffect(() => {
+    void pathname
+    tabsRef.current
+      ?.querySelector('[aria-current="page"]')
+      ?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+  }, [pathname])
 
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-3">
         <h1 className="text-2xl font-semibold tracking-tight text-ink">{title}</h1>
         <nav
+          ref={tabsRef}
           aria-label={title}
           className="-mx-4 flex gap-6 overflow-x-auto border-b border-line px-4 md:mx-0 md:px-0"
         >
@@ -34,7 +45,7 @@ export function SectionLayout({ section }: { section: SectionId }) {
                 end
                 className={({ isActive }) =>
                   cn(
-                    '-mb-px inline-flex min-h-10 shrink-0 items-center gap-2 border-b-2 text-sm font-medium whitespace-nowrap motion-safe:transition-colors motion-safe:duration-200 focus-visible:text-iris focus-visible:outline-none',
+                    '-mb-px inline-flex min-h-10 shrink-0 scroll-mx-4 items-center gap-2 border-b-2 text-sm font-medium whitespace-nowrap motion-safe:transition-colors motion-safe:duration-200 focus-visible:text-iris focus-visible:outline-none',
                     isActive
                       ? 'border-iris text-ink'
                       : 'border-transparent text-muted hover:text-ink',

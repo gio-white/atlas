@@ -20,7 +20,7 @@ Where the data comes from: [data sources](../data-sources/screen-time.md).
 
 A named bucket for screen apps, such as entertainment or learning. The **judgment** (`useful | waste | neutral`) lives here, not on the app. Reclassifying entertainment from waste to useful moves every member app's minutes into a different judgment total on the next read.
 
-Screen taxonomy is a dedicated slice of Atlas. Creating the first category also creates the well-known area `screen` when it is missing. Each app gets a backing duration metric in that area so sessions stay ordinary entries.
+Screen taxonomy is a dedicated slice of Atlas. Each app gets a backing duration metric with the origin `screen` ([trackers and entries](trackers-and-entries.md#data-model)) so sessions stay ordinary entries. Those metrics are not listed in Settings → Metrics, and their entries are the automatic data All entries hides by default.
 
 | Field         | Type            | Notes                                      |
 | ------------- | --------------- | ------------------------------------------ |
@@ -150,8 +150,8 @@ Service functions (in `src/atlas/services/`, each taking an explicit `Session` f
 
 | Function | Role |
 | -------- | ---- |
-| `create_screen_category` / `list_screen_categories` / `get_screen_category` / `update_screen_category` | Screen categories. First create also inserts area `screen` when missing. `update_screen_category` may change name and judgment; a judgment change updates member metrics' `direction`. `archived_at` is honored on list (`include_archived`) and import; there is no archive endpoint. |
-| `create_screen_app` / `list_screen_apps` / `get_screen_app` / `update_screen_app` | Screen apps. Create inserts a duration/`sum`/`min` metric in area `screen` with the same slug and a direction from the category judgment. `update_screen_app` may change name (synced onto the metric) and category (direction follows the new category). `archived_at` is honored on list (`include_archived`) and import; there is no archive endpoint. |
+| `create_screen_category` / `list_screen_categories` / `get_screen_category` / `update_screen_category` | Screen categories. `update_screen_category` may change name and judgment; a judgment change updates member metrics' `direction`. `archived_at` is honored on list (`include_archived`) and import; there is no archive endpoint. |
+| `create_screen_app` / `list_screen_apps` / `get_screen_app` / `update_screen_app` | Screen apps. Create inserts a duration/`sum`/`min` metric with origin `screen` and the same slug and a direction from the category judgment. `update_screen_app` may change name (synced onto the metric) and category (direction follows the new category). `archived_at` is honored on list (`include_archived`) and import; there is no archive endpoint. |
 | `create_screen_budget` / `list_screen_budgets` / `get_screen_budget` / `update_screen_budget` | Screen budgets targeting a judgment or a category. Judgment `target_slug` must be `useful`, `waste`, or `neutral`; category targets must name an existing category. |
 | `create_screen_device` / `list_screen_devices` / `get_screen_device` / `update_screen_device` | Screen devices. `update_screen_device` may change name. `archived_at` is honored on list (`include_archived`) and import; there is no archive endpoint. |
 | `log_screen_session` / `list_screen_sessions` / `get_screen_session` / `update_screen_session` / `delete_screen_session` | Screen sessions. Provide `started_at`+`ended_at` or `minutes`. Interval minutes are derived; a client `minutes` must match within `0.01`. Dual-writes a backing entry. Amend/delete keep the pair in sync. |
@@ -167,9 +167,15 @@ Service functions (in `src/atlas/services/`, each taking an explicit `Session` f
 - **Each day** — daily bars with a minutes y-axis, day labels, and a Good / Neutral / Bad legend when split; a toggle switches between the total and the split.
 - **Categories** — each category has its own colour (`CATEGORY_PALETTE` in `web/src/components/screen/Charts.tsx`, assigned by alphabetical slug and never a good/bad/warn colour, so a colour does not read as a judgment); the legend shows minutes and the judgment.
 - **Apps, devices, hours heatmap, comparison, 8-week trend, insights** — as computed above.
-- **Caps** — read-only status of each cap (`current / target`); with none: "No caps set. Add one under Configure below."
+- **Caps** — read-only status of each cap (`current / target`); with none: "No caps set. Add one in Settings."
 - **Empty state** — with no sessions at all: "No screen time data yet. It will appear here once a data source is connected."
-- **Configure** — a collapsed section at the bottom, below a divider, apart from the display. It holds configuration, not data: `ScreenTimeSettings` (`web/src/components/settings/ScreenTimeSettings.tsx`: Good / Bad / Neutral per category, each app's category, and caps — add, edit name / rule / minutes, End sets `active_to` to as-of and Resume clears it; an end date is inclusive) and `DataSourcesSettings` (`web/src/components/settings/DataSourcesSettings.tsx`: devices). New categories, apps, and devices are added by name; the slug is generated and never shown. Both components load their own data and take an optional `onChanged`, so they can move into a Settings page unchanged.
+- **Setup link** — at the bottom, "Set up apps, categories and caps" goes to Settings → Screen time setup. The Screen time page itself has no configuration controls.
+
+Configuration lives in Settings, apart from the data:
+
+- **Settings → Screen time setup** (`/settings/screen-time`, `ScreenTimeSetupPage`) renders `ScreenTimeSettings` (`web/src/components/settings/ScreenTimeSettings.tsx`: Good / Bad / Neutral per category, each app's category, and caps — add, edit name / rule / minutes, End sets `active_to` to as-of and Resume clears it; an end date is inclusive).
+- **Settings → Devices** (`/settings/devices`, `DevicesPage`) renders `DataSourcesSettings` (`web/src/components/settings/DataSourcesSettings.tsx`: device names).
+- New categories, apps, and devices are added by name; the slug is generated and never shown. Both components load their own data.
 
 The Home Screen Time card is described in [home](home.md).
 
@@ -181,8 +187,8 @@ Route inventory with status: [navigation](../product/navigation.md).
 - `tests/services/test_screen.py`
 - `tests/api/test_screen.py`
 - `web/src/lib/screenManage.test.ts`, `web/src/components/screen/Charts.test.ts`, `web/src/lib/freshness.test.ts`
-- `web/src/pages/displayOnly.test.tsx` (no capture controls, empty state, Configure collapsed then open, distinct category colours)
+- `web/src/pages/displayOnly.test.tsx` (no capture controls or setup controls on the Screen time page, the link to Settings, empty state, distinct category colours; the Screen time setup and Devices pages hold the configuration)
 
 ## Status
 
-Implemented and display-only (Track T3 phase 1, decision [0004](../decisions/0004-device-data-is-display-only.md)). Configuration moves into a Settings page once navigation (T2) lands. The insight text in `src/atlas/domain/screen.py` still says "waste" where the UI says Bad (handed to the polish sweep, T6).
+Implemented and display-only (Track T3 phase 1, decision [0004](../decisions/0004-device-data-is-display-only.md)). Configuration is in Settings → Screen time setup and Settings → Devices (redesign brief, phase 2). The cap form there still labels its choices with the words "Judgment" and "day", which the wording sweep should replace. The insight text in `src/atlas/domain/screen.py` still says "waste" where the UI says Bad (handed to the polish sweep, T6).

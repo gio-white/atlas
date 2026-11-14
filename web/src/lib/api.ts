@@ -7,18 +7,14 @@ export type HabitKind = 'check' | 'count' | 'duration' | 'quit'
 export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'anytime'
 export type Source = 'cli' | 'api' | 'import'
 
-export type Area = {
-  id: number
-  slug: string
-  name: string
-  description: string | null
-  archived_at: string | null
-}
+/** How a metric came to exist. Only `manual` ones are set up by hand; `screen` ones are written by
+ * device data. */
+export type MetricOrigin = 'manual' | 'habit' | 'screen' | 'journal'
 
 export type Metric = {
   id: number
   slug: string
-  area: string
+  origin: MetricOrigin
   name: string
   value_type: ValueType
   unit: string | null
@@ -437,24 +433,6 @@ export type EntertainmentDashboard = {
   library: EntertainmentLibrary
 }
 
-export type MetricSnapshot = {
-  slug: string
-  name: string
-  unit: string | null
-  aggregation: Aggregation
-  latest_on: string | null
-  latest_value: number | null
-}
-
-export type AreaView = {
-  slug: string
-  name: string
-  description: string | null
-  as_of: string
-  metrics: MetricSnapshot[]
-  habits: HabitStatus[]
-}
-
 export type EntryCreate = {
   metric: string
   value?: boolean | number | string | null
@@ -524,18 +502,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T
 }
 
-export function listAreas(includeArchived = false): Promise<Area[]> {
-  return request(`/areas${queryString({ include_archived: includeArchived || undefined })}`)
-}
-
-export function listMetrics(area?: string, includeArchived = false): Promise<Metric[]> {
-  return request(`/metrics${queryString({ area, include_archived: includeArchived || undefined })}`)
+export function listMetrics(includeArchived = false): Promise<Metric[]> {
+  return request(`/metrics${queryString({ include_archived: includeArchived || undefined })}`)
 }
 
 export function listEntries(filters?: {
   metric?: string
-  area?: string
-  exclude_area?: string
+  /** `false` leaves out entries written by device data (screen time) rather than typed. */
+  include_automatic?: boolean
   start_on?: string
   end_on?: string
   limit?: number
@@ -762,10 +736,6 @@ export function logJournal(body: { text: string; occurred_on?: string | null }):
   return request('/journal', { method: 'POST', body: JSON.stringify(body) })
 }
 
-export function getAreaView(slug: string, asOf?: string): Promise<AreaView> {
-  return request(`/views/areas/${encodeURIComponent(slug)}${queryString({ as_of: asOf })}`)
-}
-
 export function setHabitDay(
   slug: string,
   day: string,
@@ -793,31 +763,9 @@ export function deleteEntry(id: number): Promise<void> {
   return request(`/entries/${id}`, { method: 'DELETE' })
 }
 
-export function createArea(body: {
-  slug: string
-  name?: string | null
-  description?: string | null
-}): Promise<Area> {
-  return request('/areas', { method: 'POST', body: JSON.stringify(body) })
-}
-
-export function updateArea(
-  slug: string,
-  body: { name?: string; description?: string | null },
-): Promise<Area> {
-  return request(`/areas/${encodeURIComponent(slug)}`, {
-    method: 'PATCH',
-    body: JSON.stringify(body),
-  })
-}
-
-export function archiveArea(slug: string): Promise<Area> {
-  return request(`/areas/${encodeURIComponent(slug)}/archive`, { method: 'POST' })
-}
-
 export function createMetric(body: {
-  slug: string
-  area: string
+  /** Left out, the slug is made from the name. */
+  slug?: string
   value_type: ValueType
   aggregation: Aggregation
   name?: string | null
@@ -854,7 +802,6 @@ export function createHabit(body: {
   time_of_day?: TimeOfDay
   active_from?: string | null
   active_to?: string | null
-  area?: string | null
 }): Promise<Habit> {
   return request('/habits', { method: 'POST', body: JSON.stringify(body) })
 }

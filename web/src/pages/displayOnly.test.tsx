@@ -12,6 +12,8 @@ import * as api from '@/lib/api'
 import { EntriesPage } from '@/pages/EntriesPage'
 import { SCORE_EXPLANATION, ScreenPage } from '@/pages/ScreenPage'
 import { SleepPage } from '@/pages/SleepPage'
+import { DevicesPage } from '@/pages/settings/DevicesPage'
+import { ScreenTimeSetupPage } from '@/pages/settings/ScreenTimeSetupPage'
 
 vi.mock('@/lib/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api')>()
@@ -186,7 +188,7 @@ describe('Home sleep card', () => {
 })
 
 describe('Screen Time page', () => {
-  it('shows data without capture controls and keeps configuration collapsed', async () => {
+  it('shows data without capture controls and links to its setup in Settings', async () => {
     vi.mocked(api.getScreenDashboard).mockResolvedValue(dashboard())
     renderPage(<ScreenPage />)
 
@@ -197,15 +199,12 @@ describe('Screen Time page', () => {
     expect(screen.queryByRole('button', { name: CAPTURE })).not.toBeInTheDocument()
     expect(document.querySelector('input')).toBeNull()
 
-    const configure = screen.getByRole('button', { name: /Configure/ })
-    expect(configure).toHaveAttribute('aria-expanded', 'false')
-    fireEvent.click(configure)
-    expect(configure).toHaveAttribute('aria-expanded', 'true')
-    const panel = within(document.getElementById('screen-configure-panel') as HTMLElement)
-    expect(await panel.findByRole('heading', { name: 'Categories' })).toBeVisible()
-    expect(await panel.findByRole('heading', { name: 'Apps' })).toBeVisible()
-    expect(await panel.findByRole('heading', { name: 'Caps' })).toBeVisible()
-    expect(await panel.findByRole('heading', { name: 'Devices' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: /Configure/ })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('New category name')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Set up apps, categories and caps' })).toHaveAttribute(
+      'href',
+      '/settings/screen-time',
+    )
   })
 
   it('colours categories apart even when they share a judgment', async () => {
@@ -224,30 +223,48 @@ describe('Screen Time page', () => {
     renderPage(<ScreenPage />)
 
     expect(await screen.findByText('No screen time data yet')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Configure/ })).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: 'Set up apps, categories and caps' }),
+    ).toBeInTheDocument()
   })
 })
 
-describe('History page', () => {
+describe('All entries page', () => {
   it('hides automatic screen data by default and shows it when switched off', async () => {
     renderPage(<EntriesPage />)
 
     const toggle = await screen.findByRole('switch', { name: 'Hide automatic data' })
     expect(toggle).toHaveAttribute('aria-checked', 'true')
     expect(api.listEntries).toHaveBeenLastCalledWith(
-      expect.objectContaining({ exclude_area: 'screen' }),
+      expect.objectContaining({ include_automatic: false }),
     )
 
     fireEvent.click(toggle)
 
     await waitFor(() =>
       expect(api.listEntries).toHaveBeenLastCalledWith(
-        expect.objectContaining({ exclude_area: undefined }),
+        expect.objectContaining({ include_automatic: undefined }),
       ),
     )
     expect(screen.getByRole('switch', { name: 'Hide automatic data' })).toHaveAttribute(
       'aria-checked',
       'false',
     )
+  })
+})
+
+describe('Screen time setup page', () => {
+  it('holds the configuration that left the Screen time page', async () => {
+    renderPage(<ScreenTimeSetupPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Categories' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Apps' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Caps' })).toBeVisible()
+  })
+
+  it('keeps devices on their own page', async () => {
+    renderPage(<DevicesPage />)
+
+    expect(await screen.findByRole('heading', { name: 'Devices' })).toBeVisible()
   })
 })

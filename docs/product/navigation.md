@@ -10,8 +10,8 @@ Page behaviour is described in each feature's doc under [domain/](../domain/) (s
 
 The structure comes from the [redesign brief](../plans/redesign-brief.md) and
 [decision 0007](../decisions/0007-five-destinations-on-a-rail.md). The brief lands in phases;
-this page describes what is built now. **Phase 1 (the shell) is built.** Pages keep their
-earlier content; the notes marked *until phase N* say what is still temporary.
+this page describes what is built now. **Phases 1 (the shell) and 2 (Settings) are built.** Other
+pages keep their earlier content; the notes marked *until phase N* say what is still temporary.
 
 ## Destinations
 
@@ -24,7 +24,7 @@ Five destinations plus Settings. Labels, order, and addresses live in `web/src/l
 | Habits | `/habit` | none | everything under `/habit` |
 | Stats | `/stats` | Sleep · Screen time · Health (This week joins in phase 4) | everything under `/stats` |
 | Library | `/library` | none | everything under `/library` |
-| Settings | `/settings` | Appearance · All entries · Catalog (*until phase 2*, when Screen time setup, Devices, and Metrics replace Catalog) | everything under `/settings`, `/catalog`, `/area` |
+| Settings | `/settings` | Appearance · Screen time setup · Devices · Metrics · All entries | everything under `/settings` |
 
 Habits keeps the address `/habit`: `/habits` is the API's list of habits.
 
@@ -78,15 +78,16 @@ Habits keeps the address `/habit`: `/habits` is the API's list of habits.
 | `/habit` | Today checklist by time of day with one-tap check-ins, this week / this month progress, 7/30-day completion, week/month overview grid | implemented |
 | `/habit/:slug` | Habit detail: check-in, streaks, adherence, this week, recent check-ins (slips for quit habits), pauses & skips; edit, archive, delete | implemented |
 | `/stats/sleep` | Stats → Sleep, display-only: Week / Month / 90 days range, time asleep trend, bedtime and wake consistency, stage split, read-only nights list with No data gaps | implemented |
-| `/stats/screen-time` | Stats → Screen time, display-only period dashboard: totals, score, charts, heatmap, insights, cap status; collapsed Configure section for category judgment, app category, caps, and devices (*until phase 2*) | implemented |
+| `/stats/screen-time` | Stats → Screen time, display-only period dashboard: totals, score, charts, heatmap, insights, cap status; a link to its setup in Settings | implemented |
 | `/stats/health` | Stats → Health: an empty state, "No health data yet / This fills in once a device is connected." Health only ever shows device data | implemented |
 | `/library` | Library: category icons, add from link, Everything / Insights dock ([entertainment](../domain/entertainment.md#screens)) | implemented |
 | `/library/:category` | Library table for one category (or `all`) with filter/sort, add/edit dialog | implemented |
 | `/library/insights` | Period dashboard: finished by kind and tag, recently finished | implemented |
 | `/settings/appearance` | Settings → Appearance: theme (dark or light) and your name, both kept on this device | implemented |
 | `/settings/entries` | Settings → All entries: every entry by day with metric and date filters and Hide automatic data (on by default); edit value, day, note; delete ([history](../domain/history.md)) | implemented |
-| `/catalog` | Settings → Catalog (*until phase 2*): create and edit areas, metrics, and habits | implemented |
-| `/area/:slug` | Area dashboard, linked from Catalog (*until phase 2*) | implemented |
+| `/settings/screen-time` | Settings → Screen time setup: Good / Bad / Neutral per category, each app's category, daily caps ([screen time](../domain/screen-time.md#screens)) | implemented |
+| `/settings/devices` | Settings → Devices: device names | implemented |
+| `/settings/metrics` | Settings → Metrics: list, create, edit, and archive the metrics you manage, in plain words ([trackers and entries](../domain/trackers-and-entries.md#screens)) | implemented |
 
 ## Redirects
 
@@ -108,6 +109,8 @@ query string (so the As of date and filters survive), and the hash.
 | `/adventure` | `/` (Adventure is removed) |
 | `/entertainment/*` | `/library/*` (the home, a category, and Insights) |
 | `/history` | `/settings/entries` |
+| `/catalog` | `/settings/metrics` (Catalog is removed) |
+| `/area/:slug` | `/settings/metrics` (areas are removed) |
 
 Any other unknown address goes to Home.
 
@@ -118,8 +121,8 @@ Two labels and addresses already use their final names while the API and code ke
 `GET /views/calendar`, code `CalendarPage`). Phase 5 renames both everywhere
 ([glossary](glossary.md)).
 
-## Catalog
+## What was removed
 
-*Until phase 2.* Catalog creates and edits areas, metrics, and habits. Catalog slugs link to
-`/area/:slug` and `/habit/:slug`, preserving `?on=`. Quests are not in Catalog; they are created
-on the quest pages.
+Catalog and area pages are gone ([decision 0008](../decisions/0008-areas-removed-metrics-carry-an-origin.md)).
+Metrics are managed in Settings → Metrics, habits are created and edited on the Habits pages, and
+quests on the quest pages. Settings shows only sections that work; there are no placeholders.

@@ -27,7 +27,7 @@ function metric(overrides: Partial<Metric> = {}): Metric {
   return {
     id: 1,
     slug: 'pushups',
-    area: 'health',
+    origin: 'manual',
     name: 'Pushups',
     value_type: 'count',
     unit: 'reps',

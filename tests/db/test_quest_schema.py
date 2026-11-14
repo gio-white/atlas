@@ -49,7 +49,7 @@ def _add(session: Session, row):
 
 def test_schema_has_the_seven_quest_tables(engine):
     assert set(inspect(engine).get_table_names()) >= QUEST_TABLES
-    assert CURRENT_SCHEMA_VERSION == 11
+    assert CURRENT_SCHEMA_VERSION >= 11
 
 
 def test_every_quest_foreign_key_is_restrict_and_indexed(engine):

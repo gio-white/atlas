@@ -16,8 +16,7 @@ router = APIRouter(prefix="/entries", tags=["entries"])
 def get_entries(
     session: SessionDep,
     metric: str | None = None,
-    area: str | None = None,
-    exclude_area: str | None = None,
+    include_automatic: bool = True,
     start_on: date | None = None,
     end_on: date | None = None,
     limit: Annotated[int, Query(ge=1, le=1000)] = 200,
@@ -25,8 +24,7 @@ def get_entries(
     rows = list_entries(
         session,
         metric_slug=metric,
-        area_slug=area,
-        exclude_area_slug=exclude_area,
+        include_automatic=include_automatic,
         start_on=start_on,
         end_on=end_on,
         limit=limit,
