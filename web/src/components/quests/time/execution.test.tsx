@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { QuestTask, ScheduledBlock, TimeBlock, TodayQuests } from '@/lib/api'
 import * as api from '@/lib/api'
 import { localToUtc, OUTCOME_LEARNED_KEY, utcToLocal } from '@/lib/timeBlocks'
-import { TodayPage } from '@/pages/quests/TodayPage'
+import { HomePage } from '@/pages/HomePage'
 
 import { TaskTimeBlocks } from './TaskTimeBlocks'
 import { TimeBlockDialog } from './TimeBlockDialog'
@@ -22,6 +22,15 @@ vi.mock('@/lib/api', async (importOriginal) => {
     getTodayQuests: vi.fn(),
     completeTimeBlock: vi.fn(async () => ({})),
     cancelTimeBlock: vi.fn(async () => ({})),
+    missTimeBlock: vi.fn(async () => ({})),
+    // Home's other blocks load on their own; here they fail quietly and show as unavailable.
+    getHabitsBoard: vi.fn(async () => Promise.reject(new Error('not in this test'))),
+    getJournal: vi.fn(async () => Promise.reject(new Error('not in this test'))),
+    getWeekSoFar: vi.fn(async () => Promise.reject(new Error('not in this test'))),
+    getMainQuests: vi.fn(async () => Promise.reject(new Error('not in this test'))),
+    getSleepView: vi.fn(async () => Promise.reject(new Error('not in this test'))),
+    getScreenDashboard: vi.fn(async () => Promise.reject(new Error('not in this test'))),
+    listEntertainmentTitles: vi.fn(async () => Promise.reject(new Error('not in this test'))),
     createTimeBlock: vi.fn(async () => ({})),
     updateTimeBlock: vi.fn(async () => ({})),
     deleteTimeBlock: vi.fn(async () => undefined),
@@ -89,7 +98,7 @@ function today(blocks: ScheduledBlock[], extra: Partial<TodayQuests> = {}): Toda
 
 function renderInShell(node: ReactNode) {
   return render(
-    <MemoryRouter initialEntries={['/today']}>
+    <MemoryRouter initialEntries={['/']}>
       <Routes>
         <Route
           element={<Outlet context={{ asOf: TODAY, displayName: 'Test', openLog: () => {} }} />}
@@ -107,13 +116,13 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-describe('Today', () => {
+describe('Home: today’s sessions', () => {
   beforeEach(() => {
     vi.mocked(api.getTodayQuests).mockResolvedValue(today([{ block: block(), task: task() }]))
   })
 
   it('shows the session with its time range and parent path', async () => {
-    renderInShell(<TodayPage />)
+    renderInShell(<HomePage />)
     const row = await screen.findByTestId('session-11')
     expect(within(row).getByText('Write a CLI that parses CSV files')).toBeInTheDocument()
     expect(
@@ -124,7 +133,7 @@ describe('Today', () => {
   })
 
   it('Session done completes the block and never the task', async () => {
-    renderInShell(<TodayPage />)
+    renderInShell(<HomePage />)
     fireEvent.click(
       await screen.findByRole('button', {
         name: 'Session done: Write a CLI that parses CSV files',
@@ -136,7 +145,7 @@ describe('Today', () => {
   })
 
   it('Outcome achieved asks the first time, then completes the task only', async () => {
-    renderInShell(<TodayPage />)
+    renderInShell(<HomePage />)
     fireEvent.click(
       await screen.findByRole('button', {
         name: 'Outcome achieved: Write a CLI that parses CSV files',
@@ -155,7 +164,7 @@ describe('Today', () => {
 
   it('Outcome achieved skips the confirmation once learned', async () => {
     window.localStorage.setItem(OUTCOME_LEARNED_KEY, '1')
-    renderInShell(<TodayPage />)
+    renderInShell(<HomePage />)
     fireEvent.click(
       await screen.findByRole('button', {
         name: 'Outcome achieved: Write a CLI that parses CSV files',
@@ -167,7 +176,7 @@ describe('Today', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('lets you resolve an unconfirmed session as done or cancelled', async () => {
+  it('lets you resolve a session to confirm as done or as didn’t happen', async () => {
     const past = block({
       id: 3,
       start_at: localToUtc('2026-11-07', '18:00'),
@@ -177,15 +186,16 @@ describe('Today', () => {
     vi.mocked(api.getTodayQuests).mockResolvedValue(
       today([], { unconfirmed: [{ block: past, task: task() }] }),
     )
-    renderInShell(<TodayPage />)
-    const section = (await screen.findByRole('heading', { name: /Unconfirmed/ })).closest(
+    renderInShell(<HomePage />)
+    const section = (await screen.findByRole('heading', { name: 'To confirm' })).closest(
       'section',
     ) as HTMLElement
     expect(
       within(section).queryByRole('button', { name: /Outcome achieved/ }),
     ).not.toBeInTheDocument()
     fireEvent.click(within(section).getByRole('button', { name: /Didn’t happen/ }))
-    await waitFor(() => expect(api.cancelTimeBlock).toHaveBeenCalledWith(3))
+    await waitFor(() => expect(api.missTimeBlock).toHaveBeenCalledWith(3))
+    expect(api.cancelTimeBlock).not.toHaveBeenCalled()
     fireEvent.click(within(section).getByRole('button', { name: /Session done/ }))
     await waitFor(() => expect(api.completeTimeBlock).toHaveBeenCalledWith(3))
     expect(api.updateQuestTask).not.toHaveBeenCalled()

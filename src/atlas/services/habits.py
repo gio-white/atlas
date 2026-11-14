@@ -522,6 +522,22 @@ def _status_for(session: Session, habit: Habit, metric: Metric, as_of: date) -> 
     )
 
 
+def pooled_adherence_counts(session: Session, start: date, as_of: date) -> tuple[int, int]:
+    """Satisfied and judged buckets in [start, as_of], pooled over every active habit.
+
+    The same rule as each habit's adherence: only complete, scheduled, non-excused buckets
+    count, so today (for daily habits) and this week (for weekly ones) are not judged yet.
+    """
+    satisfied = 0
+    judged = 0
+    for habit, metric in active_habits(session):
+        views = [entry_view(entry) for entry in entries_for_metric(session, metric.id)]
+        done, counted = adherence_counts(spec_for(session, habit, metric), views, start, as_of)
+        satisfied += done
+        judged += counted
+    return satisfied, judged
+
+
 def _pooled_completion(
     session: Session,
     pairs: list[tuple[Habit, Metric]],

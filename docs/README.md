@@ -49,6 +49,7 @@ blocked commit should review, so keep it a plain two-column table.
 | `src/atlas/services/habits.py` | `docs/domain/habits.md` |
 | `src/atlas/services/quests.py` | `docs/domain/quests.md` |
 | `src/atlas/services/time_blocks.py` | `docs/domain/time-blocks.md` |
+| `src/atlas/services/week.py` | `docs/domain/home.md` |
 | `src/atlas/services/quest_views.py` | `docs/domain/quests.md`, `docs/domain/time-blocks.md` |
 | `src/atlas/services/journal.py` | `docs/domain/journal.md` |
 | `src/atlas/services/life.py` | `docs/domain/journal.md` |
@@ -85,7 +86,6 @@ blocked commit should review, so keep it a plain two-column table.
 | `web/src/components/home/*` | `docs/domain/home.md` |
 | `web/src/pages/Habit*.tsx` | `docs/domain/habits.md` |
 | `web/src/components/habits/*` | `docs/domain/habits.md` |
-| `web/src/pages/quests/TodayPage.tsx` | `docs/domain/time-blocks.md`, `docs/product/navigation.md` |
 | `web/src/pages/quests/CalendarPage.tsx` | `docs/domain/time-blocks.md`, `docs/product/navigation.md` |
 | `web/src/pages/quests/*` | `docs/domain/quests.md`, `docs/product/navigation.md` |
 | `web/src/components/quests/time/*` | `docs/domain/time-blocks.md` |

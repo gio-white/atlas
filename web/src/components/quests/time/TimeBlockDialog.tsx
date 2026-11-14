@@ -18,6 +18,7 @@ import {
   createTimeBlock,
   deleteTimeBlock,
   listQuestTasks,
+  missTimeBlock,
   type QuestTask,
   type TimeBlock,
   updateTimeBlock,
@@ -26,6 +27,7 @@ import {
   addMinutesToTime,
   BLOCK_STATUS_LABELS,
   formatDuration,
+  hasStarted,
   inputMinutes,
   localToUtc,
   nextHalfHour,
@@ -230,18 +232,31 @@ function TimeBlockForm({ onOpenChange, block, task, initial, onSaved }: TimeBloc
                   <CalendarCheck className="size-4" aria-hidden />
                   Session done
                 </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={saving}
-                  onClick={() =>
-                    run(() => cancelTimeBlock(block.id), 'Couldn’t cancel the session.')
-                  }
-                >
-                  <Ban className="size-4" aria-hidden />
-                  Cancel session
-                </Button>
+                {hasStarted(block) ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={saving}
+                    onClick={() => run(() => missTimeBlock(block.id), 'Couldn’t mark the session.')}
+                  >
+                    <Ban className="size-4" aria-hidden />
+                    Didn’t happen
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={saving}
+                    onClick={() =>
+                      run(() => cancelTimeBlock(block.id), 'Couldn’t cancel the session.')
+                    }
+                  >
+                    <Ban className="size-4" aria-hidden />
+                    Cancel session
+                  </Button>
+                )}
               </>
             )}
             {confirmDelete ? (

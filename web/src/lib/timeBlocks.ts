@@ -86,6 +86,7 @@ export const BLOCK_STATUS_LABELS: Record<TimeBlockStatus, string> = {
   scheduled: 'Planned',
   completed: 'Session done',
   cancelled: 'Cancelled',
+  missed: 'Didn’t happen',
 }
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
@@ -222,4 +223,12 @@ function safeStorage(): Storage | null {
   } catch {
     return null
   }
+}
+
+/**
+ * Whether a session's start has passed. A session that has started is answered with "Didn't
+ * happen" (it counts as not kept); one still ahead is called off with "Cancel".
+ */
+export function hasStarted(block: { start_at: string }, now: Date = new Date()): boolean {
+  return new Date(block.start_at).getTime() <= now.getTime()
 }

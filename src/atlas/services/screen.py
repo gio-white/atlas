@@ -71,6 +71,8 @@ from atlas.services.slugs import display_name, normalize_slug
 from atlas.settings import load_settings
 
 _UNSET = object()
+TOTAL_TARGET_SLUG = "all"
+"""The `target_slug` of a cap on all screen time."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -309,7 +311,7 @@ def create_screen_budget(
     slug: str,
     *,
     target_kind: ScreenBudgetTargetKind,
-    target_slug: str,
+    target_slug: str = TOTAL_TARGET_SLUG,
     period: Period,
     target_value: float,
     comparator: Comparator,
@@ -750,6 +752,8 @@ def _validate_budget_target(
     target_kind: ScreenBudgetTargetKind,
     target_slug: str,
 ) -> str:
+    if target_kind is ScreenBudgetTargetKind.TOTAL:
+        return TOTAL_TARGET_SLUG
     if target_kind is ScreenBudgetTargetKind.JUDGMENT:
         try:
             return str(ScreenJudgment(target_slug))

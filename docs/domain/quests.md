@@ -256,7 +256,7 @@ completing an ineligible item without `override` → 409. Bad shapes (an `estima
 | `GET` | `/views/side-quests/{id}` | One side quest's tree: chapters → tasks, and direct tasks | implemented |
 | `GET` | `/views/inbox` | Inbox tasks, newest first, and `count` | implemented |
 
-The views take `include_archived` (default false). Time blocks, Today, and Calendar are in
+The views take `include_archived` (default false). Time blocks, Today (on Home), and Plan are in
 [time blocks](time-blocks.md#api).
 
 **Response shapes.** Every container carries its stored fields plus the computed state:

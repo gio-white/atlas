@@ -1,54 +1,84 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 
-import { HabitsWeekCard } from '@/components/home/HomeCards'
-import { ScreenTimeCard } from '@/components/home/ScreenTimeCard'
-import { SleepCard } from '@/components/home/SleepCard'
-import { TodaysQuestsCard } from '@/components/home/TodaysQuestsCard'
-import { PageLoading } from '@/components/PageState'
+import { HabitsTodayBlock } from '@/components/home/HabitsTodayBlock'
+import { NoteBlock } from '@/components/home/NoteBlock'
 import {
-  getHabitsCalendar,
+  DueTodayBlock,
+  ToConfirmBlock,
+  TodayBlock,
+  UpNextBlock,
+} from '@/components/home/QuestBlocks'
+import {
+  InProgressBlock,
+  LastNightBlock,
+  MainQuestsBlock,
+  ScreenTodayBlock,
+  WeekSoFarBlock,
+} from '@/components/home/StatusBlocks'
+import { PageError, PageLoading } from '@/components/PageState'
+import { type DialogTask, TimeBlockDialog } from '@/components/quests/time/TimeBlockDialog'
+import { useSessionActions } from '@/components/quests/time/useSessionActions'
+import {
+  type EntertainmentTitle,
+  getHabitsBoard,
+  getJournal,
+  getMainQuests,
   getScreenDashboard,
   getSleepView,
   getTodayQuests,
-  type HabitsCalendar,
-  listMetrics,
-  type Metric,
+  getWeekSoFar,
+  type HabitsBoard,
+  type JournalDay,
+  listEntertainmentTitles,
+  type MainQuests,
   type ScreenDashboard,
   type SleepView,
   type TodayQuests,
+  type WeekSoFar,
 } from '@/lib/api'
 import { useShell } from '@/lib/asOf'
-import { longDateLabel } from '@/lib/dates'
 import { greetingForHour } from '@/lib/greeting'
 
-type HomeData = {
+/** Every source Home reads. A source that fails is null, and only its blocks say so. */
+export type HomeData = {
+  today: TodayQuests | null
+  habits: HabitsBoard | null
+  journal: JournalDay | null
+  week: WeekSoFar | null
+  quests: MainQuests | null
   sleep: SleepView | null
-  screenDay: ScreenDashboard | null
-  screenWeek: ScreenDashboard | null
-  habits: HabitsCalendar | null
-  quests: TodayQuests | null
-  metrics: Metric[]
+  screen: ScreenDashboard | null
+  reading: EntertainmentTitle[] | null
 }
 
-async function loadHome(asOf: string): Promise<HomeData> {
-  const [sleep, screenDay, screenWeek, habits, metrics, quests] = await Promise.all([
+export async function loadHome(asOf: string): Promise<HomeData> {
+  const [today, habits, journal, week, quests, sleep, screen, reading] = await Promise.all([
+    getTodayQuests(asOf).catch(() => null),
+    getHabitsBoard(asOf).catch(() => null),
+    getJournal(asOf).catch(() => null),
+    getWeekSoFar(asOf).catch(() => null),
+    getMainQuests().catch(() => null),
     getSleepView(asOf).catch(() => null),
     getScreenDashboard('day', asOf).catch(() => null),
-    getScreenDashboard('week', asOf).catch(() => null),
-    getHabitsCalendar('week', asOf).catch(() => null),
-    listMetrics().catch(() => []),
-    getTodayQuests(asOf).catch(() => null),
+    listEntertainmentTitles({ status: 'in_progress' }).catch(() => null),
   ])
-  return { sleep, screenDay, screenWeek, habits, metrics, quests }
+  return { today, habits, journal, week, quests, sleep, screen, reading }
 }
 
+/**
+ * Home: the single daily entry point. Left, what to do today; right, where you stand, each
+ * block a doorway into its section. On narrow screens the two columns become one, in the order
+ * of the redesign brief: the `order-*` classes only apply there, because each column is
+ * `display: contents` until `lg`, so its blocks join one flex list.
+ */
 export function HomePage() {
   const { asOf, displayName } = useShell()
   const [params] = useSearchParams()
   const on = params.get('on')
   const search = on === null ? '' : new URLSearchParams({ on }).toString()
   const [data, setData] = useState<HomeData | null>(null)
+  const [scheduling, setScheduling] = useState<{ task: DialogTask | null } | null>(null)
   const greeting = greetingForHour(new Date().getHours())
 
   const refresh = useCallback(async () => {
@@ -65,45 +95,93 @@ export function HomePage() {
     }
   }, [asOf])
 
+  const { actions, status, error, dialogs } = useSessionActions(refresh)
+
   if (data === null) return <PageLoading />
+
+  const schedule = (task: DialogTask | null) => setScheduling({ task })
 
   return (
     <div className="flex flex-col gap-5">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Good {greeting}, {displayName}
-          </h1>
-          <p className="mt-1 text-sm text-muted">{longDateLabel(asOf)}</p>
+      <h1 className="text-2xl font-semibold tracking-tight text-ink">
+        Good {greeting}, {displayName}
+      </h1>
+
+      <div aria-live="polite" className="empty:hidden">
+        {status !== null && (
+          <p className="rounded-xl border border-good/30 bg-good/10 px-4 py-2 text-sm text-good">
+            {status}
+          </p>
+        )}
+      </div>
+      {error !== null && <PageError message={error} />}
+
+      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] lg:items-start">
+        <div className="contents lg:flex lg:flex-col lg:gap-5">
+          <ToConfirmBlock
+            today={data.today}
+            search={search}
+            actions={actions}
+            className="order-1 lg:order-none"
+          />
+          <TodayBlock
+            today={data.today}
+            search={search}
+            actions={actions}
+            onPlan={() => schedule(null)}
+            className="order-2 lg:order-none"
+          />
+          <DueTodayBlock
+            today={data.today}
+            search={search}
+            onSchedule={schedule}
+            className="order-3 lg:order-none"
+          />
+          <UpNextBlock
+            today={data.today}
+            search={search}
+            onSchedule={schedule}
+            className="order-5 lg:order-none"
+          />
+          <HabitsTodayBlock
+            board={data.habits}
+            asOf={asOf}
+            search={search}
+            onChanged={refresh}
+            className="order-4 lg:order-none"
+          />
+          <NoteBlock
+            journal={data.journal}
+            asOf={asOf}
+            search={search}
+            onSaved={refresh}
+            className="order-6 lg:order-none"
+          />
         </div>
-        {/* Journal has no place on the rail; this link stands in until Home holds the note. */}
-        <Link
-          to={{ pathname: '/journal', search }}
-          className="text-sm font-medium text-iris hover:underline"
-        >
-          Journal
-        </Link>
-      </header>
-      <section
-        aria-label="Overview"
-        className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]"
-      >
-        <SleepCard view={data.sleep} search={search} />
-        <ScreenTimeCard day={data.screenDay} week={data.screenWeek} search={search} />
-      </section>
-      <section
-        aria-label="Today"
-        className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]"
-      >
-        <TodaysQuestsCard today={data.quests} search={search} onChanged={refresh} />
-        <HabitsWeekCard
-          calendar={data.habits}
-          metrics={data.metrics}
-          asOf={asOf}
-          search={search}
-          onChanged={refresh}
-        />
-      </section>
+        <div className="contents lg:flex lg:flex-col lg:gap-5">
+          <WeekSoFarBlock week={data.week} search={search} className="order-7 lg:order-none" />
+          <MainQuestsBlock quests={data.quests} search={search} className="order-8 lg:order-none" />
+          <LastNightBlock sleep={data.sleep} search={search} className="order-9 lg:order-none" />
+          <ScreenTodayBlock
+            screen={data.screen}
+            search={search}
+            className="order-10 lg:order-none"
+          />
+          <InProgressBlock
+            titles={data.reading}
+            search={search}
+            className="order-11 lg:order-none"
+          />
+        </div>
+      </div>
+
+      {dialogs}
+      <TimeBlockDialog
+        open={scheduling !== null}
+        onOpenChange={(open) => !open && setScheduling(null)}
+        task={scheduling?.task}
+        onSaved={refresh}
+      />
     </div>
   )
 }

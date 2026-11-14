@@ -13,6 +13,7 @@ from atlas.domain.quests import (
     chapter_state,
     check_block_window,
     check_can_complete,
+    check_can_miss,
     check_can_schedule,
     check_parent,
     complete_block,
@@ -25,6 +26,7 @@ from atlas.domain.quests import (
     overlapping_ids,
     planned_minutes,
     progress,
+    sessions_kept,
     task_counts,
     transition_task,
 )
@@ -431,3 +433,43 @@ def test_overlapping_blocks_are_marked():
     c = block(NOW + timedelta(hours=2), 30)
     d = block(NOW + timedelta(minutes=10), 10, TimeBlockStatus.CANCELLED)
     assert overlapping_ids([a, b, c, d]) == {a.id, b.id}
+
+
+def test_missed_blocks_hold_no_time():
+    goal = node(
+        QuestKind.GOAL,
+        task(blocks=(block(NOW, 60), block(NOW, 30, TimeBlockStatus.MISSED))),
+    )
+    assert planned_minutes(goal) == 60
+    a = block(NOW, 60)
+    missed = block(NOW + timedelta(minutes=30), 60, TimeBlockStatus.MISSED)
+    assert overlapping_ids([a, missed]) == frozenset()
+
+
+def test_only_a_planned_session_that_has_started_can_be_missed():
+    check_can_miss(block(NOW - timedelta(hours=2)), NOW)
+    check_can_miss(block(NOW - timedelta(minutes=10)), NOW)
+    with pytest.raises(QuestRuleError, match="not started"):
+        check_can_miss(block(NOW + timedelta(minutes=1)), NOW)
+    for status in (TimeBlockStatus.COMPLETED, TimeBlockStatus.CANCELLED, TimeBlockStatus.MISSED):
+        with pytest.raises(QuestRuleError, match="only a planned session"):
+            check_can_miss(block(NOW - timedelta(hours=2), status=status), NOW)
+
+
+def test_sessions_kept_counts_done_out_of_sessions_due_an_answer():
+    week_start = NOW - timedelta(days=3)
+    week_end = NOW + timedelta(hours=12)
+    blocks = [
+        block(NOW - timedelta(days=2), status=TimeBlockStatus.COMPLETED),
+        block(NOW - timedelta(days=1), status=TimeBlockStatus.COMPLETED),
+        block(NOW - timedelta(days=1, hours=3), status=TimeBlockStatus.MISSED),
+        block(NOW - timedelta(hours=3)),  # unconfirmed: ended, never answered
+        block(NOW - timedelta(hours=5), status=TimeBlockStatus.CANCELLED),
+        block(NOW - timedelta(minutes=30)),  # still running
+        block(NOW + timedelta(hours=2)),  # later today
+        block(NOW + timedelta(hours=1), status=TimeBlockStatus.COMPLETED),  # done early
+        block(NOW - timedelta(days=4), status=TimeBlockStatus.COMPLETED),  # last week
+    ]
+    result = sessions_kept(blocks, week_start, week_end, NOW)
+    assert (result.kept, result.total) == (3, 5)
+    assert sessions_kept([], week_start, week_end, NOW).total == 0

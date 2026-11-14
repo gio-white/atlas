@@ -10,7 +10,7 @@ Page behaviour is described in each feature's doc under [domain/](../domain/) (s
 
 The structure comes from the [redesign brief](../plans/redesign-brief.md) and
 [decision 0007](../decisions/0007-five-destinations-on-a-rail.md). The brief lands in phases;
-this page describes what is built now. **Phases 1 (the shell) and 2 (Settings) are built.** Other
+this page describes what is built now. **Phases 1 (the shell), 2 (Settings), and 3 (Home) are built.** Other
 pages keep their earlier content; the notes marked *until phase N* say what is still temporary.
 
 ## Destinations
@@ -19,7 +19,7 @@ Five destinations plus Settings. Labels, order, and addresses live in `web/src/l
 
 | Destination | Address | Tabs inside | Marked active on |
 | ----------- | ------- | ----------- | ---------------- |
-| Home | `/` | none | `/`, and `/today` and `/journal` (reached from Home *until phase 3*) |
+| Home | `/` | none | `/`, and `/journal` (Earlier notes, reached from Home) |
 | Quests | `/quests` | Main quests · Side quests · Inbox · Plan | everything under `/quests` |
 | Habits | `/habit` | none | everything under `/habit` |
 | Stats | `/stats` | Sleep · Screen time · Health (This week joins in phase 4) | everything under `/stats` |
@@ -65,9 +65,8 @@ Habits keeps the address `/habit`: `/habits` is the API's list of habits.
 
 | Path | Page | Status |
 | ---- | ---- | ------ |
-| `/` | Home: Sleep and Screen Time summary cards, then Today's quests and the weekly Habits confirm grid; a Journal link *until phase 3* ([home](../domain/home.md)) | implemented |
-| `/today` | Timeline of today's sessions with Session done and, separately, Outcome achieved; unconfirmed sessions to resolve; due today; up next; Plan a session ([time blocks](../domain/time-blocks.md#screens)). Reached from Home's Today's quests card; merges into Home in phase 3 | implemented |
-| `/journal` | Today's journal (write / edit), earlier entries. Reached from a link on Home; becomes "Earlier notes" in phase 3 | implemented |
+| `/` | Home: left, To confirm, Today (sessions with a Now line), Due today, Up next, Habits (today's, one tap), Note for today; right, This week so far, Main quests, Last night, Screen time today, In progress ([home](../domain/home.md)) | implemented |
+| `/journal` | Earlier notes: the journal notes before today, newest first, reached from Home's Note for today ([journal](../domain/journal.md#screens)) | implemented |
 | `/quests` | Quests → Main quests: each ambition with its goal cards (ring, status, date, counts, next action) and direct tasks, ambitions without goals included, then independent goals; new ambition and new goal | implemented |
 | `/quests/side-quests` | Quests → Side quests: side quest cards with progress and standalone tasks; new side quest | implemented |
 | `/quests/inbox` | Quests → Inbox: always-focused capture (Enter adds a title); each item can be edited, organized into any ambition, goal, milestone, chapter, or side quest (search picker), made standalone, turned into a new item, or archived ([quests](../domain/quests.md#screens)) | implemented |
@@ -109,6 +108,7 @@ query string (so the As of date and filters survive), and the hash.
 | `/adventure` | `/` (Adventure is removed) |
 | `/entertainment/*` | `/library/*` (the home, a category, and Insights) |
 | `/history` | `/settings/entries` |
+| `/today` | `/` (the quest Today page merged into Home) |
 | `/catalog` | `/settings/metrics` (Catalog is removed) |
 | `/area/:slug` | `/settings/metrics` (areas are removed) |
 

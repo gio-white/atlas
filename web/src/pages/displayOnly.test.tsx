@@ -6,7 +6,6 @@ import type { ReactNode } from 'react'
 import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { SleepCard } from '@/components/home/SleepCard'
 import type { ScreenDashboard, SleepNight, SleepView } from '@/lib/api'
 import * as api from '@/lib/api'
 import { EntriesPage } from '@/pages/EntriesPage'
@@ -166,23 +165,6 @@ describe('Sleep page', () => {
     expect(await screen.findByText('No sleep data yet')).toBeInTheDocument()
     expect(
       screen.getByText('It will appear here once a data source is connected.'),
-    ).toBeInTheDocument()
-  })
-})
-
-describe('Home sleep card', () => {
-  it('has no way to log a night', () => {
-    renderPage(<SleepCard view={sleepView([night('2026-08-13')], '2026-08-13T08:00:00Z')} />)
-
-    expect(screen.queryByRole('button', { name: CAPTURE })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'View all' })).toHaveAttribute('href', '/stats/sleep')
-  })
-
-  it('shows the empty message without data', () => {
-    renderPage(<SleepCard view={sleepView([null], null)} />)
-
-    expect(
-      screen.getByText('No sleep data yet. It will appear here once a data source is connected.'),
     ).toBeInTheDocument()
   })
 })

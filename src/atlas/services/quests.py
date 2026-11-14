@@ -22,6 +22,7 @@ from atlas.domain import (
     TimeBlockStatus,
 )
 from atlas.domain.quests import (
+    TAKES_NO_TIME,
     BlockView,
     NeedsOverrideError,
     ParentRef,
@@ -294,9 +295,7 @@ class QuestIndex:
             created_at=as_utc(row.created_at),
             updated_at=as_utc(row.updated_at),
             planned_minutes=sum(
-                block_minutes(block)
-                for block in node.blocks
-                if block.status is not TimeBlockStatus.CANCELLED
+                block_minutes(block) for block in node.blocks if block.status not in TAKES_NO_TIME
             ),
             block_count=len(rows),
             blocks=[block_item(block, now) for block in rows] if with_blocks else [],

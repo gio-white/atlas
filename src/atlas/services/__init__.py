@@ -107,8 +107,11 @@ from atlas.services.views import (
     WeekHabit,
     habit_calendar,
 )
+from atlas.services.week import WeekSoFar, week_so_far
 
 __all__ = [
+    "WeekSoFar",
+    "week_so_far",
     "AlreadyExistsError",
     "ConflictError",
     "HabitStatus",

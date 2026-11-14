@@ -53,7 +53,6 @@ describe('destinations', () => {
 describe('activeDestination', () => {
   it('marks Home only for Home and the pages reached from it', () => {
     expect(activeDestination('/')).toBe('home')
-    expect(activeDestination('/today')).toBe('home')
     expect(activeDestination('/journal')).toBe('home')
     expect(activeDestination('/nowhere')).toBe('home')
   })

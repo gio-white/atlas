@@ -14,6 +14,7 @@ from atlas.services.time_blocks import (
     delete_time_block,
     get_time_block,
     list_time_blocks,
+    miss_time_block,
     update_time_block,
 )
 
@@ -155,3 +156,25 @@ def test_calendar_view(session):
     assert [item.block.id for item in view.blocks] == [inside.id, overlapping.id]
     assert all(item.block.overlaps for item in view.blocks)
     assert view.blocks[0].task.title == "Study"
+
+
+def test_a_session_that_did_not_happen_is_kept_apart_from_a_cancelled_one(session):
+    task = _task(session)
+    past = _block(session, task.id, NOW - 3 * HOUR)
+    later = _block(session, task.id, NOW + 3 * HOUR)
+
+    missed = miss_time_block(session, past.id, now=NOW)
+
+    assert missed.status is TimeBlockStatus.MISSED
+    assert missed.unconfirmed is False
+    assert get_task(session, task.id, now=NOW).status is TaskStatus.TODO
+    with pytest.raises(ValidationError, match="not started"):
+        miss_time_block(session, later.id, now=NOW)
+    with pytest.raises(ValidationError, match="only a planned session"):
+        miss_time_block(session, past.id, now=NOW)
+    with pytest.raises(NotFoundError):
+        miss_time_block(session, 9999, now=NOW)
+    assert get_task(session, task.id, now=NOW).planned_minutes == 60
+    day = today_view(session, as_of=NOW.date(), now=NOW)
+    assert [item.block.id for item in day.unconfirmed] == []
+    assert [item.block.id for item in day.blocks] == [past.id, later.id]

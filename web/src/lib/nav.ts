@@ -16,8 +16,8 @@ export type Destination = {
 
 /** The five destinations, in rail order. Settings is separate: it sits apart on the rail. */
 export const DESTINATIONS: readonly Destination[] = [
-  // `/today` and `/journal` are reached from Home until Home takes over their content.
-  { id: 'home', label: 'Home', to: '/', owns: ['/today', '/journal'] },
+  // Earlier notes (`/journal`) is reached from Home's note, so it lights Home up.
+  { id: 'home', label: 'Home', to: '/', owns: ['/journal'] },
   { id: 'quests', label: 'Quests', to: '/quests', owns: ['/quests'] },
   { id: 'habits', label: 'Habits', to: '/habit', owns: ['/habit'] },
   { id: 'stats', label: 'Stats', to: '/stats', owns: ['/stats'] },

@@ -1,24 +1,8 @@
-import { type FormEvent, useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 
-import {
-  EmptyState,
-  PageError,
-  PageHeader,
-  PageLoading,
-  PageUnavailable,
-} from '@/components/PageState'
-import { Button } from '@/components/ui/button'
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import {
-  ApiError,
-  amendEntry,
-  type Entry,
-  getJournal,
-  type JournalDay,
-  listEntries,
-  logJournal,
-} from '@/lib/api'
+import { EmptyState, PageHeader, PageLoading, PageUnavailable } from '@/components/PageState'
+import { ApiError, type Entry, getJournal, listEntries } from '@/lib/api'
 import { useAsOf } from '@/lib/asOf'
 import { longDateLabel } from '@/lib/dates'
 import { historyRange } from '@/lib/entries'
@@ -26,147 +10,75 @@ import { historyRange } from '@/lib/entries'
 const JOURNAL_METRIC = 'journal'
 const PAST_DAYS = 90
 
-function message(caught: unknown, fallback: string): string {
-  return caught instanceof ApiError ? caught.message : fallback
-}
-
-type JournalData = { today: JournalDay; past: Entry[] }
-
+/**
+ * Earlier notes: the notes written before today, newest first. Today's note is written on Home,
+ * which links here; this page has no entry on the rail.
+ */
 export function JournalPage() {
   const asOf = useAsOf()
-  const [data, setData] = useState<JournalData | null>(null)
+  const [params] = useSearchParams()
+  const on = params.get('on')
+  const search = on === null ? '' : new URLSearchParams({ on }).toString()
+  const [past, setPast] = useState<Entry[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [actionError, setActionError] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
-
-  const refresh = useCallback(async () => {
-    // GET /journal creates the journal metric on first use, so it must land before the list.
-    const today = await getJournal(asOf)
-    const { start } = historyRange(asOf, PAST_DAYS)
-    const past = await listEntries({ metric: JOURNAL_METRIC, start_on: start, end_on: asOf })
-    setData({ today, past: past.filter((entry) => entry.occurred_on !== asOf) })
-  }, [asOf])
 
   useEffect(() => {
     let cancelled = false
     setError(null)
-    refresh().catch((caught: unknown) => {
-      if (!cancelled) {
-        setError(message(caught, 'Could not load the journal'))
-        setData(null)
-      }
-    })
+    async function load() {
+      // GET /journal creates the journal metric on first use, so it must land before the list.
+      await getJournal(asOf)
+      const { start } = historyRange(asOf, PAST_DAYS)
+      const rows = await listEntries({ metric: JOURNAL_METRIC, start_on: start, end_on: asOf })
+      return rows.filter((entry) => entry.occurred_on !== asOf)
+    }
+    load()
+      .then((rows) => {
+        if (!cancelled) setPast(rows)
+      })
+      .catch((caught: unknown) => {
+        if (!cancelled) {
+          setError(
+            caught instanceof ApiError && caught.status === 0
+              ? caught.message
+              : 'Couldn’t load your notes.',
+          )
+        }
+      })
     return () => {
       cancelled = true
     }
-  }, [refresh])
+  }, [asOf])
 
-  async function run(action: () => Promise<unknown>, fallback: string): Promise<boolean> {
-    setActionError(null)
-    setPending(true)
-    try {
-      await action()
-      await refresh()
-      return true
-    } catch (caught) {
-      setActionError(message(caught, fallback))
-      return false
-    } finally {
-      setPending(false)
-    }
-  }
-
-  if (error !== null) return <PageUnavailable title="Journal" message={error} />
-  if (data === null) return <PageLoading />
-
-  const { today, past } = data
+  if (error !== null) return <PageUnavailable title="Earlier notes" message={error} />
+  if (past === null) return <PageLoading />
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader title="Journal" description="A few lines about the day." />
-      {actionError !== null && <PageError message={actionError} />}
-      <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>{longDateLabel(asOf)}</CardTitle>
-            <CardDescription className="mt-1">
-              {today.text === null ? 'Nothing written yet.' : 'Saved. Edit it any time today.'}
-            </CardDescription>
-          </div>
-        </CardHeader>
-        <div>
-          <JournalForm
-            key={`${asOf}-${today.entry_id ?? 'new'}`}
-            initial={today.text ?? ''}
-            pending={pending}
-            onSave={(text) =>
-              run(
-                () =>
-                  today.entry_id === null
-                    ? logJournal({ text, occurred_on: asOf })
-                    : amendEntry(today.entry_id, { value: text }),
-                'Could not save the journal',
-              )
-            }
-          />
-        </div>
-      </Card>
-      <section className="flex flex-col gap-3" aria-labelledby="journal-past">
-        <h2 id="journal-past" className="text-lg font-semibold text-ink">
-          Earlier
-        </h2>
-        {past.length === 0 ? (
-          <EmptyState title="No earlier entries" hint={`Nothing in the last ${PAST_DAYS} days.`} />
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {past.map((entry) => (
-              <li key={entry.id} className="rounded-2xl border border-line bg-surface px-4 py-3">
-                <p className="text-xs font-medium text-muted">{longDateLabel(entry.occurred_on)}</p>
-                <p className="mt-1 whitespace-pre-wrap text-sm text-ink">{entry.value_text}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
-  )
-}
-
-function JournalForm({
-  initial,
-  pending,
-  onSave,
-}: {
-  initial: string
-  pending: boolean
-  onSave: (text: string) => Promise<boolean>
-}) {
-  const [text, setText] = useState(initial)
-  const trimmed = text.trim()
-
-  function onSubmit(event: FormEvent) {
-    event.preventDefault()
-    if (trimmed !== '' && trimmed !== initial) void onSave(trimmed)
-  }
-
-  return (
-    <form className="flex flex-col gap-3" onSubmit={onSubmit}>
-      <Label htmlFor="journal-text" className="sr-only">
-        Journal text
-      </Label>
-      <textarea
-        id="journal-text"
-        rows={6}
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        placeholder="How did today go?"
-        className="w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-      />
-      <div>
-        <Button type="submit" disabled={pending || trimmed === '' || trimmed === initial}>
-          Save
-        </Button>
+    <div className="flex max-w-3xl flex-col gap-5">
+      <div className="flex flex-col gap-1">
+        <Link to={{ pathname: '/', search }} className="w-fit text-sm text-muted hover:text-ink">
+          Home
+        </Link>
+        <PageHeader
+          title="Earlier notes"
+          description={`Your notes from the last ${PAST_DAYS} days. Write today’s on Home.`}
+        />
       </div>
-    </form>
+      {past.length === 0 ? (
+        <EmptyState
+          title="No earlier notes"
+          hint="Notes you write on Home show up here from the next day."
+        />
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {past.map((entry) => (
+            <li key={entry.id} className="rounded-2xl border border-line bg-surface px-4 py-3">
+              <p className="text-xs font-medium text-muted">{longDateLabel(entry.occurred_on)}</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-ink">{entry.value_text}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }

@@ -13,6 +13,7 @@ from atlas.domain.quests import (
     QuestRuleError,
     as_utc,
     check_block_window,
+    check_can_miss,
     check_can_schedule,
     complete_block,
     overlapping_ids,
@@ -132,10 +133,23 @@ def complete_time_block(
 
 
 def cancel_time_block(session: Session, block_id: int, *, now: datetime | None = None) -> BlockItem:
-    """The session did not happen. The row is kept and the task is unchanged."""
+    """The session is called off. The row is kept and the task is unchanged."""
     now = _now(now)
     row = _require(session, block_id)
     row.status = TimeBlockStatus.CANCELLED
+    row.updated_at = now
+    session.add(row)
+    session.commit()
+    return block_item(row, now)
+
+
+def miss_time_block(session: Session, block_id: int, *, now: datetime | None = None) -> BlockItem:
+    """Didn't happen: the session's time came and it was not held. The row is kept, the task is
+    unchanged, and unlike a cancelled session it still counts in "Sessions kept"."""
+    now = _now(now)
+    row = _require(session, block_id)
+    _rule(lambda: check_can_miss(block_view(row), now))
+    row.status = TimeBlockStatus.MISSED
     row.updated_at = now
     session.add(row)
     session.commit()

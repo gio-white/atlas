@@ -10,6 +10,7 @@ from atlas.services.time_blocks import (
     create_time_block,
     delete_time_block,
     list_time_blocks,
+    miss_time_block,
     update_time_block,
 )
 
@@ -53,3 +54,8 @@ def post_complete(session: SessionDep, block_id: int) -> TimeBlockOut:
 @router.post("/{block_id}/cancel", response_model=TimeBlockOut)
 def post_cancel(session: SessionDep, block_id: int) -> TimeBlockOut:
     return TimeBlockOut.model_validate(cancel_time_block(session, block_id))
+
+
+@router.post("/{block_id}/miss", response_model=TimeBlockOut)
+def post_miss(session: SessionDep, block_id: int) -> TimeBlockOut:
+    return TimeBlockOut.model_validate(miss_time_block(session, block_id))

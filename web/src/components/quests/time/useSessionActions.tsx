@@ -1,13 +1,19 @@
 import { type ReactNode, useState } from 'react'
 
-import { ApiError, cancelTimeBlock, completeTimeBlock, type ScheduledBlock } from '@/lib/api'
+import {
+  ApiError,
+  cancelTimeBlock,
+  completeTimeBlock,
+  missTimeBlock,
+  type ScheduledBlock,
+} from '@/lib/api'
 
 import type { SessionActions } from './SessionRow'
 import { TimeBlockDialog } from './TimeBlockDialog'
 import { useOutcomeAchieved } from './useOutcome'
 
 /**
- * The session controls Today and Home share. "Session done" calls only the block-complete
+ * The session controls Home and Plan share. "Session done" calls only the block-complete
  * endpoint; "Outcome achieved" calls only the task update. A status line confirms each.
  */
 export function useSessionActions(refresh: () => void | Promise<void>): {
@@ -53,6 +59,12 @@ export function useSessionActions(refresh: () => void | Promise<void>): {
         () => cancelTimeBlock(block.id),
         'Session cancelled.',
         'Couldn’t cancel the session.',
+      ),
+    onMissed: ({ block }) =>
+      void run(
+        () => missTimeBlock(block.id),
+        'Marked as didn’t happen.',
+        'Couldn’t mark the session.',
       ),
     onOutcome: ({ task }) => {
       setStatus(null)

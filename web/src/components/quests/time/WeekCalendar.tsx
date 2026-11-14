@@ -217,6 +217,7 @@ function DayColumn({
               block.status === 'completed' && 'border-line bg-raised text-muted hover:text-ink',
               block.status === 'cancelled' &&
                 'border-dashed border-line bg-transparent text-muted line-through',
+              block.status === 'missed' && 'border-dashed border-warn/50 bg-transparent text-muted',
               block.overlaps && 'ring-2 ring-warn/60',
             )}
             style={{

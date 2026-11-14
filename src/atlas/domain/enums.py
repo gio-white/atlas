@@ -64,6 +64,8 @@ class ScreenJudgment(StrEnum):
 class ScreenBudgetTargetKind(StrEnum):
     JUDGMENT = "judgment"
     CATEGORY = "category"
+    TOTAL = "total"
+    """All screen time, whatever the app. Its `target_slug` is always `all`."""
 
 
 class ScreenScoreBand(StrEnum):
@@ -149,6 +151,9 @@ class TimeBlockStatus(StrEnum):
     SCHEDULED = "scheduled"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
+    MISSED = "missed"
+    """The session's time came and it did not happen (shown as "Didn't happen"). Unlike
+    `cancelled`, which is called off ahead of time, it still counts against "Sessions kept"."""
 
 
 class TimeBlockProvider(StrEnum):

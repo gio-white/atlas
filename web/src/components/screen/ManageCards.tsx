@@ -34,14 +34,16 @@ function capName(
   period: Period,
   categories: ScreenCategory[],
 ): string {
+  if (kind === 'total') return `Screen time ${PERIOD_ADJECTIVE[period]} cap`
   const base =
     kind === 'judgment'
-      ? target.charAt(0).toUpperCase() + target.slice(1)
+      ? (JUDGMENT_LABEL[target as keyof typeof JUDGMENT_LABEL] ?? target)
       : (categories.find((row) => row.slug === target)?.name ?? target)
   return `${base} ${PERIOD_ADJECTIVE[period]} cap`
 }
 
 function targetName(budget: ScreenBudget, categories: ScreenCategory[]): string {
+  if (budget.target_kind === 'total') return 'All screen time'
   if (budget.target_kind === 'judgment') {
     return JUDGMENT_LABEL[budget.target_slug as keyof typeof JUDGMENT_LABEL] ?? budget.target_slug
   }
@@ -84,7 +86,9 @@ export function BudgetsCard({
       <CardHeader>
         <div>
           <CardTitle className="text-base">Caps</CardTitle>
-          <CardDescription>Limits on all Bad apps, or on one category</CardDescription>
+          <CardDescription>
+            Limits on all screen time, on Good, Bad or Neutral apps, or on one category
+          </CardDescription>
         </div>
       </CardHeader>
       {budgets === null ? (
@@ -240,11 +244,15 @@ function BudgetCreateForm({
   const options =
     kind === 'judgment'
       ? JUDGMENTS.map((slug) => ({ slug, name: JUDGMENT_LABEL[slug] }))
-      : categories.map((row) => ({ slug: row.slug, name: row.name }))
+      : kind === 'category'
+        ? categories.map((row) => ({ slug: row.slug, name: row.name }))
+        : []
 
   function onKind(next: ScreenBudgetTargetKind) {
     setKind(next)
-    setTarget(next === 'judgment' ? 'waste' : (categories[0]?.slug ?? ''))
+    setTarget(
+      next === 'judgment' ? 'waste' : next === 'category' ? (categories[0]?.slug ?? '') : 'all',
+    )
   }
 
   async function onSubmit(event: FormEvent) {
@@ -276,32 +284,42 @@ function BudgetCreateForm({
           value={kind}
           onChange={(event) => onKind(event.target.value as ScreenBudgetTargetKind)}
         >
-          <option value="judgment">Judgment</option>
+          <option value="total">All screen time</option>
+          <option value="judgment">Apps that count as…</option>
           <option value="category" disabled={categories.length === 0}>
-            Category
+            One category
           </option>
         </Select>
       </div>
       <div className="flex flex-col gap-1">
-        <Label htmlFor="cap-target">Target</Label>
-        <Select id="cap-target" value={target} onChange={(event) => setTarget(event.target.value)}>
-          {options.map((row) => (
-            <option key={row.slug} value={row.slug}>
-              {row.name}
-            </option>
-          ))}
+        <Label htmlFor="cap-target">{kind === 'category' ? 'Category' : 'Counts as'}</Label>
+        <Select
+          id="cap-target"
+          value={target}
+          disabled={kind === 'total'}
+          onChange={(event) => setTarget(event.target.value)}
+        >
+          {kind === 'total' ? (
+            <option value="all">Every app</option>
+          ) : (
+            options.map((row) => (
+              <option key={row.slug} value={row.slug}>
+                {row.name}
+              </option>
+            ))
+          )}
         </Select>
       </div>
       <div className="flex flex-col gap-1">
-        <Label htmlFor="cap-period">Per</Label>
+        <Label htmlFor="cap-period">Each</Label>
         <Select
           id="cap-period"
           value={period}
           onChange={(event) => setPeriod(event.target.value as Period)}
         >
-          <option value="day">day</option>
-          <option value="week">week</option>
-          <option value="month">month</option>
+          <option value="day">Day</option>
+          <option value="week">Week</option>
+          <option value="month">Month</option>
         </Select>
       </div>
       <div className="flex flex-col gap-1">

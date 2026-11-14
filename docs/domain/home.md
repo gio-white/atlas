@@ -2,54 +2,123 @@
 
 ## Purpose
 
-The dashboard at `/`: four cards summarising sleep, screen time, today's quests (sessions and next steps), and this week's habits. `/today` is the full execution screen; Home keeps a short slice of it (quest plan D13). The [redesign brief](../plans/redesign-brief.md) merges `/today` into Home in its phase 3; until then Home is as described here.
+The single daily entry point, at `/`: what to do today, and where you stand. It merged the old
+Home dashboard and the quest Today page ([redesign brief](../plans/redesign-brief.md) §5, phase 3).
+The left column is today's work; every block in the right column is a doorway into its section.
 
 ## Concepts
 
-- **Card** — one self-contained summary that loads and fails on its own.
+- **Block** — one self-contained part of Home. Each reads its own source and fails on its own:
+  a block whose request fails says "Couldn't load this right now." and the rest still show.
+- **This week so far** — four numbers for the local Monday up to the end of the *As of* day,
+  computed when Home loads and never stored.
 
 ## Data model
 
-Home stores nothing. It reads the sleep, screen, habit, and Today endpoints.
+Home stores nothing. It reads sessions, tasks, habits, the journal, sleep, screen time, and the
+library through their own endpoints, plus `GET /views/week-so-far`.
 
 ## Rules and calculations
 
-Nothing is computed in the browser; each card shows server-computed values. Today's quests shows the API's `unconfirmed` list length and block statuses as returned.
+`week_so_far` (`src/atlas/services/week.py`) returns, for the week from the local Monday to the
+end of `as_of`, each number by reusing its section's own calculation:
+
+- **Sessions kept** — `sessions_kept` in `src/atlas/domain/quests.py`. Of the sessions starting
+  in the week that are due an answer, how many were done. Due an answer: done, didn't happen
+  (`missed`), or still planned after its end (unconfirmed). Cancelled sessions are left out, and
+  so is a planned session that has not ended yet; a session marked done before its end counts as
+  kept at once. With nothing due the number reads "—". Looking at a past *As of* day, "now" is
+  the end of that day, so later answers do not count.
+- **Habits kept** — `pooled_adherence_counts` in `src/atlas/services/habits.py`: satisfied over
+  judged buckets from Monday to `as_of`, pooled over every active (not archived) habit, with the
+  same adherence rule as each habit ([habits](habits.md#adherence)). Only complete buckets are
+  judged, so today does not count for daily habits and the current week does not count for weekly
+  ones; on a Monday the number reads "—". Paused or skipped days are excused, as everywhere.
+- **Sleep, average** — `average_asleep` of the sleep view over the days from Monday to `as_of`
+  ([sleep](sleep.md)): nights without data are left out.
+- **Screen score** — the week's score from the screen dashboard ([screen time](screen-time.md)).
 
 ## API
 
-Home has no endpoints of its own. It calls `GET /sleep/view`, `GET /screen/dashboard`, `GET /views/habits/calendar`, `PUT /habits/{slug}/days/{day}`, `GET /views/today`, and `POST /time-blocks/{id}/complete` (documented in each feature's doc).
+| Method | Path | Purpose | Status |
+| ------ | ---- | ------- | ------ |
+| `GET` | `/views/week-so-far` | This week so far: `sessions_kept` / `sessions_total`, `habits_kept` / `habits_judged` / `habits_kept_share`, `sleep_average_minutes` / `sleep_nights`, `screen_score`, and `week_start` (`as_of`) | implemented |
+
+Home also calls `GET /views/today`, `GET /views/habits`, `GET /journal`, `GET /views/main-quests`,
+`GET /sleep/view`, `GET /screen/dashboard?period=day`, and
+`GET /entertainment/titles?status=in_progress`, and the write endpoints of the controls it
+reuses (session, habit, and journal).
 
 ## Screens
 
-Home is four cards and nothing else. Top row: **Sleep** from `GET /sleep/view` (last night: asleep time, bed → wake, a four-lane stage timeline, and per-stage minutes and share; past 7 nights: average sleep / bedtime / wake and a bed-to-wake range bar per night drawn in stage colors; View all goes to `/sleep`; display-only, with no capture; with no nights: "No sleep data yet. It will appear here once a data source is connected.") and **Screen Time** from `GET /screen/dashboard` for `day` and `week` (Today shows the day total, Week avg shows the week's `daily_average` and each row's minutes divided by elapsed days; a second toggle splits by category, device, or app as ranked bars; View all goes to `/screen`; display-only; with no sessions at all: "No screen time data yet. It will appear here once a data source is connected.", and "No screen time recorded today / this week." for an empty period).
+`web/src/pages/HomePage.tsx`; blocks in `web/src/components/home/`. A greeting ("Good
+afternoon, Alex") heads the page; the date and *As of* are in the header.
 
-Main row, side by side on wide screens: **Today's quests** and **Habits**.
+**Wide screens (1024px and up): two columns.**
 
-**Today's quests** (`web/src/components/home/TodaysQuestsCard.tsx`) reads `GET /views/today?as_of=` and sits in the slot the old Tasks card had:
+Left, in order:
 
-- When `unconfirmed` is not empty, a link to `/today`: "1 past session to confirm" / "n past sessions to confirm".
-- **Sessions**, with "· n of m done" once any are done: the next three of today's blocks that are still scheduled and not unconfirmed. Each shows its time range, task, and parent path, plus a **Session done** button (`POST /time-blocks/{id}/complete`; it never completes the task, see [time blocks](time-blocks.md#screens)).
-- **Next steps**: the first three of `up_next`.
-- Empty cases: "No sessions planned for today.", "No more sessions planned today.", and "No next steps yet. Add tasks to your quests."
-- View all goes to `/today`.
+1. **To confirm** — only when there are unconfirmed sessions: "1 session to confirm" / "n
+   sessions to confirm", each with **Session done** and **Didn't happen** (`QuestBlocks.tsx`).
+2. **Today** — today's sessions as a timeline with the **Now** line, each with **Session done**,
+   **Cancel** (or **Didn't happen** once it has started), **Edit**, and, apart from them,
+   **Outcome achieved** ([time blocks](time-blocks.md#screens)). **Plan a session** opens the
+   session dialog. Empty: "No sessions today." On another *As of* day the heading is that date.
+3. **Due today** — open tasks due today or earlier; overdue ones read "Overdue · 5 Nov". Each has
+   **Schedule**. Empty: "Nothing due today."
+4. **Up next** — the next action of each active goal and side quest, with **Schedule**. Empty:
+   "No next steps yet. Add tasks to your quests."
+5. **Habits** — daily habits scheduled today, then weekly and monthly ones, each as the Habits
+   page's row with its one-tap **Mark done** or **Log value**; weekly and monthly ones show their
+   progress for the period ("3 this week"). **All habits** goes to `/habit`, where the
+   Monday–Sunday grid lives. Empty: "No habits yet."; with habits but none today: "No habits
+   scheduled today." (`HabitsTodayBlock.tsx`).
+6. **Note for today** — one line that grows to four while focused or once it holds more. **Save
+   note** (or Ctrl/⌘+Enter) writes today's journal note (`POST /journal` the first time, then
+   `PATCH /entries/{id}`) and shows "Saved". **Earlier notes** opens `/journal`
+   ([journal](journal.md#screens)) (`NoteBlock.tsx`).
 
-**Habits** from `GET /views/habits/calendar?period=week`:
+Right, in order (`StatusBlocks.tsx`):
 
-- One row per habit with Monday–Sunday cells.
-- Tapping a scheduled past-or-today cell confirms or clears a bool habit via `PUT /habits/{slug}/days/{day}`. For other habits it opens the log form for that metric and date.
-- The habit name column is pinned while the day columns scroll sideways on narrow screens, and the grid opens scrolled so today is in view.
-- Daily habits show their schedule under the name ("Every day", "Weekdays", "Weekends", or a list such as "Mon, Wed"), from the calendar's `kind` and `weekdays`.
+1. **This week so far** — "Sessions kept 5 of 7", "Habits kept 82%", "Sleep, average 6h 50m",
+   "Screen score 61"; "—" where a number cannot be computed yet. The link to Stats → This week
+   arrives with that page in phase 4.
+2. **Main quests** — active goals in the order of Main quests (each ambition's goals, then
+   independent ones), at most five, each with its progress ring, title (to its quest map), and
+   "Next: …". **All quests** goes to `/quests`. Empty: "No goals yet." with **Add a goal**.
+3. **Last night** — time asleep and bed → wake ("7h 59m · 00:05 → 08:22"). The heading links to
+   Stats → Sleep. Empty: "No sleep data for last night." Display-only, like Sleep.
+4. **Screen time today** — today's total, followed by "of 3h cap" only when an active daily cap
+   on all screen time exists; the total turns red when it is over that cap. The heading links to
+   Stats → Screen time. Empty: "No screen time data yet today."
+5. **In progress** — library titles in progress: a count and up to three names. The heading
+   links to the library. Empty: "Nothing in progress."
 
-A **Journal** link beside the greeting opens `/journal`, which has no entry on the rail; it stays until Home holds the note for today (brief phase 3). Each card degrades to its own unavailable message if its request fails. The quote on Home is static copy. Habits are not tasks: Home copy says habits scheduled, not tasks planned. The old Tasks card (today / upcoming / someday) was removed with the old task model, and Today's quests took its place.
+**Narrow screens: one column**, in this order: To confirm, Today, Due today, Habits, Up next,
+Note for today, This week so far, Main quests, Last night, Screen time today, In progress. Each
+column is `display: contents` below 1024px, so its blocks join one list and `order-*` sets the
+sequence; from 1024px the columns are flex columns and the order classes are reset.
+
+Every change made from Home (a session answered, a habit checked in, a note saved) reloads Home,
+so the weekly numbers follow. Old addresses: `/today` redirects to `/`.
 
 Route inventory with status: [navigation](../product/navigation.md).
 
 ## Tests
 
-- `web/src/lib/home.test.ts`, `web/src/lib/greeting.test.ts`
-- `web/src/components/quests/time/execution.test.tsx` — the session controls Home's card shares with Today (Session done calls only the block endpoint)
+- `tests/services/test_week.py` — week so far: empty, sessions kept (done, didn't happen,
+  unconfirmed, cancelled, later today, last week), a past *As of* day, habits kept leaving today
+  open, sleep and screen from their own views
+- `tests/domain/test_quests.py` — `sessions_kept`
+- `tests/api/test_views.py` — `GET /views/week-so-far`
+- `web/src/components/home/home.test.tsx` — the four weekly numbers and their "—", a block that
+  fails alone, Main quests order and limit, the screen cap shown only for an active daily cap on
+  all screen time, In progress, Note for today (first write, then amend; grows when focused)
+- `web/src/components/quests/time/execution.test.tsx` — Home's sessions: time range and path,
+  Session done never completes the task, Outcome achieved, To confirm answered as done or as
+  didn't happen
+- `web/src/lib/greeting.test.ts`
 
 ## Status
 
-Implemented.
+Implemented (redesign brief phase 3).

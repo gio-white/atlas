@@ -69,3 +69,14 @@ def test_habits_board_view(client, seed_health):
     assert body["scheduled"] == 2
     assert body["satisfied"] == 1
     assert body["day"][0]["current_streak"] == 1
+
+
+def test_week_so_far_view(client):
+    response = client.get("/views/week-so-far", params={"as_of": "2026-08-13"})
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["week_start"] == "2026-08-10"
+    assert body["sessions_total"] == 0
+    assert body["habits_kept_share"] is None
+    assert set(body) >= {"sleep_average_minutes", "sleep_nights", "screen_score"}

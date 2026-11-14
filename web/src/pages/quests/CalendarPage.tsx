@@ -93,6 +93,7 @@ export function CalendarPage() {
           <Legend swatch="border-l-4 border-l-iris border-iris/40 bg-surface" label="Planned" />
           <Legend swatch="border-l-4 border-l-warn border-warn/50 bg-warn/10" label="Unconfirmed" />
           <Legend swatch="border-line bg-raised" label="Done" />
+          <Legend swatch="border-dashed border-warn/50" label="Didn’t happen" />
           <span className="inline-flex items-center gap-1.5">
             <Layers className="size-3.5 text-warn" aria-hidden />
             Overlaps

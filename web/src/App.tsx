@@ -64,9 +64,6 @@ const SideQuestPage = lazy(() =>
 const SideQuestsPage = lazy(() =>
   import('@/pages/quests/SideQuestsPage').then((m) => ({ default: m.SideQuestsPage })),
 )
-const TodayPage = lazy(() =>
-  import('@/pages/quests/TodayPage').then((m) => ({ default: m.TodayPage })),
-)
 
 // Paths are written in full, also inside a section, so each one reads as the address it is
 // and the docs drift test can match it against docs/product/navigation.md.
@@ -76,7 +73,6 @@ export default function App() {
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<HomePage />} />
-          <Route path="/today" element={<TodayPage />} />
           <Route path="/journal" element={<JournalPage />} />
 
           <Route element={<SectionLayout section="quests" />}>
@@ -121,6 +117,7 @@ export default function App() {
           <Route path="/sleep" element={<Redirect to="/stats/sleep" />} />
           <Route path="/screen" element={<Redirect to="/stats/screen-time" />} />
           <Route path="/health" element={<Redirect to="/stats/health" />} />
+          <Route path="/today" element={<Redirect to="/" />} />
           <Route path="/adventure" element={<Redirect to="/" />} />
           <Route path="/entertainment/*" element={<Redirect to="/library/*" />} />
           <Route path="/history" element={<Redirect to="/settings/entries" />} />

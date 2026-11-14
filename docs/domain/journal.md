@@ -36,7 +36,9 @@ Service functions (in `src/atlas/services/`, each taking an explicit `Session` f
 
 ## Screens
 
-`/journal` (reached from a link on Home; it has no entry on the rail) shows today's journal text (`POST /journal` to write, `PATCH /entries/{id}` to edit), and the last 90 days of earlier journal entries from `GET /entries?metric=journal`.
+Journal is not a page on the rail. Today's note is the **Note for today** block on Home ([home](home.md#screens)): `POST /journal` writes it the first time and `PATCH /entries/{id}` amends it.
+
+**Earlier notes** (`/journal`, `web/src/pages/JournalPage.tsx`), reached from that block, lists the notes from the last 90 days before the *As of* day, newest first, from `GET /entries?metric=journal` (after `GET /journal`, which creates the journal metric on first use). It is read-only, has a **Home** link back, and lights up Home on the rail. Empty: "No earlier notes / Notes you write on Home show up here from the next day."
 
 Route inventory with status: [navigation](../product/navigation.md).
 
@@ -44,6 +46,7 @@ Route inventory with status: [navigation](../product/navigation.md).
 
 - `tests/services/test_journal.py`
 - `tests/api/test_journal.py`
+- `web/src/components/home/home.test.tsx` (Note for today: first write, then amend)
 
 ## Status
 

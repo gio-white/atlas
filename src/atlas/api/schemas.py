@@ -247,6 +247,21 @@ class HabitsCalendarOut(BaseModel):
     habits: list[WeekHabitOut]
 
 
+class WeekSoFarOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    as_of: date
+    week_start: date
+    sessions_kept: int
+    sessions_total: int
+    habits_kept: int
+    habits_judged: int
+    habits_kept_share: float | None
+    sleep_average_minutes: float | None
+    sleep_nights: int
+    screen_score: int | None
+
+
 class HabitsBoardOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -313,7 +328,7 @@ class ScreenBudgetCreate(BaseModel):
 
     slug: str
     target_kind: ScreenBudgetTargetKind
-    target_slug: str
+    target_slug: str = "all"
     period: Period
     target_value: float
     comparator: Comparator

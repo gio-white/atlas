@@ -144,7 +144,7 @@ export type ScreenInsightKind =
   | 'improving'
   | 'sequence'
   | 'budget'
-export type ScreenBudgetTargetKind = 'judgment' | 'category'
+export type ScreenBudgetTargetKind = 'judgment' | 'category' | 'total'
 
 export type ScreenJudgmentTotals = {
   useful: number | null
@@ -882,7 +882,8 @@ export type QuestStatus = 'active' | 'completed' | 'archived'
 export type TaskStatus = 'todo' | 'in_progress' | 'completed'
 export type TaskPriority = 'low' | 'normal' | 'high'
 export type ChapterState = 'empty' | 'not_started' | 'in_progress' | 'completed'
-export type TimeBlockStatus = 'scheduled' | 'completed' | 'cancelled'
+/** `missed`: the session's time came and it did not happen ("Didn't happen"). */
+export type TimeBlockStatus = 'scheduled' | 'completed' | 'cancelled' | 'missed'
 
 export type ItemRef = { kind: QuestKind; id: number; title: string }
 
@@ -1265,6 +1266,11 @@ export function cancelTimeBlock(id: number): Promise<TimeBlock> {
   return send(`/time-blocks/${id}/cancel`, 'POST')
 }
 
+/** Didn't happen: only for a session that has started. Unlike cancel, it counts as not kept. */
+export function missTimeBlock(id: number): Promise<TimeBlock> {
+  return send(`/time-blocks/${id}/miss`, 'POST')
+}
+
 export function getMainQuests(includeArchived?: boolean): Promise<MainQuests> {
   return request(`/views/main-quests${archivedQuery(includeArchived)}`)
 }
@@ -1288,4 +1294,23 @@ export function getTodayQuests(asOf?: string): Promise<TodayQuests> {
 }
 export function getQuestCalendar(start: string, end: string): Promise<QuestCalendar> {
   return request(`/views/calendar${queryString({ start, end })}`)
+}
+
+/** This week so far (local Monday to the end of `as_of`), for Home. Every number is computed
+ * by the API from its section's own rules. */
+export type WeekSoFar = {
+  as_of: string
+  week_start: string
+  sessions_kept: number
+  sessions_total: number
+  habits_kept: number
+  habits_judged: number
+  habits_kept_share: number | null
+  sleep_average_minutes: number | null
+  sleep_nights: number
+  screen_score: number | null
+}
+
+export function getWeekSoFar(asOf?: string): Promise<WeekSoFar> {
+  return request(`/views/week-so-far${queryString({ as_of: asOf })}`)
 }

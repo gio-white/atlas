@@ -36,9 +36,14 @@ changes, change it here, in the UI, and in the API together.
 | A planned session on the calendar | Session (time block) | `TimeBlock`, `/time-blocks` | [time blocks](../domain/time-blocks.md) |
 | Recording that a session happened (the task stays open) | Session done | `POST /time-blocks/{id}/complete` | [time blocks](../domain/time-blocks.md) |
 | Completing the task itself from a session | Outcome achieved | task `status: completed` via `PATCH /tasks/{id}` | [time blocks](../domain/time-blocks.md) |
-| A session whose time passed without an answer | Unconfirmed | derived: `scheduled` after `end_at` | [time blocks](../domain/time-blocks.md) |
+| A session whose time passed without an answer | To confirm (on Home), Unconfirmed (on Plan and in the task's sessions) | derived: `scheduled` after `end_at` | [time blocks](../domain/time-blocks.md) |
+| A session whose time came and that was not held | Didn't happen | `TimeBlockStatus.missed`, `POST /time-blocks/{id}/miss` | [time blocks](../domain/time-blocks.md) |
+| A session called off ahead of time | Cancel / Cancelled | `TimeBlockStatus.cancelled`, `POST /time-blocks/{id}/cancel` | [time blocks](../domain/time-blocks.md) |
+| Done sessions out of those due an answer this week | Sessions kept | `sessions_kept`, `GET /views/week-so-far` | [home](../domain/home.md) |
+| Pooled habit adherence this week | Habits kept | `habits_kept_share` | [home](../domain/home.md) |
+| A cap on all screen time | All screen time | `ScreenBudgetTargetKind.total`, `target_slug: all` | [screen time](../domain/screen-time.md) |
 | Total time planned in sessions | Planned time | `planned_minutes` (never "actual effort") | [time blocks](../domain/time-blocks.md) |
-| A free-text daily note | Journal | `journal` metric (origin `journal`), `/journal` | [journal](../domain/journal.md) |
+| A free-text daily note | Note for today; the past ones are Earlier notes | `journal` metric (origin `journal`), `/journal` | [journal](../domain/journal.md) |
 | One night of sleep | Night | `SleepSession`, `/sleep/sessions` | [sleep](../domain/sleep.md) |
 | Deep / Light / REM / Awake | same | `SleepSessionStage.stage` | [sleep](../domain/sleep.md) |
 | Time spent in an app | Session | `ScreenSession`, `/screen/sessions` | [screen time](../domain/screen-time.md) |

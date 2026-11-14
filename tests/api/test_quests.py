@@ -241,3 +241,27 @@ def test_error_mapping(client):
     assert promote.status_code == 400
     assert "organize it instead" in promote.json()["detail"]
     assert client.delete(f"/tasks/{task['id']}").status_code == 409
+
+
+def test_a_session_can_be_marked_as_didnt_happen_once_it_has_started(client):
+    task = ok(client.post("/tasks", json={"title": "Study", "standalone": True}), 201)
+    now = datetime.now(UTC).replace(microsecond=0)
+
+    def session_at(start):
+        body = {
+            "task_id": task["id"],
+            "start_at": start.isoformat(),
+            "end_at": (start + timedelta(hours=1)).isoformat(),
+        }
+        return ok(client.post("/time-blocks", json=body), 201)
+
+    past = session_at(now - timedelta(hours=3))
+    future = session_at(now + timedelta(hours=3))
+
+    missed = ok(client.post(f"/time-blocks/{past['id']}/miss"))
+    assert missed["status"] == "missed"
+    assert missed["unconfirmed"] is False
+    assert client.post(f"/time-blocks/{future['id']}/miss").status_code == 400
+    assert client.post("/time-blocks/99999/miss").status_code == 404
+    assert ok(client.get("/views/today"))["unconfirmed"] == []
+    assert ok(client.get(f"/tasks/{task['id']}"))["planned_minutes"] == 60

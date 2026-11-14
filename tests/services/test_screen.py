@@ -264,3 +264,41 @@ def test_screen_dashboard_week_totals_and_budget_insight(session, monkeypatch):
     assert dash.budgets[0].current_value == 20.0
     kinds = {item.kind.value for item in dash.insights}
     assert "budget" not in kinds or dash.budgets[0].satisfied is True
+
+
+def test_a_cap_on_all_screen_time_adds_up_every_app(session):
+    _taxonomy(session)
+    create_screen_budget(
+        session,
+        "daily-total",
+        name="Daily total",
+        target_kind="total",
+        period=Period.DAY,
+        target_value=150.0,
+        comparator=Comparator.AT_MOST,
+        active_from=date(2026, 8, 1),
+    )
+    log_entry(session, "instagram", 30.0, occurred_on=date(2026, 8, 14))
+    log_entry(session, "coding", 90.0, occurred_on=date(2026, 8, 14))
+    log_entry(session, "youtube", 40.0, occurred_on=date(2026, 8, 14))
+
+    view = screen_view(session, as_of=date(2026, 8, 14))
+    total = next(budget for budget in view.budgets if budget.slug == "daily-total")
+
+    assert total.target_kind == "total"
+    assert total.target_slug == "all"
+    assert total.current_value == 160.0
+    assert total.satisfied is False
+
+
+def test_a_cap_on_all_screen_time_ignores_any_target_it_is_given(session):
+    budget = create_screen_budget(
+        session,
+        "total",
+        target_kind="total",
+        target_slug="entertainment",
+        period=Period.DAY,
+        target_value=60.0,
+        comparator=Comparator.AT_MOST,
+    )
+    assert budget.target_slug == "all"
