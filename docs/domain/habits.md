@@ -368,20 +368,56 @@ Service functions (in `src/atlas/services/`, each taking an explicit `Session` f
 
 ## Screens
 
-**Temporary, until brief phases 3–5.** `/habits` (`web/src/pages/HabitsPage.tsx`) is a read-only
-list: active habits grouped Morning, Afternoon, Evening, Anytime, each with its name and one line
-from `ruleSummary` (`web/src/lib/habits.ts`), then the Archived ones. The line is how often ·
-how it is checked · time of day (left out for Anytime): "Every day · From your data: wake time
-before 07:00 · Morning", "Weekdays · You tick it", "3× a week · You tick it". How often reads
-"Every day", "Weekdays", "Weekends", the days ("Mon, Wed, Fri"), "3× a week", or "2× a month". A
-data rule's line uses minutes as "1h 30m" and times as "07:00", and keeps Bad, Good, and Neutral capitalised
-("From your data: Bad apps at most 1h 30m").
+**Habits → Day** (`/habits`, `web/src/pages/habits/HabitsDayPage.tsx`, brief §7), on
+`GET /views/habits/day`. The day is the shell's *As of* date (`?on=`, today when absent).
 
-Nothing can be ticked, created, or edited in the app until the Day screen and the habit sheet
-arrive; the API above already supports it, and the views above compute every result. `/habit`,
-`/habit/:slug`, and `/week` redirect to `/habits`. Home's Habits block lists today's habits the
-same way ([home](home.md#screens)); Home and Stats → This week show Habits kept, and This week
-lists active habits by name.
+- **Week strip** (`web/src/components/habits/WeekStrip.tsx`): Monday to Sunday of the day's week,
+  each day its weekday letter, date, and a small accent ring filled to the share of its scheduled
+  habits that are Done (`done` / `total` from the view's `week`). The selected day is shaded;
+  today's date is in the accent colour. Days after today are dimmed and cannot be picked. ‹ goes
+  to the same weekday a week earlier; › a week later, but no later than today, and is off once
+  next week starts after today (`stripSteps`). Picking a day sets `?on=` (today clears it).
+  Each day and arrow is at least 44px high.
+- **Heading**: the day as "Saturday 14 Nov 2026" (`dayHeading`) and "3 of 6 done"
+  (`dayCountLabel`, the view's `done` / `total`: the [day count](#day-results-streaks-and-habits-kept)).
+- **Groups**: Morning, Afternoon, Evening, Any time, empty ones hidden; when no habit shown has
+  a time of day, one list without headings (`dayGroups`). Only habits scheduled that day are
+  listed (the view leaves out Not scheduled ones).
+- **Rows** (`web/src/components/habits/HabitDayRow.tsx`): the status icon, the name, the reason
+  line under it, and on the right "2 of 4 this week" / "1 of 2 this month" for a weekly or monthly
+  habit (`progressLabel`), then the accent flame and the streak, "12 days", "1 week", "2 months"
+  (`streakLabel`; nothing for no streak), then "…".
+- **Status icons** (`StatusIcon.tsx`, brief §13): Done a filled check in the success green; Not
+  done a quiet grey cross (never red); In progress an accent ring filled to the share of the
+  rule's value (`progressShare`); Waiting a grey clock; Frozen a grey snowflake; Open an empty
+  circle; Blank a faint dashed circle.
+- **Reason line** (`reasonLine`): the reason in words — No data received, Data incomplete,
+  Waiting for data, Over the limit, Set by you, Frozen. With no reason, a data habit shows its
+  reading: today's screen time "On track · 40m of 1h 30m" (at most) or "20 of 30m" (at least)
+  while In progress; on a judged day "06:48 · from sleep" (wake time, bedtime), "7h 20m · from
+  sleep" (time asleep), "40m · from screen time", or "Session planned at 08:10" ("…the day before
+  at 23:10" for one planned the evening before). A habit you tick has no line unless frozen.
+- **Ticking**: on a habit you tick, the icon toggles Done: a Done day's mark is removed
+  (`DELETE /habits/{slug}/days/{day}`, so today is Open again and a past day Not done); any other
+  day gets Done (`PUT …/days/{day}`). On a data habit, or on a frozen day, the icon opens the row
+  menu instead. Tapping the rest of the row also opens it.
+- **Row menu** (`rowActions`), only what applies: Mark done (unless Done) · Mark not done (unless
+  Not done) · Use data again (only when Set by you; removes your mark) · Freeze this day (a
+  one-day freeze for this habit, `POST /freezes`) · Open habit (`/habit/:slug`, which redirects
+  to `/habits` until the habit page lands in phase 4). A frozen day takes no answer, since a freeze
+  wins over a mark: its menu is Unfreeze, when the freeze is this habit's own one-day freeze
+  (`ownDayFreeze`, `DELETE /freezes/{id}`), and Open habit. A longer freeze, or one for every
+  habit, is not undone from a row.
+- After each change the day reloads, so the count, strip, streaks, and progress follow. A failed
+  change shows its error above the list and leaves the day as it was.
+- **Empty**: "No habits yet" when there is no active habit; "No habits scheduled on this day."
+  when none is due that day. The New habit button arrives with the habit sheet (phase 5); until
+  then a habit is created through the API or the demo seed.
+
+The Week tab, the habit page, and the New habit, Edit, and Freeze sheets are phases 4 and 5;
+`/habit`, `/habit/:slug`, and `/week` redirect to `/habits` until then. Home's Habits block still
+lists today's habits read-only ([home](home.md#screens)); Home and Stats → This week show Habits
+kept, and This week lists active habits by name.
 
 The demo seed (`atlas seed`) shows every kind of rule: ticked every day (Meditate, One coffee at
 most, No doomscrolling), on weekdays (Morning pushups, Deep work), 3× a week (Run, changed from
@@ -419,12 +455,14 @@ Route inventory with status: [navigation](../product/navigation.md).
 - `tests/api/test_habits.py` — the endpoints above, including the three views
 - `tests/services/test_habit_supports.py` — links at every level, the path from the habit, habits on an item and under it, no progress / weight / Next action change, refusals, removal, deletes and promote, export round trip and replace
 - `tests/api/test_habit_supports.py` — read, add, remove at every level; error codes; each item's `/habits`
-- `web/src/lib/habits.test.ts`, `web/src/pages/HabitsPage.test.tsx`
+- `web/src/lib/habits.test.ts` — rule lines, Day tab words (streaks, progress, every reason and reading), the row menu, Unfreeze, the strip arrows, groups
+- `web/src/pages/habits/HabitsDayPage.test.tsx` — the Day tab: heading, count, groups, reasons, progress, streaks; the strip; ticking and unticking; a data habit's icon opening the menu; Freeze this day, Use data again, Unfreeze; no headings; no habits yet
 
 ## Status
 
-Brief phases 1 and 2 of 7: the model, schema 15, the API, the demo data, and the calculations
-with their views (day results from your marks and the data, periods, streaks, Kept last 4 weeks,
-Habits kept). Phases 3–5 build the Day and Week screens, the habit page, and the New habit, Edit,
-and Freeze sheets on those views; phase 6 Home; phase 7 removes what is left of the old shape.
+Brief phases 1–3 of 7: the model, schema 15, the API, the demo data, the calculations with their
+views (day results from your marks and the data, periods, streaks, Kept last 4 weeks, Habits
+kept), and the Day tab (ticking, the row menu, one-day freezes). Phases 4 and 5 build the Week
+tab, the habit page, and the New habit, Edit, and Freeze sheets; phase 6 Home; phase 7 removes
+what is left of the old shape.
 Quest links have no screen yet.

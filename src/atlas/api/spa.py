@@ -42,14 +42,14 @@ class SpaFallbackMiddleware(BaseHTTPMiddleware):
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
         index = self.dist / "index.html"
-        if (
-            request.method == "GET"
-            and SPA_PATHS_SHADOWED_BY_API.match(request.url.path)
-            and _is_document_request(request)
-            and index.is_file()
-        ):
-            return FileResponse(index)
+        shadowed = request.method == "GET" and SPA_PATHS_SHADOWED_BY_API.match(request.url.path)
+        if shadowed and _is_document_request(request) and index.is_file():
+            return _shared_path(FileResponse(index))
         response = await call_next(request)
+        if shadowed:
+            # The page and the API answer the same URL: without these the browser can hand the
+            # cached page to the page's own fetch of that URL (and the JSON to a reload).
+            _shared_path(response)
         if request.method != "GET" or response.status_code != 404:
             return response
         # An API route matched and answered 404 (e.g. an unknown id): that answer stands. Only
@@ -67,6 +67,12 @@ class SpaFallbackMiddleware(BaseHTTPMiddleware):
         if index.is_file():
             return FileResponse(index)
         return response
+
+
+def _shared_path(response: Response) -> Response:
+    response.headers["Vary"] = "Accept, Sec-Fetch-Dest"
+    response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 def _is_document_request(request: Request) -> bool:

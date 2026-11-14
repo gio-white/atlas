@@ -4,9 +4,9 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from '@/components/Layout'
 import { Redirect } from '@/components/shell/Redirect'
 import { SectionLayout } from '@/components/shell/SectionLayout'
-import { HabitsPage } from '@/pages/HabitsPage'
 import { HealthPage } from '@/pages/HealthPage'
 import { HomePage } from '@/pages/HomePage'
+import { HabitsDayPage } from '@/pages/habits/HabitsDayPage'
 import { JournalPage } from '@/pages/JournalPage'
 import { AppearancePage } from '@/pages/settings/AppearancePage'
 
@@ -86,7 +86,7 @@ export default function App() {
           <Route path="/quests/goals/:id" element={<GoalPage />} />
           <Route path="/quests/side-quests/:id" element={<SideQuestPage />} />
 
-          <Route path="/habits" element={<HabitsPage />} />
+          <Route path="/habits" element={<HabitsDayPage />} />
 
           <Route path="/stats" element={<Redirect to="/stats/week" />} />
           <Route element={<SectionLayout section="stats" />}>

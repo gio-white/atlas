@@ -115,11 +115,16 @@ def test_document_navigation_to_shadowed_pages_gets_the_spa(tmp_path):
         page = client.get(path, headers={"Accept": "text/html,application/xhtml+xml"})
         assert page.status_code == 200
         assert "text/html" in page.headers["content-type"]
+        assert page.headers["vary"] == "Accept, Sec-Fetch-Dest"
+        assert page.headers["cache-control"] == "no-cache"
 
     for path in ("/journal", "/habits", "/side-quests"):
         api = client.get(path)
         assert api.status_code == 200
         assert "application/json" in api.headers["content-type"]
+        # The page's own fetch of the same URL must not be answered from the cached page.
+        assert api.headers["vary"] == "Accept, Sec-Fetch-Dest"
+        assert api.headers["cache-control"] == "no-cache"
 
 
 def test_api_404_is_not_replaced_by_the_spa(tmp_path):

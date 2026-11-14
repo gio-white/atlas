@@ -5,7 +5,7 @@ import { BlockEmpty, HomeBlock } from './HomeBlock'
 
 /**
  * Today's habits, read-only while the habits rebuild lands (docs/domain/home.md): the active
- * habits due on `asOf`, Morning to Anytime, each with its rule. Ticking returns with the Day
+ * habits due on `asOf`, Morning to Any time, each with its rule. Ticking returns with the Day
  * screen.
  */
 export function HabitsTodayBlock({

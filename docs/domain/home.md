@@ -70,7 +70,7 @@ Left, in order:
 4. **Up next** — the next action of each active goal and side quest, with **Schedule**. Empty:
    "No next steps yet. Add tasks to your quests."
 5. **Habits** — read-only *until habits phase 6*: the active habits due today (every day, on
-   today's weekday, or times a week or month), Morning, Afternoon, Evening, then Anytime, each
+   today's weekday, or times a week or month), Morning, Afternoon, Evening, then Any time, each
    with its name and its rule in plain words (`ruleSummary`, [habits](habits.md#screens)), from
    `GET /habits`. Nothing can be ticked here yet. **All habits** goes to `/habits`. Empty: "No
    habits yet."; with habits but none today: "No habits scheduled today."

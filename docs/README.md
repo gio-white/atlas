@@ -90,7 +90,7 @@ blocked commit should review, so keep it a plain two-column table.
 | `web/src/components/shell/*` | `docs/product/navigation.md`, `docs/product/design-system.md` |
 | `web/src/pages/HomePage.tsx` | `docs/domain/home.md` |
 | `web/src/components/home/*` | `docs/domain/home.md` |
-| `web/src/pages/Habit*.tsx` | `docs/domain/habits.md` |
+| `web/src/pages/habits/*` | `docs/domain/habits.md`, `docs/product/navigation.md` |
 | `web/src/components/habits/*` | `docs/domain/habits.md` |
 | `web/src/pages/quests/PlanPage.tsx` | `docs/domain/time-blocks.md`, `docs/product/navigation.md` |
 | `web/src/pages/quests/*` | `docs/domain/quests.md`, `docs/product/navigation.md` |

@@ -75,6 +75,65 @@ export type Habit = {
   rule: HabitRule
 }
 
+/** One day of one habit (docs/domain/habits.md, Day results). `value` is a data habit's
+ * reading: minutes, or a time of day in minutes after midnight (negative for a session planned the
+ * day before). */
+export type HabitDayStatus =
+  | 'not_scheduled'
+  | 'upcoming'
+  | 'frozen'
+  | 'done'
+  | 'not_done'
+  | 'open'
+  | 'in_progress'
+  | 'waiting'
+  | 'blank'
+export type HabitDayReason =
+  | 'no_data'
+  | 'data_incomplete'
+  | 'waiting_for_data'
+  | 'over_limit'
+  | 'set_by_you'
+  | 'frozen'
+
+export type HabitDayResult = {
+  day: string
+  status: HabitDayStatus
+  reason: HabitDayReason | null
+  value: number | null
+}
+
+export type HabitStreak = { count: number; period: Period }
+
+/** A weekly or monthly habit's Done days and target in the period holding the day. */
+export type HabitProgress = { period: Period; done: number; target: number }
+
+export type HabitDayRow = {
+  habit: Habit
+  result: HabitDayResult
+  streak: HabitStreak
+  progress: HabitProgress | null
+}
+
+/** The Day tab: the day's scheduled active habits, Morning first, and its Monday–Sunday week. */
+export type HabitsDay = {
+  day: string
+  done: number
+  total: number
+  week: { day: string; done: number; total: number }[]
+  rows: HabitDayRow[]
+}
+
+/** A freeze for one habit (`habit` is its slug) or for every habit (`habit` null). */
+export type HabitFreeze = {
+  id: number
+  habit: string | null
+  start_on: string
+  end_on: string
+  reason: string | null
+  created_at: string
+}
+
 export type ScreenJudgment = 'useful' | 'waste' | 'neutral'
 export type ScreenScoreBand = 'good' | 'ok' | 'poor'
 export type ScreenInsightKind =
@@ -449,6 +508,44 @@ export function listEntries(filters?: {
 
 export function listHabits(): Promise<Habit[]> {
   return request('/habits')
+}
+
+export function getHabitsDay(asOf?: string): Promise<HabitsDay> {
+  return request(`/views/habits/day${queryString({ as_of: asOf })}`)
+}
+
+/** Answer a habit's day: Done or Not done, set by you. */
+export function setHabitDay(
+  slug: string,
+  day: string,
+  result: 'done' | 'not_done',
+): Promise<{ day: string; result: 'done' | 'not_done' | null }> {
+  return request(`/habits/${encodeURIComponent(slug)}/days/${day}`, {
+    method: 'PUT',
+    body: JSON.stringify({ result }),
+  })
+}
+
+/** Remove the day's answer: untick a habit you tick, or use the data again. */
+export function clearHabitDay(slug: string, day: string): Promise<void> {
+  return request(`/habits/${encodeURIComponent(slug)}/days/${day}`, { method: 'DELETE' })
+}
+
+export function listFreezes(habit?: string): Promise<HabitFreeze[]> {
+  return request(`/freezes${queryString({ habit })}`)
+}
+
+export function createFreeze(body: {
+  habit?: string
+  start_on?: string
+  end_on?: string
+  reason?: string
+}): Promise<HabitFreeze> {
+  return request('/freezes', { method: 'POST', body: JSON.stringify(body) })
+}
+
+export function deleteFreeze(id: number): Promise<void> {
+  return request(`/freezes/${id}`, { method: 'DELETE' })
 }
 
 export function getScreenDashboard(period: Period, asOf?: string): Promise<ScreenDashboard> {
