@@ -28,33 +28,51 @@ phase 1. Nothing here is built yet.
   the table was made, so Sessions planned needs no new field. Screen devices exist but have no
   "complete up to" time.
 
-## Your habits and how each migrates
+## Demo habits and how each migrates
 
-Your real database is on your computer, not in this workspace. The list below is the demo
-database (`atlas seed`), which has the same shapes. Send me an export of your own data
-(`uv run atlas export > atlas-backup.json` — it is also the backup the brief asks for) and I
-will redo this table for your real habits before phase 1.
+Real data does not matter (owner, 2026-11-14): the demo database (`atlas seed`) is the reference,
+and the new seed shows every kind of rule. Habits that no device or Atlas feature can measure
+(coffee, pushups) are **ticked by you**; only automatic sources (sleep, screen time, sessions)
+make a data habit. There is no "Your entries" source.
 
-| Habit | Today | Proposed |
-| ----- | ----- | -------- |
-| Morning pushups | count, at least 40 reps a day, Mon–Fri, Morning | Data habit, source "Your entries: Pushups", at least 40, Specific days Mon–Fri, Morning |
-| Meditate | check, every day, Morning; 1 skip ("Travel day") | Manual, Every day, Morning. Each day with a yes entry becomes a Done mark. The skip becomes a one-day freeze with reason "Travel day" |
-| At most one coffee | count, at most 1 cup a day, Afternoon | Data habit, source "Your entries: Coffee", at most 1, Every day, Afternoon. See question 2 for days with nothing logged |
-| Run three times a week | count, at least 3 runs a week | Data habit, source "Your entries: Runs", at least 1 a day, 3× a week. A week is now kept on 3 **days** with a run, not 3 runs (two runs on one day count once) |
-| Deep work on weekdays | duration, at least 1h 30m a day, Mon–Fri, Morning | Data habit, source "Your entries: Deep work", at least 1h 30m, Specific days Mon–Fri, Morning |
-| Call family | check, 2× a month, Evening | Manual, 2× a month, Evening. Each day with a yes entry becomes a Done mark |
-| No doomscrolling | quit, no slips, Evening | Manual, Every day, Evening. Each past day since it started with no slip becomes a Done mark; today stays open until ticked |
+| Habit | Today | Becomes |
+| ----- | ----- | ------- |
+| Morning pushups | count, at least 40 a day, Mon–Fri | Ticked by you, Mon–Fri. A past day is Done when 40 or more were logged |
+| Meditate | check, every day; 1 skip ("Travel day") | Ticked by you, every day. A day with a yes is Done; the skip becomes a one-day freeze, reason "Travel day" |
+| At most one coffee | count, at most 1 a day | Ticked by you, every day. A past day is Done when 1 or fewer were logged; nothing logged counts as 0, so Done |
+| Run three times a week | count, at least 3 a week | Ticked by you, 3× a week. A day with a run is Done (two runs on one day count once) |
+| Deep work on weekdays | duration, at least 1h 30m a day, Mon–Fri | Ticked by you, Mon–Fri. A past day is Done when 1h 30m or more was logged |
+| Call family | check, 2× a month | Ticked by you, 2× a month. A day with a yes is Done |
+| No doomscrolling | quit, no slips | Ticked by you, every day. A past day with no slip is Done; today stays open |
 
-In every case the current schedule and target become the first rule version, starting on the
-habit's first day (`active_from`). Skips become one-day freezes and pauses become freezes over the
-same range, on that habit. Quest links stay.
+The schedule becomes the first rule version, starting on the habit's first day. Pauses become
+freezes over the same range. The metrics these habits used are **archived**: they leave the New
+entry list, their entries stay readable in All entries, and they can be restored. Quest links
+stay.
+
+The new demo adds the brief's data habits: Wake up before 07:00 (sleep), Bad apps at most
+1h 30m (screen time), and Plan the day (a session planned before 12:00).
+
+## Decisions so far
+
+| # | Question | Decision |
+| - | -------- | -------- |
+| 1 | Real data | Use generated demo data; the real database is not migrated by hand |
+| 2 | Nothing recorded | Habits that cannot be measured automatically are ticked by you. For data habits, see the open question below |
+| 3 | Weekly and monthly habits on single days | A day without a tick is blank, never a cross; the period figure ("2 of 4 this week") carries the judgment. The habit counts in "x of y done" every day of its period |
+| 4 | Finished habits | Archive hides a habit and keeps its history; Restore brings it back from the Archived list. Delete stays for removing a habit with its history |
+| 5 | Logging amounts | Moot: no habit asks for a number, so nothing needs Add → Entry |
+| 6 | The app between phases | Phase 1 swaps the old Habits screens and Home block for a temporary read-only list, so the app runs and nothing writes the old shape |
+| 7 | Screen-time "complete up to" | Set by whatever brings screen-time data in (the import file, the screen-time API the future pipeline will call) and by the demo data. No new command |
+| 8 | Rule changes | See "Rule changes" below |
+| 9 | Addresses | `/habits` (Day), `/habits/week` (Week), `/habit/:slug`; `/habit` and `/week` redirect |
 
 ## The new model (schema 15)
 
 | Table | Holds |
 | ----- | ----- |
 | `habit` | `slug`, `name`, `time_of_day`, `first_day`, `archived_at`. Loses `metric_id`, `kind`, `period`, `comparator`, `target_value`, `weekdays`, `active_to` |
-| `habit_rule` | One version per edit: `habit_id`, `starts_on`, `frequency` (every day / specific days / times a week / times a month), `weekdays`, `times`, `check` (you tick it / from your data), `source`, `source_ref` (the category, app, or metric slug), `threshold` (at least / at most / before / after), `value` (minutes, or minutes after midnight for a time), `created_at` |
+| `habit_rule` | One version per edit: `habit_id`, `starts_on`, `frequency` (every day / specific days / times a week / times a month), `weekdays`, `times`, `check` (you tick it / from your data), `source`, `source_ref` (the category or app slug), `threshold` (at least / at most / before / after), `value` (minutes, or minutes after midnight for a time), `created_at` |
 | `habit_mark` | `habit_id`, `day`, `result` (done / not done), `created_at`; one per habit and day. A tick on a manual habit; "Set by you" on a data habit |
 | `habit_freeze` | `habit_id` (empty = all habits), `start_on`, `end_on`, `reason`, `created_at` |
 | `screen_device` | gains `complete_through` (UTC): the time this device's data is complete up to |
@@ -72,7 +90,7 @@ adding one entry and one reader.
 | Brief | Phase | Files |
 | ----- | ----- | ----- |
 | §1 What a habit is, §2 two checks, §5 rule history and freezes | 1 | `src/atlas/db/models.py`, `src/atlas/db/engine.py` (schema 15 and the data migration), `src/atlas/domain/enums.py`, new `src/atlas/domain/habit_sources.py`, `src/atlas/services/habits.py` (rewritten), `src/atlas/services/port.py` (export and import, older exports converted), `src/atlas/services/seed.py` (demo habits as in the brief's mockup), `src/atlas/services/screen.py` and `src/atlas/api/routers/screen.py` (`complete_through`) |
-| §2 sources, §3 missing data, §4 the running day, §6 calculations | 2 | `src/atlas/domain/habits.py` (rewritten: day result, period kept, streaks, kept last 4 weeks, habits kept), new `src/atlas/services/habit_data.py` (reads sleep, screen sessions, sessions, entries; never writes), `src/atlas/services/week.py` (Habits kept), `tests/domain/test_habits.py` (rewritten with every case in §6), `tests/services/test_habits.py` |
+| §2 sources, §3 missing data, §4 the running day, §6 calculations | 2 | `src/atlas/domain/habits.py` (rewritten: day result, period kept, streaks, kept last 4 weeks, habits kept), new `src/atlas/services/habit_data.py` (reads sleep, screen sessions, and sessions; never writes), `src/atlas/services/week.py` (Habits kept), `tests/domain/test_habits.py` (rewritten with every case in §6), `tests/services/test_habits.py` |
 | API for §7–§9 | 2–5 | `src/atlas/api/routers/habits.py`, `src/atlas/api/routers/views.py`, `src/atlas/api/schemas.py`, `src/atlas/api/serialize.py`, `tests/api/` |
 | §7 Day tab | 3 | new `web/src/pages/habits/HabitsDayPage.tsx`, `web/src/components/habits/` (WeekStrip, HabitRow, StatusIcon, Streak, RowMenu), `web/src/lib/habits.ts`, `web/src/lib/api.ts`, `web/src/App.tsx`, `web/src/lib/nav.ts` |
 | §8 Week tab and habit page | 4 | new `web/src/pages/habits/HabitsWeekPage.tsx`, `web/src/pages/HabitPage.tsx` (rewritten), `web/src/components/habits/HistoryGrid.tsx` |
@@ -105,8 +123,6 @@ called "week" unreachable.)
   the day before. Cancelled sessions do not count; done and "didn't happen" ones do.
 - **Screen time completeness** looks at active (not archived) devices only. With no active device
   the day is "No data received". Sessions without a device still add to the totals.
-- **Your entries** (migrated habits only): there is no "complete" for entries, so a finished day
-  counts as complete; today is judged when it ends, like At most.
 - **Rule versions** cover everything under "How often?" and "How is it checked?" (manual or
   data, source, threshold, value). Two edits on the same day leave one version for that day.
 - **Kept, last 4 weeks** counts periods that end inside the last 28 days.
@@ -115,7 +131,32 @@ called "week" unreachable.)
   target for that period. The previous week is compared like for like, as on This week today.
 - **A freeze for all habits** also covers habits created later that fall inside its dates.
 - **Delete** removes the habit's rule versions, marks, own freezes, and quest links.
+- **Restore** after archiving: the days the habit was archived are frozen (a freeze with reason
+  "Archived" is stored when you restore), so a restored habit does not come back with a broken
+  streak.
+
+## Rule changes
+
+A habit's rule is everything under "How often?" and "How is it checked?". Name and time of day
+are not versioned and change everywhere at once. Each day is judged by the rule in force that
+day; marks (your ticks and "Set by you" answers) are never changed by an edit unless a row below
+says so.
+
+| Change | From today | To all past days too |
+| ------ | ---------- | -------------------- |
+| A new value or threshold (07:00 → 07:30) | Days before today keep their results | Every day is re-judged with 07:30; days set by you keep your answer |
+| Another source (wake time → time asleep) | As above | As above |
+| How often, daily (every day → Mon–Fri) | Today onward uses the new days | Every day is re-judged; days no longer scheduled drop out |
+| How often, a count (3× → 4× a week) | The week that contains today uses 4× | Every week uses 4× |
+| Daily ↔ weekly or monthly (every day → 3× a week) | The new rule starts today. The week it starts in is a first, partial period: the days before the change count as not open, so the target is `ceil(3 × open days ÷ 7)` | Every period uses the new rule |
+| Ticked by you → from your data | Past ticks stay; from today the data decides, and an answer you set today or later is "Set by you" | The data decides every past day. Ticks stay as "Set by you" and still win; "Use data again" clears one day. The sheet says how many days that is |
+| From your data → ticked by you | Past days keep their data results | Past days with an answer you set keep it as a tick; every other past day becomes Not done. The sheet warns before saving |
+| Two edits on the same day | The second replaces the first: one version starts today | Replaces every version, as always |
+| "From today", later "To all past days too" | | One version from the first day; the earlier versions are gone |
+
+What stays true through any change: streaks and "Kept, last 4 weeks" are computed across versions,
+each period with its own rule; freezes are untouched; future days cannot be marked.
 
 ## Questions
 
-See the reply in the session; answers will be folded in here before phase 1.
+See the reply in the session; answers are folded in above.
