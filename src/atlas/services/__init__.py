@@ -15,6 +15,12 @@ from atlas.services.habit_supports import (
     list_habit_supports,
     remove_habit_support,
 )
+from atlas.services.habit_views import (
+    habit_detail,
+    habits_day,
+    habits_kept,
+    habits_week,
+)
 from atlas.services.habits import (
     ARCHIVED_REASON,
     HabitView,
@@ -129,7 +135,11 @@ __all__ = [
     "freeze_habit_slug",
     "habit_marks",
     "habit_rules",
+    "habit_detail",
     "habit_view",
+    "habits_day",
+    "habits_kept",
+    "habits_week",
     "list_freezes",
     "restore_habit",
     "rule_input",

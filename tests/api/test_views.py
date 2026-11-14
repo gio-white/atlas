@@ -29,4 +29,5 @@ def test_this_week_lists_active_habits_by_name(client):
 
     body = client.get("/views/this-week", params={"as_of": "2026-08-13"}).json()
 
-    assert body["habits"] == [{"slug": "read", "name": "Read"}]
+    # Created today, after this week: listed, with nothing to count yet.
+    assert body["habits"] == [{"slug": "read", "name": "Read", "done": 0, "target": 0}]

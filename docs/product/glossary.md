@@ -47,7 +47,7 @@ changes, change it here, in the UI, and in the API together.
 | A session called off ahead of time | Cancel / Cancelled | `TimeBlockStatus.cancelled`, `POST /time-blocks/{id}/cancel` | [time blocks](../domain/time-blocks.md) |
 | Done sessions out of those due an answer this week | Sessions kept | `sessions_kept`, `GET /views/week-so-far` | [home](../domain/home.md) |
 | One week's numbers against the same days last week | This week | `this_week`, `GET /views/this-week`, `ThisWeekPage` | [this week](../domain/this-week.md) |
-| Habits kept this week (not computed until habits phase 2) | Habits kept | `habits_kept_share` | [home](../domain/home.md) |
+| Habits kept this week: min(Done, target) over the targets, across habits | Habits kept | `habits_kept_share` | [home](../domain/home.md) |
 | A cap on all screen time | All screen time | `ScreenBudgetTargetKind.total`, `target_slug: all` | [screen time](../domain/screen-time.md) |
 | Total time planned in sessions | Planned time | `planned_minutes` (never "actual effort") | [time blocks](../domain/time-blocks.md) |
 | A free-text daily note | Note for today; the past ones are Earlier notes | `journal` metric (origin `journal`), `/journal` | [journal](../domain/journal.md) |

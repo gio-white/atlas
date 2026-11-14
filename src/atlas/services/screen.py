@@ -609,7 +609,7 @@ def screen_view(session: Session, *, as_of: date | None = None) -> ScreenView:
     timezone = load_settings().timezone
     categories = list_screen_categories(session)
     apps = list_screen_apps(session)
-    views = _session_views(session)
+    views = screen_session_views(session)
     by_app: dict[str, float | None] = {app.slug: None for app in apps}
     for view in views:
         minutes = attributed_day_minutes(view, timezone).get(as_of)
@@ -692,7 +692,7 @@ def screen_dashboard(
     as_of = resolve_today(as_of)
     period = Period(period)
     timezone = load_settings().timezone
-    views = _session_views(session)
+    views = screen_session_views(session)
     math = screen_dashboard_math(views, as_of=as_of, period=period, timezone=timezone)
     categories = list_screen_categories(session)
     apps = list_screen_apps(session)
@@ -787,7 +787,8 @@ def _app_spec(
     return ScreenAppSpec(slug=app.slug, category_slug=category.slug, metric_slug=metric.slug)
 
 
-def _session_views(session: Session) -> list[ScreenSessionView]:
+def screen_session_views(session: Session) -> list[ScreenSessionView]:
+    """Every screen session with its app, category, judgment, and device."""
     categories = {
         category.id: category for category in list_screen_categories(session, include_archived=True)
     }
@@ -875,29 +876,29 @@ def _budget_status(
         active_from=budget.active_from,
         active_to=budget.active_to,
     )
-    habit = spec.as_habit()
+    cap = spec.as_cap()
     members = member_apps(apps, categories, spec)
     views = [entry for app in members for entry in entries_by_metric.get(app.metric_slug, [])]
-    bucket = bucket_for(as_of, habit.period)
-    scheduled = is_scheduled(habit, bucket, as_of)
+    bucket = bucket_for(as_of, cap.period)
+    scheduled = is_scheduled(cap, bucket, as_of)
     in_bucket = [
         view for view in views if bucket.start <= view.occurred_on <= min(bucket.end, as_of)
     ]
-    current_value = rollup(in_bucket, habit.aggregation)
+    current_value = rollup(in_bucket, cap.aggregation)
     return ScreenBudgetStatus(
         slug=budget.slug,
         name=budget.name,
         target_kind=spec.target_kind,
         target_slug=spec.target_slug,
-        period=habit.period,
-        target_value=habit.target_value,
-        comparator=habit.comparator,
+        period=cap.period,
+        target_value=cap.target_value,
+        comparator=cap.comparator,
         current_value=current_value,
-        satisfied=is_satisfied(current_value, habit.comparator, habit.target_value),
+        satisfied=is_satisfied(current_value, cap.comparator, cap.target_value),
         scheduled=scheduled,
-        current_streak=current_streak(habit, views, as_of),
-        longest_streak=longest_streak(habit, views, as_of),
-        adherence=adherence(habit, views, habit.active_from, as_of),
+        current_streak=current_streak(cap, views, as_of),
+        longest_streak=longest_streak(cap, views, as_of),
+        adherence=adherence(cap, views, cap.active_from, as_of),
         as_of=as_of,
     )
 

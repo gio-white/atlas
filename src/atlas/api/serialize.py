@@ -4,9 +4,20 @@ from sqlmodel import Session
 
 from atlas.api.schemas import (
     EntryOut,
+    HabitDayCountOut,
+    HabitDayResultOut,
+    HabitDayRowOut,
+    HabitDetailOut,
     HabitFreezeOut,
+    HabitKeptOut,
     HabitOut,
+    HabitPeriodOut,
+    HabitProgressOut,
     HabitRuleOut,
+    HabitsDayOut,
+    HabitStreakOut,
+    HabitsWeekOut,
+    HabitWeekRowOut,
     LibraryTitleOut,
     LibraryTopicOut,
     LibraryTopicRefOut,
@@ -104,7 +115,12 @@ def habit_rule_out(rule: Any, source_ref_name: str | None) -> HabitRuleOut:
 
 
 def habit_out(session: Session, habit: Any) -> HabitOut:
-    view = habit_view(session, habit)
+    return habit_view_out(habit_view(session, habit))
+
+
+def habit_view_out(view: Any) -> HabitOut:
+    """A habit with the rule in force on the day its view was taken."""
+    habit = view.habit
     return HabitOut(
         id=habit.id,
         slug=habit.slug,
@@ -270,3 +286,57 @@ def library_title_out(view: Any) -> LibraryTitleOut:
 
 def library_title_out_for(session: Session, title: Any) -> LibraryTitleOut:
     return library_title_out(title_view_for(session, title))
+
+
+def habits_day_out(day: Any) -> HabitsDayOut:
+    return HabitsDayOut(
+        day=day.day,
+        done=day.done,
+        total=day.total,
+        week=[HabitDayCountOut.model_validate(count) for count in day.week],
+        rows=[
+            HabitDayRowOut(
+                habit=habit_view_out(row.view),
+                result=HabitDayResultOut.model_validate(row.result),
+                streak=HabitStreakOut.model_validate(row.streak),
+                progress=_progress(row.progress),
+            )
+            for row in day.rows
+        ],
+    )
+
+
+def habits_week_out(week: Any) -> HabitsWeekOut:
+    return HabitsWeekOut(
+        as_of=week.as_of,
+        week_start=week.week_start,
+        week_end=week.week_end,
+        rows=[
+            HabitWeekRowOut(
+                habit=habit_view_out(row.view),
+                days=[HabitDayResultOut.model_validate(day) for day in row.days],
+                streak=HabitStreakOut.model_validate(row.streak),
+                progress=_progress(row.progress),
+            )
+            for row in week.rows
+        ],
+        kept=HabitKeptOut.model_validate(week.kept),
+        kept_last_week=HabitKeptOut.model_validate(week.kept_last_week),
+    )
+
+
+def habit_detail_out(session: Session, detail: Any) -> HabitDetailOut:
+    return HabitDetailOut(
+        habit=habit_view_out(detail.view),
+        as_of=detail.as_of,
+        current_streak=HabitStreakOut.model_validate(detail.current_streak),
+        best_streak=detail.best_streak,
+        kept_last_4_weeks=HabitKeptOut.model_validate(detail.kept_last_4_weeks),
+        history=[HabitPeriodOut.model_validate(period) for period in detail.history],
+        recent=[HabitDayResultOut.model_validate(day) for day in detail.recent],
+        freezes=[habit_freeze_out(session, freeze) for freeze in detail.freezes],
+    )
+
+
+def _progress(progress: Any) -> HabitProgressOut | None:
+    return None if progress is None else HabitProgressOut.model_validate(progress)

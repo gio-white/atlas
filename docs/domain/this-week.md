@@ -33,7 +33,7 @@ sleep sessions, screen sessions, and library titles.
   that had not ended by then is not yet due an answer.
 - `this_week(session, as_of, now)` returns the window for `as_of` (`current`), the window for
   `as_of − 7 days` (`previous`), `week_start` / `week_end` (Monday and Sunday), `complete`
-  (`as_of` is the Sunday), and the active habits by name (`habits`); their week's result returns with brief phase 2.
+  (`as_of` is the Sunday), and each active habit's part of Habits kept (`habits`).
 - `week_so_far` is Home's subset of `week_numbers`.
 
 Each number, per window:
@@ -43,8 +43,8 @@ Each number, per window:
 | Quests | Sessions kept | `sessions_kept` ([home](home.md#rules-and-calculations)): done out of sessions due an answer (done, didn't happen, or unconfirmed); cancelled ones and ones not yet ended are left out |
 | Quests | Tasks completed | tasks whose status is completed and whose `completed_at` falls in the window; a task reopened since does not count |
 | Quests | Milestones completed | milestones whose status is completed and whose `completed_at` falls in the window |
-| Habits | Habits kept | *Not computed during the habits rebuild*: 0 of 0, share null, until brief phase 2 ([habits](habits.md#day-results-streaks-and-habits-kept)) |
-| Habits | One row per habit | each active habit's `slug` and `name`, no result yet |
+| Habits | Habits kept | `habits_kept`: min(Done, target) over the target across active habits; finished days count, and today once Done; a weekly or monthly habit's whole target. The previous window's last day is judged as its "today", like for like ([habits](habits.md#day-results-streaks-and-habits-kept)) |
+| Habits | One row per habit | `habits_kept_by_habit`: each active habit's `done` and `target` for the window; the rows add up to Habits kept |
 | Sleep | Time asleep, average; bedtime, average; wake time, average | `average_asleep`, `average_bed_offset`, `average_wake_offset` of the sleep view over the window's days ([sleep](sleep.md)); bedtime and wake time are minutes from local midnight, negative before midnight |
 | Sleep | Missing nights | days in the window without a night |
 | Screen time | Total, daily average, score, and the Good / Neutral / Bad split | the week dashboard for `as_of` (`screen_dashboard`, period week, which is clipped to Monday–`as_of`) ([screen time](screen-time.md)); the split is the `useful` / `neutral` / `waste` minutes |
@@ -54,7 +54,7 @@ Each number, per window:
 
 | Method | Path | Purpose | Status |
 | ------ | ---- | ------- | ------ |
-| `GET` | `/views/this-week` | `as_of`, `week_start`, `week_end`, `complete`, `current` and `previous` (each: `sessions_kept` / `sessions_total`, `tasks_completed`, `milestones_completed`, `habits_kept` / `habits_judged` / `habits_kept_share`, `sleep_average_minutes`, `sleep_average_bedtime`, `sleep_average_wake`, `sleep_nights`, `sleep_missing_nights`, `screen_total`, `screen_daily_average`, `screen_score`, `screen_good` / `screen_neutral` / `screen_bad`, `titles_finished`, plus `as_of` / `week_start`), and `habits` (`slug`, `name`) (`as_of`) | implemented |
+| `GET` | `/views/this-week` | `as_of`, `week_start`, `week_end`, `complete`, `current` and `previous` (each: `sessions_kept` / `sessions_total`, `tasks_completed`, `milestones_completed`, `habits_kept` / `habits_judged` / `habits_kept_share`, `sleep_average_minutes`, `sleep_average_bedtime`, `sleep_average_wake`, `sleep_nights`, `sleep_missing_nights`, `screen_total`, `screen_daily_average`, `screen_score`, `screen_good` / `screen_neutral` / `screen_bad`, `titles_finished`, plus `as_of` / `week_start`), and `habits` (`slug`, `name`, `done`, `target`) (`as_of`) | implemented |
 
 ## Screens
 
@@ -73,8 +73,9 @@ tab; `/stats` opens it.
   `?on=`.
   - **Quests** (to Main quests): Sessions kept "5 of 7" with "Last week 4 of 6"; Tasks completed;
     Milestones completed.
-  - **Habits** (to Habits): Habits kept "—" *until habits phase 2*, then one row per active
-    habit with its name only. Empty: "No habits yet."
+  - **Habits** (to Habits): Habits kept "84%", then one row per active habit with its name
+    only *until habits phase 6* (the API already sends each row's `done` / `target`). Empty: "No
+    habits yet."
   - **Sleep** (to Stats → Sleep): Time asleep, average; Bedtime, average; Wake time, average;
     Missing nights. Empty: "No sleep data this week."
   - **Screen time** (to Stats → Screen time): Total, Daily average, Score, and a Good / Neutral /
@@ -90,7 +91,7 @@ Home's **This week so far** has the link **This week** to this page.
 
 - `tests/services/test_week.py` — the same weekdays a week earlier, a past Sunday as a complete
   week, tasks / milestones / titles finished in the window (a reopened task left out), the
-  active habits listed with none judged yet, the screen split and sleep times; and Home's week so
+  each habit's part adding up to Habits kept (today counted once Done), the screen split and sleep times; and Home's week so
   far
 - `tests/api/test_views.py` — `GET /views/this-week`
 - `web/src/lib/thisWeek.test.ts` — titles, range line, week steps, the wording of changes

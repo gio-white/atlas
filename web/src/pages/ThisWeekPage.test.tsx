@@ -83,8 +83,8 @@ const WEEK: ThisWeek = {
     titles_finished: 1,
   }),
   habits: [
-    { slug: 'read', name: 'Read' },
-    { slug: 'run', name: 'Run' },
+    { slug: 'read', name: 'Read', done: 4, target: 5 },
+    { slug: 'run', name: 'Run', done: 1, target: 3 },
   ],
 }
 

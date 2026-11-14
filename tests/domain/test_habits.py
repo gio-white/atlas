@@ -1,279 +1,407 @@
-from datetime import date
+"""Habit calculations (habits brief §6): every case the brief lists, plus streaks and kept."""
 
-from atlas.domain import (
-    Aggregation,
-    BucketOutcome,
-    Comparator,
-    EntryView,
-    HabitSpec,
+from datetime import date, timedelta
+
+from atlas.domain.enums import (
+    HabitCheck,
+    HabitFrequency,
+    HabitMarkResult,
+    HabitSource,
+    HabitThreshold,
     Period,
-    adherence,
-    adherence_counts,
-    available_days,
-    bucket_for,
-    bucket_outcome,
-    bucket_target,
+)
+from atlas.domain.habits import (
+    Clock,
+    DayReason,
+    DayStatus,
+    HabitFacts,
+    PeriodState,
+    Reading,
+    RuleSpec,
+    best_streak,
     current_streak,
-    is_excused,
-    is_satisfied,
-    longest_streak,
-    scheduled_buckets,
+    day_result,
+    kept_counts,
+    kept_last_4_weeks,
+    passes,
+    periods,
+    share,
 )
 
-MON, TUE, WED, THU, FRI, SAT, SUN = range(1, 8)
-WEEKDAYS = frozenset({MON, TUE, WED, THU, FRI})
+MON = date(2026, 11, 9)
+SAT = date(2026, 11, 14)
+DONE = HabitMarkResult.DONE
+NOT_DONE = HabitMarkResult.NOT_DONE
 
 
-def _entry(day: date, value: float = 1.0) -> EntryView:
-    return EntryView(occurred_on=day, value_num=value)
+def _day(offset: int) -> date:
+    return MON + timedelta(days=offset)
 
 
-def _daily(
-    *,
-    target_value: float = 1.0,
-    comparator: Comparator = Comparator.AT_LEAST,
-    aggregation: Aggregation = Aggregation.SUM,
-    active_from: date = date(2026, 8, 1),
-    active_to: date | None = None,
-    weekdays: frozenset[int] | None = None,
-    period: Period = Period.DAY,
-) -> HabitSpec:
-    return HabitSpec(
-        period=period,
-        target_value=target_value,
-        comparator=comparator,
-        aggregation=aggregation,
-        active_from=active_from,
-        active_to=active_to,
-        weekdays=weekdays,
+def _manual(starts_on: date = MON, frequency=HabitFrequency.EVERY_DAY, **values) -> RuleSpec:
+    return RuleSpec(starts_on=starts_on, frequency=frequency, **values)
+
+
+def _data(
+    source: HabitSource,
+    threshold: HabitThreshold,
+    value: float,
+    starts_on: date = MON,
+    frequency=HabitFrequency.EVERY_DAY,
+    **values,
+) -> RuleSpec:
+    return RuleSpec(
+        starts_on=starts_on,
+        frequency=frequency,
+        check=HabitCheck.DATA,
+        source=source,
+        threshold=threshold,
+        value=value,
+        **values,
     )
 
 
-def test_empty_bucket_satisfies_at_most_only():
-    assert is_satisfied(None, Comparator.AT_MOST, 1.0) is True
-    assert is_satisfied(None, Comparator.AT_LEAST, 1.0) is False
-    assert is_satisfied(None, Comparator.EXACTLY, 0.0) is False
+def _facts(*rules: RuleSpec, first_day: date = MON, **values) -> HabitFacts:
+    return HabitFacts(first_day=first_day, rules=rules, **values)
 
 
-def test_comparators_against_a_value():
-    assert is_satisfied(3.0, Comparator.AT_LEAST, 3.0) is True
-    assert is_satisfied(2.0, Comparator.AT_LEAST, 3.0) is False
-    assert is_satisfied(1.0, Comparator.AT_MOST, 1.0) is True
-    assert is_satisfied(2.0, Comparator.AT_MOST, 1.0) is False
-    assert is_satisfied(3.0, Comparator.EXACTLY, 3.0) is True
-    assert is_satisfied(3.1, Comparator.EXACTLY, 3.0) is False
+def _status(facts: HabitFacts, day: date, today: date = SAT, now: float = 12 * 60):
+    result = day_result(facts, day, Clock(today, now))
+    return result.status, result.reason
 
 
-def test_coffee_free_day_satisfies_at_most():
-    habit = _daily(comparator=Comparator.AT_MOST, target_value=1.0)
-    as_of = date(2026, 8, 13)
+WAKE_BEFORE_7 = _data(HabitSource.WAKE_TIME, HabitThreshold.BEFORE, 7 * 60)
+BAD_AT_MOST_90 = _data(HabitSource.SCREEN_BAD_APPS, HabitThreshold.AT_MOST, 90)
+SCREEN_AT_LEAST_30 = _data(HabitSource.SCREEN_APP, HabitThreshold.AT_LEAST, 30)
+PLANNED_BEFORE_NOON = _data(HabitSource.SESSIONS_PLANNED, HabitThreshold.BEFORE, 12 * 60)
 
-    assert current_streak(habit, [], as_of) == 13
+
+# A manual tick and its removal.
 
 
-def test_run_free_week_fails_at_least():
-    habit = HabitSpec(
-        period=Period.WEEK,
-        target_value=3.0,
-        comparator=Comparator.AT_LEAST,
-        aggregation=Aggregation.SUM,
-        active_from=date(2026, 8, 3),
+def test_a_tick_is_done_and_removing_it_makes_the_day_not_done():
+    ticked = _facts(_manual(), marks={_day(2): DONE})
+    assert _status(ticked, _day(2)) == (DayStatus.DONE, None)
+    unticked = _facts(_manual())
+    assert _status(unticked, _day(2)) == (DayStatus.NOT_DONE, None)
+
+
+def test_a_manual_habit_is_open_today_until_ticked():
+    assert _status(_facts(_manual()), SAT) == (DayStatus.OPEN, None)
+    assert _status(_facts(_manual(), marks={SAT: DONE}), SAT) == (DayStatus.DONE, None)
+
+
+def test_days_before_the_first_day_and_off_days_are_not_scheduled():
+    weekdays = _manual(frequency=HabitFrequency.SPECIFIC_DAYS, weekdays=frozenset({1, 2, 3, 4, 5}))
+    facts = _facts(weekdays)
+    assert _status(facts, _day(-1))[0] is DayStatus.NOT_SCHEDULED
+    assert _status(facts, SAT)[0] is DayStatus.NOT_SCHEDULED
+    assert _status(facts, _day(4))[0] is DayStatus.NOT_DONE
+
+
+def test_a_day_after_today_is_upcoming():
+    assert _status(_facts(_manual()), _day(6))[0] is DayStatus.UPCOMING
+
+
+# An override beats the data, both ways.
+
+
+def test_your_answer_beats_the_data_both_ways():
+    early = {_day(2): Reading(6 * 60 + 30, complete=True, received=True)}
+    late = {_day(3): Reading(8 * 60, complete=True, received=True)}
+    facts = _facts(
+        WAKE_BEFORE_7,
+        readings={**early, **late},
+        marks={_day(2): NOT_DONE, _day(3): DONE},
     )
-    as_of = date(2026, 8, 16)
-
-    assert current_streak(habit, [], as_of) == 0
-    assert longest_streak(habit, [], as_of) == 0
-
-
-def test_in_progress_unsatisfied_bucket_does_not_break_the_streak():
-    habit = _daily(active_from=date(2026, 8, 10))
-    entries = [_entry(date(2026, 8, d)) for d in (10, 11, 12)]
-
-    assert current_streak(habit, entries, date(2026, 8, 13)) == 3
+    assert _status(facts, _day(2)) == (DayStatus.NOT_DONE, DayReason.SET_BY_YOU)
+    assert _status(facts, _day(3)) == (DayStatus.DONE, DayReason.SET_BY_YOU)
+    plain = _facts(WAKE_BEFORE_7, readings={**early, **late})
+    assert _status(plain, _day(2)) == (DayStatus.DONE, None)
+    assert _status(plain, _day(3)) == (DayStatus.NOT_DONE, None)
 
 
-def test_in_progress_satisfied_bucket_extends_the_streak():
-    habit = _daily(active_from=date(2026, 8, 10))
-    entries = [_entry(date(2026, 8, d)) for d in (10, 11, 12, 13)]
-
-    assert current_streak(habit, entries, date(2026, 8, 13)) == 4
+def test_a_done_data_day_carries_its_value_for_the_reason_line():
+    facts = _facts(WAKE_BEFORE_7, readings={_day(2): Reading(408, complete=True, received=True)})
+    assert day_result(facts, _day(2), Clock(SAT)).value == 408
 
 
-def test_complete_unsatisfied_bucket_breaks_the_streak():
-    habit = _daily(active_from=date(2026, 8, 10))
-    entries = [_entry(date(2026, 8, 10)), _entry(date(2026, 8, 12)), _entry(date(2026, 8, 13))]
-
-    assert current_streak(habit, entries, date(2026, 8, 13)) == 2
+# Missing and incomplete data.
 
 
-def test_weekly_habit_counts_weeks_and_includes_the_open_week_once_met():
-    habit = HabitSpec(
-        period=Period.WEEK,
-        target_value=3.0,
-        comparator=Comparator.AT_LEAST,
-        aggregation=Aggregation.SUM,
-        active_from=date(2026, 7, 13),
+def test_no_night_is_not_done_with_no_data_received():
+    assert _status(_facts(WAKE_BEFORE_7), _day(2)) == (DayStatus.NOT_DONE, DayReason.NO_DATA)
+
+
+def test_an_incomplete_screen_time_day_is_not_done_with_data_incomplete():
+    partial = Reading(30, complete=False, received=True)
+    facts = _facts(BAD_AT_MOST_90, readings={_day(2): partial})
+    assert _status(facts, _day(2)) == (DayStatus.NOT_DONE, DayReason.DATA_INCOMPLETE)
+    nothing = _facts(BAD_AT_MOST_90)
+    assert _status(nothing, _day(2)) == (DayStatus.NOT_DONE, DayReason.NO_DATA)
+    complete = _facts(BAD_AT_MOST_90, readings={_day(2): Reading(30, True, True)})
+    assert _status(complete, _day(2)) == (DayStatus.DONE, None)
+
+
+def test_a_complete_day_with_no_screen_time_is_done_under_a_limit():
+    facts = _facts(BAD_AT_MOST_90, readings={_day(2): Reading(0.0, True, True)})
+    assert _status(facts, _day(2)) == (DayStatus.DONE, None)
+
+
+def test_an_at_least_already_met_is_done_before_the_data_is_complete():
+    facts = _facts(SCREEN_AT_LEAST_30, readings={_day(2): Reading(45, False, True)})
+    assert _status(facts, _day(2)) == (DayStatus.DONE, None)
+
+
+# While the day is running.
+
+
+def test_going_over_the_limit_mid_day_is_not_done_at_once():
+    on_track = _facts(BAD_AT_MOST_90, readings={SAT: Reading(40, False, True)})
+    result = day_result(on_track, SAT, Clock(SAT, 15 * 60))
+    assert (result.status, result.value) == (DayStatus.IN_PROGRESS, 40)
+    over = _facts(BAD_AT_MOST_90, readings={SAT: Reading(95, False, True)})
+    assert _status(over, SAT) == (DayStatus.NOT_DONE, DayReason.OVER_LIMIT)
+
+
+def test_an_at_least_in_progress_today_shows_progress_then_done():
+    facts = _facts(SCREEN_AT_LEAST_30, readings={SAT: Reading(20, False, True)})
+    result = day_result(facts, SAT, Clock(SAT, 15 * 60))
+    assert (result.status, result.value) == (DayStatus.IN_PROGRESS, 20)
+    met = _facts(SCREEN_AT_LEAST_30, readings={SAT: Reading(30, False, True)})
+    assert _status(met, SAT) == (DayStatus.DONE, None)
+
+
+def test_a_time_threshold_shows_nothing_today_until_the_value_arrives():
+    assert _status(_facts(WAKE_BEFORE_7), SAT) == (DayStatus.OPEN, None)
+    arrived = _facts(WAKE_BEFORE_7, readings={SAT: Reading(6 * 60, True, True)})
+    assert _status(arrived, SAT) == (DayStatus.DONE, None)
+
+
+def test_yesterday_waits_for_data_and_is_not_done_once_today_ends():
+    facts = _facts(BAD_AT_MOST_90, readings={_day(4): Reading(30, False, True)})
+    friday = _day(4)
+    assert _status(facts, friday, today=SAT) == (DayStatus.WAITING, DayReason.WAITING_FOR_DATA)
+    sunday = _day(6)
+    assert _status(facts, friday, today=sunday) == (DayStatus.NOT_DONE, DayReason.DATA_INCOMPLETE)
+
+
+def test_late_data_re_judges_the_day():
+    sunday = _day(6)
+    before = _facts(BAD_AT_MOST_90)
+    assert _status(before, _day(4), today=sunday) == (DayStatus.NOT_DONE, DayReason.NO_DATA)
+    late = _facts(BAD_AT_MOST_90, readings={_day(4): Reading(60, True, True)})
+    assert _status(late, _day(4), today=sunday) == (DayStatus.DONE, None)
+
+
+def test_yesterday_waiting_does_not_break_the_streak():
+    readings = {_day(offset): Reading(30, True, True) for offset in range(4)}
+    facts = _facts(BAD_AT_MOST_90, readings=readings)
+    results = periods(facts, SAT, Clock(SAT))
+    assert [result.state for result in results][-2:] == [PeriodState.WAITING, PeriodState.RUNNING]
+    assert current_streak(results) == 4
+
+
+# Bedtime and Sessions planned.
+
+
+def test_a_bedtime_after_midnight_is_later_than_one_before_it():
+    assert passes(HabitSource.BEDTIME, HabitThreshold.BEFORE, 23 * 60 + 30, 23 * 60 + 45)
+    assert not passes(HabitSource.BEDTIME, HabitThreshold.BEFORE, 40, 23 * 60 + 30)
+    assert passes(HabitSource.BEDTIME, HabitThreshold.AFTER, 40, 23 * 60 + 30)
+    assert passes(HabitSource.WAKE_TIME, HabitThreshold.BEFORE, 6 * 60 + 48, 7 * 60)
+
+
+def test_sessions_planned_turns_done_before_the_cut_off_and_not_done_after_it():
+    planned = _facts(PLANNED_BEFORE_NOON, readings={SAT: Reading(8 * 60 + 10, True, True)})
+    result = day_result(planned, SAT, Clock(SAT, 8 * 60 + 15))
+    assert (result.status, result.value) == (DayStatus.DONE, 8 * 60 + 10)
+    nothing = _facts(PLANNED_BEFORE_NOON)
+    assert _status(nothing, SAT, now=11 * 60 + 59) == (DayStatus.OPEN, None)
+    assert _status(nothing, SAT, now=12 * 60) == (DayStatus.NOT_DONE, None)
+    too_late = _facts(PLANNED_BEFORE_NOON, readings={SAT: Reading(12 * 60 + 5, True, True)})
+    assert _status(too_late, SAT, now=13 * 60) == (DayStatus.NOT_DONE, None)
+
+
+def test_a_session_planned_the_day_before_counts():
+    facts = _facts(PLANNED_BEFORE_NOON, readings={_day(2): Reading(-120, True, True)})
+    assert _status(facts, _day(2)) == (DayStatus.DONE, None)
+
+
+# Rule changes.
+
+
+def test_a_threshold_change_from_today_keeps_past_results():
+    readings = {_day(offset): Reading(7 * 60 + 15, True, True) for offset in range(6)}
+    later = _data(HabitSource.WAKE_TIME, HabitThreshold.BEFORE, 7 * 60 + 30, starts_on=SAT)
+    from_today = _facts(WAKE_BEFORE_7, later, readings=readings)
+    assert _status(from_today, _day(3)) == (DayStatus.NOT_DONE, None)
+    assert _status(from_today, SAT) == (DayStatus.DONE, None)
+    all_days = _facts(
+        _data(HabitSource.WAKE_TIME, HabitThreshold.BEFORE, 7 * 60 + 30), readings=readings
     )
-    # Four complete ISO weeks before week 33, three runs each, then two so far this week.
-    past_weeks = [
-        date(2026, 7, 13),
-        date(2026, 7, 14),
-        date(2026, 7, 15),
-        date(2026, 7, 20),
-        date(2026, 7, 21),
-        date(2026, 7, 22),
-        date(2026, 7, 27),
-        date(2026, 7, 28),
-        date(2026, 7, 29),
-        date(2026, 8, 3),
-        date(2026, 8, 4),
-        date(2026, 8, 5),
-    ]
-    monday_morning = [_entry(day) for day in past_weeks]
-    assert current_streak(habit, monday_morning, date(2026, 8, 10)) == 4
-
-    this_week = monday_morning + [
-        _entry(date(2026, 8, 10)),
-        _entry(date(2026, 8, 11)),
-        _entry(date(2026, 8, 12)),
-    ]
-    assert current_streak(habit, this_week, date(2026, 8, 13)) == 5
+    assert _status(all_days, _day(3)) == (DayStatus.DONE, None)
 
 
-def test_weekday_mask_skips_off_days_without_breaking_the_streak():
-    habit = _daily(active_from=date(2026, 8, 10), weekdays=WEEKDAYS)
-    entries = [
-        _entry(date(2026, 8, 10)),
-        _entry(date(2026, 8, 11)),
-        _entry(date(2026, 8, 12)),
-        _entry(date(2026, 8, 13)),
-        _entry(date(2026, 8, 14)),
-    ]
-
-    assert current_streak(habit, entries, date(2026, 8, 16)) == 5
-    scheduled = scheduled_buckets(habit, date(2026, 8, 16))
-    assert [bucket.start.isoweekday() for bucket in scheduled] == [MON, TUE, WED, THU, FRI]
+def test_a_count_change_applies_to_the_whole_week_that_contains_it():
+    three = _manual(frequency=HabitFrequency.TIMES_A_WEEK, times=3)
+    four = _manual(starts_on=_day(3), frequency=HabitFrequency.TIMES_A_WEEK, times=4)
+    facts = _facts(three, four, first_day=_day(-7))
+    first, second = periods(facts, SAT, Clock(SAT))
+    assert (first.target, second.target) == (3, 4)
+    assert (second.start, second.end) == (MON, _day(6))
 
 
-def test_longest_streak_finds_the_best_run_and_ignores_an_open_miss():
-    habit = _daily(active_from=date(2026, 8, 10))
-    entries = [
-        _entry(date(2026, 8, 10)),
-        _entry(date(2026, 8, 11)),
-        _entry(date(2026, 8, 12)),
-    ]
-
-    as_of = date(2026, 8, 16)
-    assert current_streak(habit, entries, as_of) == 0
-    assert longest_streak(habit, entries, as_of) == 3
+def test_every_day_to_three_a_week_starts_a_partial_week():
+    daily = _manual()
+    weekly = _manual(starts_on=_day(3), frequency=HabitFrequency.TIMES_A_WEEK, times=3)
+    facts = _facts(daily, weekly, marks={_day(0): DONE, _day(1): DONE, _day(2): DONE})
+    results = periods(facts, _day(6), Clock(_day(6)))
+    assert [result.period for result in results] == [Period.DAY] * 3 + [Period.WEEK]
+    partial = results[-1]
+    assert (partial.start, partial.end, partial.target) == (_day(3), _day(6), 2)
 
 
-def test_longest_streak_counts_an_in_progress_hit():
-    habit = _daily(active_from=date(2026, 8, 10))
-    entries = [_entry(date(2026, 8, d)) for d in (10, 11, 12, 13)]
-
-    assert longest_streak(habit, entries, date(2026, 8, 13)) == 4
+# Freezes.
 
 
-def test_adherence_excludes_the_in_progress_bucket():
-    habit = _daily(active_from=date(2026, 8, 10))
-    entries = [_entry(date(2026, 8, 10)), _entry(date(2026, 8, 12))]
-
-    ratio = adherence(habit, entries, date(2026, 8, 10), date(2026, 8, 13))
-
-    assert ratio == 2 / 3
-
-
-def test_adherence_is_none_when_nothing_complete_was_scheduled():
-    habit = _daily(active_from=date(2026, 8, 13))
-
-    assert adherence(habit, [], date(2026, 8, 13), date(2026, 8, 13)) is None
+def test_a_single_day_freeze_neither_breaks_nor_counts():
+    marks = {_day(offset): DONE for offset in (0, 1, 3, 4)}
+    facts = _facts(_manual(), marks=marks, freezes=((_day(2), _day(2)),))
+    assert _status(facts, _day(2)) == (DayStatus.FROZEN, DayReason.FROZEN)
+    results = periods(facts, _day(4), Clock(_day(5)))
+    assert current_streak(results) == 4
+    assert kept_counts(results, MON, _day(4)) == (4, 4)
 
 
-def test_monthly_habit_counts_an_edge_month_once():
-    habit = HabitSpec(
-        period=Period.MONTH,
-        target_value=1.0,
-        comparator=Comparator.AT_LEAST,
-        aggregation=Aggregation.SUM,
-        active_from=date(2026, 1, 15),
+def test_a_holiday_freeze_leaves_the_streak_intact():
+    marks = {_day(offset): DONE for offset in range(-3, 0)}
+    marks[_day(5)] = DONE
+    facts = _facts(_manual(), first_day=_day(-3), marks=marks, freezes=((MON, _day(4)),))
+    results = periods(facts, SAT, Clock(SAT))
+    assert current_streak(results) == 4
+    assert best_streak(results) == 4
+
+
+def test_a_freeze_wins_over_a_tick_on_the_same_day():
+    facts = _facts(_manual(), marks={_day(2): DONE}, freezes=((_day(2), _day(2)),))
+    assert _status(facts, _day(2))[0] is DayStatus.FROZEN
+
+
+def test_a_week_fully_frozen_is_left_out():
+    weekly = _manual(frequency=HabitFrequency.TIMES_A_WEEK, times=3)
+    facts = _facts(weekly, freezes=((MON, _day(6)),))
+    (week,) = periods(facts, _day(6), Clock(_day(7)))
+    assert (week.target, week.state) == (0, PeriodState.FROZEN)
+
+
+# Proportional weekly targets.
+
+
+def test_a_partly_frozen_week_scales_its_target():
+    weekly = _manual(frequency=HabitFrequency.TIMES_A_WEEK, times=3)
+    facts = _facts(weekly, freezes=((MON, _day(2)),), marks={_day(4): DONE, _day(5): DONE})
+    (week,) = periods(facts, _day(6), Clock(_day(7)))
+    assert (week.target, week.done, week.state) == (2, 2, PeriodState.KEPT)
+
+
+def test_a_habit_created_mid_week_has_a_partial_first_week():
+    weekly = _manual(starts_on=_day(3), frequency=HabitFrequency.TIMES_A_WEEK, times=3)
+    facts = _facts(weekly, first_day=_day(3))
+    (week,) = periods(facts, _day(6), Clock(_day(7)))
+    assert (week.start, week.target) == (_day(3), 2)
+
+
+def test_a_monthly_habit_counts_calendar_months():
+    monthly = _manual(starts_on=date(2026, 10, 1), frequency=HabitFrequency.TIMES_A_MONTH, times=2)
+    facts = _facts(monthly, first_day=date(2026, 10, 1), marks={date(2026, 10, 5): DONE})
+    october, november = periods(facts, SAT, Clock(SAT))
+    assert (october.target, october.state) == (2, PeriodState.MISSED)
+    assert (november.start, november.end, november.target, november.state) == (
+        date(2026, 11, 1),
+        date(2026, 11, 30),
+        2,
+        PeriodState.RUNNING,
     )
-    entries = [
-        _entry(date(2026, 1, 20)),
-        _entry(date(2026, 2, 1)),
-        _entry(date(2026, 3, 10)),
-    ]
-
-    assert current_streak(habit, entries, date(2026, 3, 5)) == 2
-    assert current_streak(habit, entries, date(2026, 3, 10)) == 3
 
 
-def test_future_and_inactive_windows_are_not_scheduled():
-    habit = _daily(active_from=date(2026, 8, 10), active_to=date(2026, 8, 12))
-
-    assert scheduled_buckets(habit, date(2026, 8, 9)) == []
-    days = [bucket.start.day for bucket in scheduled_buckets(habit, date(2026, 8, 20))]
-    assert days == [10, 11, 12]
-
-
-def _spec(**overrides) -> HabitSpec:
-    values = {
-        "period": Period.DAY,
-        "target_value": 1.0,
-        "comparator": Comparator.AT_LEAST,
-        "aggregation": Aggregation.SUM,
-        "active_from": date(2026, 8, 3),
-    }
-    values.update(overrides)
-    return HabitSpec(**values)
+def test_a_weekly_habit_shows_past_days_without_a_tick_as_blank():
+    weekly = _manual(frequency=HabitFrequency.TIMES_A_WEEK, times=2)
+    facts = _facts(weekly, marks={_day(1): DONE})
+    assert _status(facts, _day(0))[0] is DayStatus.BLANK
+    assert _status(facts, _day(1))[0] is DayStatus.DONE
+    assert _status(facts, SAT)[0] is DayStatus.OPEN
 
 
-def test_break_days_are_excused_without_breaking_or_extending_the_streak():
-    habit = _spec(breaks=((date(2026, 8, 6), date(2026, 8, 7)),))
-    entries = [_entry(date(2026, 8, day)) for day in (3, 4, 5, 8, 9)]
-    as_of = date(2026, 8, 9)
-    assert current_streak(habit, entries, as_of) == 5
-    assert longest_streak(habit, entries, as_of) == 5
-    assert adherence_counts(habit, entries, date(2026, 8, 3), as_of) == (4, 4)
-    excused_day = bucket_for(date(2026, 8, 6), Period.DAY)
-    assert is_excused(habit, excused_day)
-    assert bucket_outcome(habit, [], excused_day) is BucketOutcome.EXCUSED
+# Streaks and Kept, last 4 weeks.
 
 
-def test_partial_break_scales_a_weekly_at_least_target():
-    weekly = _spec(period=Period.WEEK, target_value=3.0)
-    week = bucket_for(date(2026, 8, 10), Period.WEEK)
-    assert bucket_target(weekly, week) == 3.0
-    away = _spec(
-        period=Period.WEEK,
-        target_value=3.0,
-        breaks=((date(2026, 8, 10), date(2026, 8, 12)),),
+def test_the_running_period_adds_one_once_kept_and_never_breaks():
+    marks = {_day(offset): DONE for offset in range(5)}
+    facts = _facts(_manual(), marks=marks)
+    assert current_streak(periods(facts, SAT, Clock(SAT))) == 5
+    marks[SAT] = DONE
+    facts = _facts(_manual(), marks=marks)
+    assert current_streak(periods(facts, SAT, Clock(SAT))) == 6
+
+
+def test_a_missed_day_breaks_the_current_streak_but_not_the_best():
+    marks = {_day(offset): DONE for offset in (0, 1, 2, 4)}
+    results = periods(_facts(_manual(), marks=marks), _day(5), Clock(_day(5)))
+    assert current_streak(results) == 1
+    assert best_streak(results) == 3
+
+
+def test_a_weekly_streak_counts_weeks():
+    weekly = _manual(starts_on=_day(-21), frequency=HabitFrequency.TIMES_A_WEEK, times=2)
+    marks = {_day(offset): DONE for offset in (-21, -20, -14, -13, -7, -6)}
+    results = periods(_facts(weekly, first_day=_day(-21), marks=marks), SAT, Clock(SAT))
+    assert current_streak(results) == 3
+    marks.update({MON: DONE, _day(1): DONE})
+    results = periods(_facts(weekly, first_day=_day(-21), marks=marks), SAT, Clock(SAT))
+    assert current_streak(results) == 4
+
+
+def test_kept_last_4_weeks_judges_finished_periods_in_the_28_days_before_today():
+    first = SAT - timedelta(days=40)
+    marks = {first + timedelta(days=offset): DONE for offset in range(0, 41, 2)}
+    results = periods(
+        _facts(_manual(starts_on=first), first_day=first, marks=marks), SAT, Clock(SAT)
     )
-    assert available_days(away, week) == (7, 4)
-    assert bucket_target(away, week) == 2.0
-    two_runs = [_entry(date(2026, 8, 14)), _entry(date(2026, 8, 15))]
-    assert bucket_outcome(away, two_runs, week) is BucketOutcome.SATISFIED
-    whole_week = _spec(
-        period=Period.WEEK,
-        target_value=3.0,
-        breaks=((date(2026, 8, 9), date(2026, 8, 17)),),
+    kept, judged = kept_last_4_weeks(results, SAT)
+    assert judged == 28
+    assert kept == sum(1 for offset in range(12, 40) if offset % 2 == 0)
+
+
+def test_kept_last_4_weeks_leaves_out_frozen_running_and_waiting_periods():
+    facts = _facts(
+        BAD_AT_MOST_90,
+        readings={_day(0): Reading(30, True, True)},
+        freezes=((_day(1), _day(2)),),
     )
-    assert bucket_target(whole_week, week) is None
+    results = periods(facts, SAT, Clock(SAT))
+    # Monday kept, Thursday missed (no data); Tue–Wed frozen, Friday waiting, today running.
+    assert kept_last_4_weeks(results, SAT) == (1, 2)
 
 
-def test_ceilings_are_not_scaled_by_breaks():
-    habit = _spec(
-        period=Period.WEEK,
-        target_value=2.0,
-        comparator=Comparator.AT_MOST,
-        breaks=((date(2026, 8, 10), date(2026, 8, 12)),),
-    )
-    assert bucket_target(habit, bucket_for(date(2026, 8, 10), Period.WEEK)) == 2.0
+# Habits kept.
 
 
-def test_quit_habit_streak_counts_clean_days_and_resets_on_a_slip():
-    quit = _spec(target_value=0.0, comparator=Comparator.AT_MOST)
-    slips = [_entry(date(2026, 8, 5))]
-    assert current_streak(quit, slips, date(2026, 8, 9)) == 4
-    assert longest_streak(quit, slips, date(2026, 8, 9)) == 4
-    assert current_streak(quit, [*slips, _entry(date(2026, 8, 9))], date(2026, 8, 9)) == 0
+def test_habits_kept_counts_finished_days_and_today_once_done():
+    marks = {_day(offset): DONE for offset in (0, 1, 3)}
+    daily = periods(_facts(_manual(), marks=marks), _day(6), Clock(_day(4)))
+    assert kept_counts(daily, MON, _day(6)) == (3, 4)
+    marks[_day(4)] = DONE
+    daily = periods(_facts(_manual(), marks=marks), _day(6), Clock(_day(4)))
+    assert kept_counts(daily, MON, _day(6)) == (4, 5)
+
+
+def test_habits_kept_takes_min_of_done_and_the_whole_weekly_target():
+    weekly = _manual(frequency=HabitFrequency.TIMES_A_WEEK, times=2)
+    marks = {_day(offset): DONE for offset in (0, 1, 2)}
+    results = periods(_facts(weekly, marks=marks), _day(6), Clock(_day(3)))
+    assert kept_counts(results, MON, _day(6)) == (2, 2)
+    one = periods(_facts(weekly, marks={MON: DONE}), _day(6), Clock(_day(3)))
+    assert kept_counts(one, MON, _day(6)) == (1, 2)
+    assert share(3, 4) == 0.75
+    assert share(0, 0) is None

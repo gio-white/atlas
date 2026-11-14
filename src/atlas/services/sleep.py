@@ -6,6 +6,7 @@ from sqlmodel import Session, col, select
 from atlas.db.models import SleepSession, SleepSessionStage
 from atlas.domain import (
     SLEEP_WINDOW_DAYS,
+    SleepNight,
     SleepSessionView,
     SleepStage,
     SleepStageSpan,
@@ -106,6 +107,16 @@ def sleep_view(
     if not 1 <= days <= SLEEP_VIEW_MAX_DAYS:
         raise ValidationError(f"days must be between 1 and {SLEEP_VIEW_MAX_DAYS}")
     return sleep_week_math(_session_views(session), as_of, load_settings().timezone, days=days)
+
+
+def sleep_nights(session: Session, start: date, end: date) -> dict[date, SleepNight]:
+    """The night of each day from `start` to `end` that has one: the night you woke up from
+    that day, the longest when there are several (`sleep_week_math`)."""
+    if end < start:
+        return {}
+    days = (end - start).days + 1
+    math = sleep_week_math(_session_views(session), end, load_settings().timezone, days=days)
+    return {day.date: day.night for day in math.days if day.night is not None}
 
 
 def _session_views(session: Session) -> list[SleepSessionView]:

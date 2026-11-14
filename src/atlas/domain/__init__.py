@@ -5,6 +5,17 @@ from atlas.domain.buckets import (
     previous_bucket,
     ranges_intersect,
 )
+from atlas.domain.caps import (
+    BucketOutcome,
+    adherence,
+    adherence_counts,
+    bucket_outcome,
+    current_streak,
+    is_satisfied,
+    is_scheduled,
+    longest_streak,
+    scheduled_buckets,
+)
 from atlas.domain.enums import (
     AUTOMATIC_METRIC_ORIGINS,
     Aggregation,
@@ -36,20 +47,6 @@ from atlas.domain.enums import (
     TimeOfDay,
     ValueType,
 )
-from atlas.domain.habits import (
-    BucketOutcome,
-    adherence,
-    adherence_counts,
-    available_days,
-    bucket_outcome,
-    bucket_target,
-    current_streak,
-    is_excused,
-    is_satisfied,
-    is_scheduled,
-    longest_streak,
-    scheduled_buckets,
-)
 from atlas.domain.library import (
     LIBRARY_STATUSES,
     RECENTLY_FINISHED_LIMIT,
@@ -68,8 +65,8 @@ from atlas.domain.library_link import (
 )
 from atlas.domain.models import (
     Bucket,
+    CapSpec,
     EntryView,
-    HabitSpec,
     LibraryTitleView,
     LibraryTopicRef,
     ScreenAppSpec,
@@ -151,14 +148,11 @@ __all__ = [
     "HabitMarkResult",
     "HabitSource",
     "HabitThreshold",
-    "HabitSpec",
+    "CapSpec",
     "MetricOrigin",
     "TimeOfDay",
     "adherence_counts",
-    "available_days",
     "bucket_outcome",
-    "bucket_target",
-    "is_excused",
     "Period",
     "ScreenAppSpec",
     "ScreenBudgetSpec",

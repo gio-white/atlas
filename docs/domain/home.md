@@ -30,8 +30,10 @@ end of `as_of`, four of the numbers of Stats → This week (`week_numbers`,
   so is a planned session that has not ended yet; a session marked done before its end counts as
   kept at once. With nothing due the number reads "—". Looking at a past *As of* day, "now" is
   the end of that day, so later answers do not count.
-- **Habits kept** — *not computed during the habits rebuild*: `habits_kept` and `habits_judged`
-  are 0 and the share is null, so the number reads "—" until brief phase 2 judges each day
+- **Habits kept** — `habits_kept` in `src/atlas/services/habit_views.py`: across active habits,
+  min(Done, target) over the target from Monday to `as_of` (`habits_kept` / `habits_judged`). A
+  daily habit counts finished days, and today once it is Done; a weekly or monthly habit counts the
+  whole target of its period. With no target the number reads "—"
   ([habits](habits.md#day-results-streaks-and-habits-kept)).
 - **Sleep, average** — `average_asleep` of the sleep view over the days from Monday to `as_of`
   ([sleep](sleep.md)): nights without data are left out.
@@ -109,6 +111,7 @@ Route inventory with status: [navigation](../product/navigation.md).
 - `tests/services/test_week.py` — week so far: empty, sessions kept (done, didn't happen,
   unconfirmed, cancelled, later today, last week), a past *As of* day, sleep and screen from their own views
 - `tests/domain/test_quests.py` — `sessions_kept`
+- `tests/services/test_habit_views.py` — Habits kept the same on Home, This week, and the Week tab
 - `tests/api/test_views.py` — `GET /views/week-so-far`
 - `web/src/components/home/home.test.tsx` — the four weekly numbers and their "—", a block that
   fails alone, Main quests order and limit, the screen cap shown only for an active daily cap on

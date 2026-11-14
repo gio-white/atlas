@@ -133,3 +133,27 @@ def test_freezes_for_one_habit_or_all(client):
     assert client.delete(f"/freezes/{one.json()['id']}").status_code == 204
     assert [row["reason"] for row in client.get("/freezes").json()] == ["Holiday"]
     assert client.delete(f"/freezes/{one.json()['id']}").status_code == 404
+
+
+def test_the_day_week_and_habit_views(client):
+    _create(client, rule={"frequency": "times_a_week", "times": 2}, first_day="2026-11-09")
+    client.put("/habits/morning-pushups/days/2026-11-10", json={"result": "done"})
+
+    day = client.get("/views/habits/day", params={"as_of": "2026-11-12"}).json()
+    assert (day["day"], day["done"], day["total"]) == ("2026-11-12", 0, 1)
+    assert [count["day"] for count in day["week"]][0] == "2026-11-09"
+    (row,) = day["rows"]
+    assert row["habit"]["slug"] == "morning-pushups"
+    assert row["result"] == {"day": "2026-11-12", "status": "open", "reason": None, "value": None}
+    assert row["progress"] == {"period": "week", "done": 1, "target": 2}
+    assert row["streak"] == {"count": 0, "period": "week"}
+
+    week = client.get("/views/habits/week", params={"as_of": "2026-11-12"}).json()
+    statuses = [day["status"] for day in week["rows"][0]["days"]]
+    assert statuses == ["blank", "done", "blank", "open", "upcoming", "upcoming", "upcoming"]
+    assert week["kept"] == {"done": 1, "target": 2, "share": 0.5}
+
+    detail = client.get("/views/habit/morning-pushups", params={"as_of": "2026-11-12"}).json()
+    assert detail["history"][0]["state"] == "running"
+    assert detail["kept_last_4_weeks"] == {"done": 0, "target": 0, "share": None}
+    assert client.get("/views/habit/nope").status_code == 404

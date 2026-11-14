@@ -158,8 +158,9 @@ Service functions (in `src/atlas/services/`, each taking an explicit `Session` f
 | `create_screen_budget` / `list_screen_budgets` / `get_screen_budget` / `update_screen_budget` | Screen budgets targeting all screen time (`total`, every app counts; `target_slug` is set to `all`, defaulting there when left out), a judgment, or a category. Judgment `target_slug` must be `useful`, `waste`, or `neutral`; category targets must name an existing category. |
 | `create_screen_device` / `list_screen_devices` / `get_screen_device` / `update_screen_device` | Screen devices. `create_screen_device` takes an optional `complete_through`; `update_screen_device` may change name and move `complete_through` forward. `archived_at` is honored on list (`include_archived`) and import; there is no archive endpoint. |
 | `log_screen_session` / `list_screen_sessions` / `get_screen_session` / `update_screen_session` / `delete_screen_session` | Screen sessions. Provide `started_at`+`ended_at` or `minutes`. Interval minutes are derived; a client `minutes` must match within `0.01`. Dual-writes a backing entry. Amend/delete keep the pair in sync. |
-| `screen_view` | Review for `as_of`: minutes per app and category that day from sessions (interval-clipped), judgment totals, today's sessions, and each budget's current rollup, satisfaction, streak, and adherence over merged member-app session minutes. |
+| `screen_view` | Review for `as_of`: minutes per app and category that day from sessions (interval-clipped), judgment totals, today's sessions, and each budget's current rollup, satisfaction, streak, and adherence over merged member-app session minutes (the period helpers in `src/atlas/domain/caps.py`, `ScreenBudgetSpec.as_cap()`). |
 | `screen_dashboard` | Period dashboard (`day` / `week` / `month`) from sessions: totals, score, apps, categories, devices, daily and comparison series, hour heatmap, 8-week trend, insights/prescriptions, budgets, and `last_recorded_at`. |
+| `screen_session_views` | Every session with its app, category, judgment, and device; the dashboard, the review, and data habits ([habits](habits.md#readings)) read it. |
 
 ## Screens
 

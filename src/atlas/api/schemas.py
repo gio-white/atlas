@@ -25,6 +25,7 @@ from atlas.domain import (
     TimeOfDay,
     ValueType,
 )
+from atlas.domain.habits import DayReason, DayStatus, PeriodState
 
 
 class MetricCreate(BaseModel):
@@ -221,11 +222,109 @@ class WeekNumbersOut(BaseModel):
     titles_finished: int
 
 
+class HabitDayResultOut(BaseModel):
+    """One day of one habit (habits brief §6). `value` is the data habit's reading: minutes, or
+    a time of day in minutes after midnight (negative for a session planned the day before)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    day: date
+    status: DayStatus
+    reason: DayReason | None
+    value: float | None
+
+
+class HabitStreakOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    count: int
+    period: Period
+
+
+class HabitProgressOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    period: Period
+    done: int
+    target: int
+
+
+class HabitKeptOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    done: int
+    target: int
+    share: float | None
+
+
+class HabitDayRowOut(BaseModel):
+    habit: HabitOut
+    result: HabitDayResultOut
+    streak: HabitStreakOut
+    progress: HabitProgressOut | None
+
+
+class HabitDayCountOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    day: date
+    done: int
+    total: int
+
+
+class HabitsDayOut(BaseModel):
+    day: date
+    done: int
+    total: int
+    week: list[HabitDayCountOut]
+    rows: list[HabitDayRowOut]
+
+
+class HabitWeekRowOut(BaseModel):
+    habit: HabitOut
+    days: list[HabitDayResultOut]
+    streak: HabitStreakOut
+    progress: HabitProgressOut | None
+
+
+class HabitsWeekOut(BaseModel):
+    as_of: date
+    week_start: date
+    week_end: date
+    rows: list[HabitWeekRowOut]
+    kept: HabitKeptOut
+    kept_last_week: HabitKeptOut
+
+
+class HabitPeriodOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    period: Period
+    start: date
+    end: date
+    target: int
+    done: int
+    state: PeriodState
+
+
+class HabitDetailOut(BaseModel):
+    habit: HabitOut
+    as_of: date
+    current_streak: HabitStreakOut
+    best_streak: int
+    kept_last_4_weeks: HabitKeptOut
+    history: list[HabitPeriodOut]
+    recent: list[HabitDayResultOut]
+    freezes: list[HabitFreezeOut]
+
+
 class WeekHabitOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     slug: str
     name: str
+    done: int
+    target: int
 
 
 class ThisWeekOut(BaseModel):

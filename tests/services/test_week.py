@@ -4,6 +4,7 @@ import pytest
 
 from atlas.domain import (
     HabitFrequency,
+    HabitMarkResult,
     LibraryKind,
     LibraryStatus,
     ScreenJudgment,
@@ -19,6 +20,7 @@ from atlas.services import (
     create_screen_category,
     log_screen_session,
     log_sleep_session,
+    set_habit_day,
     this_week,
     week_so_far,
 )
@@ -162,19 +164,24 @@ def test_tasks_milestones_and_titles_finished_in_the_window(session):
     assert week.current.titles_finished == 1
 
 
-def test_this_week_lists_active_habits_and_judges_none_yet(session):
-    """Habits kept returns with the habits calculations (habits brief phase 2)."""
+def test_this_week_lists_active_habits_with_their_part_of_habits_kept(session):
+    """Finished days count, and today once it is Done (habits brief §6)."""
     every_day = RuleInput(frequency=HabitFrequency.EVERY_DAY)
     create_habit(session, "Run", every_day, first_day=date(2026, 8, 1))
     create_habit(session, "Read", every_day, first_day=date(2026, 8, 1))
     create_habit(session, "Old habit", every_day, first_day=date(2026, 8, 1))
     archive_habit(session, "old-habit")
+    for day in (date(2026, 8, 11), TODAY):
+        set_habit_day(session, "read", day, HabitMarkResult.DONE, today=TODAY)
 
     week = this_week(session, as_of=TODAY, now=NOW)
 
-    assert [(row.slug, row.name) for row in week.habits] == [("read", "Read"), ("run", "Run")]
-    assert (week.current.habits_kept, week.current.habits_judged) == (0, 0)
-    assert week.current.habits_kept_share is None
+    assert [(row.slug, row.done, row.target) for row in week.habits] == [
+        ("read", 2, 4),
+        ("run", 0, 3),
+    ]
+    assert (week.current.habits_kept, week.current.habits_judged) == (2, 7)
+    assert week.current.habits_kept_share == 2 / 7
 
 
 def test_screen_split_and_sleep_times(session):

@@ -27,7 +27,7 @@ There is no authentication. The app binds to localhost only (`127.0.0.1`). CORS 
 | Prefix | Doc |
 | ------ | --- |
 | `/entries`, `/metrics` | [trackers and entries](../domain/trackers-and-entries.md#api) |
-| `/habits`, `/freezes` | [habits](../domain/habits.md#api) |
+| `/habits`, `/freezes`, `/views/habits/day`, `/views/habits/week`, `/views/habit/{slug}` | [habits](../domain/habits.md#api) |
 | `/ambitions`, `/goals`, `/milestones`, `/side-quests`, `/chapters`, `/tasks`, `/views/main-quests`, `/views/ambitions`, `/views/goals`, `/views/side-quests`, `/views/inbox` | [quests](../domain/quests.md#api) |
 | `/time-blocks`, `/views/today`, `/views/plan` | [time blocks](../domain/time-blocks.md#api) |
 | `/views/week-so-far` | [home](../domain/home.md#api) |
