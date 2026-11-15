@@ -10,13 +10,15 @@ export type BlockLink = { label: string; to: string }
 /**
  * One block on Home. It loads and fails on its own: with `unavailable` it shows a one-line
  * message instead of its content. `to` makes the heading the doorway into its section;
- * `action` adds a separate link on the right ("All habits").
+ * `action` adds a separate link on the right ("Earlier notes"), and `aside` a quiet figure there
+ * ("3 of 6 done").
  */
 export function HomeBlock({
   id,
   title,
   to,
   action,
+  aside,
   search,
   unavailable = false,
   className,
@@ -26,6 +28,7 @@ export function HomeBlock({
   title: string
   to?: string
   action?: BlockLink
+  aside?: ReactNode
   search: string
   unavailable?: boolean
   className?: string
@@ -54,6 +57,9 @@ export function HomeBlock({
             </Link>
           )}
         </h2>
+        {aside !== undefined && (
+          <span className="shrink-0 text-sm text-muted tabular-nums">{aside}</span>
+        )}
         {action !== undefined && (
           <Link
             to={{ pathname: action.to, search }}

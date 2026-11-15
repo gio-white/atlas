@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 
 import { BlockEmpty, HomeBlock } from '@/components/home/HomeBlock'
 import { PageError, PageLoading } from '@/components/PageState'
@@ -12,7 +12,6 @@ import { formatClock } from '@/lib/sleep'
 import {
   clockChange,
   countChange,
-  habitWeekLabel,
   minutesChange,
   shareChange,
   weekRangeLine,
@@ -185,7 +184,7 @@ export function ThisWeekPage() {
           <HomeBlock
             id="week-habits"
             title="Habits"
-            to="/habit"
+            to="/habits"
             search={search}
             className="order-2 lg:order-none"
           >
@@ -202,10 +201,15 @@ export function ThisWeekPage() {
               <ul className="flex flex-col divide-y divide-line border-t border-line text-sm">
                 {week.habits.map((row) => (
                   <li key={row.slug} className="flex items-baseline justify-between gap-3 py-2">
-                    <span className="min-w-0 truncate text-ink">{row.name}</span>
-                    <span className="shrink-0 tabular-nums text-muted">
-                      {habitWeekLabel(row)}
-                      {row.period !== 'day' && row.satisfied ? ' · Done' : ''}
+                    <Link
+                      to={{ pathname: `/habit/${row.slug}`, search }}
+                      className="min-w-0 truncate text-ink hover:text-accent"
+                    >
+                      {row.name}
+                    </Link>
+                    {/* Its part of Habits kept: Done, capped, over what was due so far. */}
+                    <span className="shrink-0 text-muted tabular-nums">
+                      {row.target === 0 ? '—' : `${row.done} of ${row.target}`}
                     </span>
                   </li>
                 ))}

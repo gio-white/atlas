@@ -21,12 +21,16 @@ Five destinations plus Settings. Labels, order, and addresses live in `web/src/l
 | ----------- | ------- | ----------- | ---------------- |
 | Home | `/` | none | `/`, and `/journal` (Earlier notes, reached from Home) |
 | Quests | `/quests` | Main quests · Side quests · Inbox · Plan | everything under `/quests` |
-| Habits | `/habit` | none | everything under `/habit` |
+| Habits | `/habits` | Day (`/habits`), Week (`/habits/week`) | everything under `/habits` and `/habit` |
 | Stats | `/stats` | This week · Sleep · Screen time · Health | everything under `/stats` |
 | Library | `/library` | none | everything under `/library` |
 | Settings | `/settings` | Appearance · Screen time setup · Devices · Metrics · All entries | everything under `/settings` |
 
-Habits keeps the address `/habit`: `/habits` is the API's list of habits.
+`/habits` and `/habits/week` are also API addresses (the list of habits, and `GET /habits/{slug}`);
+the server sends the SPA for a browser's page load there ([frontend](../architecture/frontend.md)).
+The habits rebuild ([habits brief](../plans/habits-brief.md), [habits plan](../plans/habits-plan.md))
+is complete: the Day and Week tabs, the habit page, its sheets, and Home's Habits block replace
+the old habit screens, and the old `/habit` and `/week` addresses redirect.
 
 ## Shell
 
@@ -44,11 +48,12 @@ Habits keeps the address `/habit`: `/habits` is the API's list of habits.
   navigation and whenever a screen changes the Inbox (the `atlas:inbox-changed` window event),
   and is hidden at zero.
 - **Section tabs** (`SectionLayout`): a destination with sub-pages shows its title (`Quests`,
-  `Stats`, `Settings`) with a row of text tabs underneath; the active tab is underlined in the
+  `Habits`, `Stats`, `Settings`) with a row of text tabs underneath; the active tab is underlined in the
   accent colour. Each tab has its own address, so links and the back button work. On narrow
   screens the row scrolls sideways. A tab page keeps its own name as a screen-reader heading
   (`PageHeader` with `tab`), since the tab already shows it. Detail pages (an ambition, a goal,
   a side quest, a habit, a Library category) show no tabs; the quest ones keep their breadcrumb.
+  A section can put one action beside its title (`action`): Habits shows **New habit** there.
 - **Header**: the date, which is also the **As of** control, and **Add**.
   - Pressing the date opens the date picker. While another date is chosen it reads
     "As of 7 Nov 2026" in the attention colour, with **Back to today** ("Today" on narrow
@@ -65,7 +70,7 @@ Habits keeps the address `/habit`: `/habits` is the API's list of habits.
 
 | Path | Page | Status |
 | ---- | ---- | ------ |
-| `/` | Home: left, To confirm, Today (sessions with a Now line), Due today, Up next, Habits (today's, one tap), Note for today; right, This week so far, Main quests, Last night, Screen time today, In progress ([home](../domain/home.md)) | implemented |
+| `/` | Home: left, To confirm, Today (sessions with a Now line), Due today, Up next, Habits (the As of day as on Habits → Day: tick, row menu, "3 of 6 done"), Note for today; right, This week so far, Main quests, Last night, Screen time today, In progress ([home](../domain/home.md)) | implemented |
 | `/journal` | Earlier notes: the journal notes before today, newest first, reached from Home's Note for today ([journal](../domain/journal.md#screens)) | implemented |
 | `/quests` | Quests → Main quests: each ambition with its goal cards (ring, status, date, counts, next action) and direct tasks, ambitions without goals included, then independent goals; new ambition and new goal | implemented |
 | `/quests/side-quests` | Quests → Side quests: side quest cards with progress and standalone tasks; new side quest | implemented |
@@ -74,8 +79,9 @@ Habits keeps the address `/habit`: `/habits` is the API's list of habits.
 | `/quests/ambitions/:id` | One ambition: edit, complete or reopen, its goal cards (reorder, add) and direct tasks | implemented |
 | `/quests/goals/:id` | One goal's quest map: breadcrumb, success description, completion (with override), a path of expandable milestones with chapters and tasks, direct tasks, add and reorder at every level | implemented |
 | `/quests/side-quests/:id` | One side quest: edit, completion, its chapters and direct tasks (the same tree as a milestone) | implemented |
-| `/habit` | Today checklist by time of day with one-tap check-ins, this week / this month progress, 7/30-day completion, week/month overview grid | implemented |
-| `/habit/:slug` | Habit detail: check-in, streaks, adherence, this week, recent check-ins (slips for quit habits), pauses & skips; edit, archive, delete | implemented |
+| `/habits` | Habits → Day: a Monday–Sunday strip (each day a ring of its share done; `?on=` picks the day, ‹ › move a week, days after today are off), the day and "3 of 6 done", then the day's scheduled habits by time of day, each with its status icon (tap to tick a habit you tick), reason line, progress, and streak, and a row menu (Mark done, Mark not done, Use data again, Freeze this day / Unfreeze, Open habit). New habit (beside the title, and in the empty state) opens the habit sheet ([habits](../domain/habits.md#screens)) | implemented |
+| `/habits/week` | Habits → Week: Monday–Sunday of the `?on=` week (‹ › move a whole week) for every active habit, grouped like Day: each day's status (tap to tick a habit you tick, or open that day's row menu), "2 of 4" for a weekly or monthly habit, and the streak; Habits kept this week and last week; then Archived habits. A habit's name opens its page ([habits](../domain/habits.md#screens)) | implemented |
+| `/habit/:slug` | One habit: its rule in one line; Current streak, Best streak, Kept, last 4 weeks; 12 weeks of history; the last 14 days (each opens the row menu); upcoming and past freezes, each removable; Edit and Freeze… (their sheets; not on an archived habit); Archive or Restore, and Delete (asks first) ([habits](../domain/habits.md#screens)) | implemented |
 | `/stats/week` | Stats → This week: one Monday–Sunday week (`?on=` picks it; previous and next move by whole weeks) in five blocks, Quests, Habits, Sleep, Screen time, and Library, each number with its change from the same days last week ([this week](../domain/this-week.md)) | implemented |
 | `/stats/sleep` | Stats → Sleep, display-only: Week / Month / 90 days range, time asleep trend, bedtime and wake consistency, stage split, read-only nights list with No data gaps | implemented |
 | `/stats/screen-time` | Stats → Screen time, display-only period dashboard: totals, score, charts, heatmap, insights, cap status; a link to its setup in Settings | implemented |
@@ -98,7 +104,8 @@ query string (so the As of date and filters survive), and the hash.
 | ---- | ------- |
 | `/stats` | `/stats/week` (the first Stats tab) |
 | `/settings` | `/settings/appearance` |
-| `/week` | `/habit?period=week` |
+| `/week` | `/habits/week` (the old habit week grid) |
+| `/habit` | `/habits` |
 | `/side-quests` | `/quests/side-quests` |
 | `/side-quests/:id` | `/quests/side-quests/:id` |
 | `/inbox` | `/quests/inbox` |

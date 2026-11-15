@@ -83,11 +83,54 @@ class ScreenInsightKind(StrEnum):
     BUDGET = "budget"
 
 
-class HabitKind(StrEnum):
-    CHECK = "check"
-    COUNT = "count"
-    DURATION = "duration"
-    QUIT = "quit"
+class HabitFrequency(StrEnum):
+    """How often a habit is due (habits brief §5). Weeks run Monday to Sunday."""
+
+    EVERY_DAY = "every_day"
+    SPECIFIC_DAYS = "specific_days"
+    TIMES_A_WEEK = "times_a_week"
+    TIMES_A_MONTH = "times_a_month"
+
+
+class HabitCheck(StrEnum):
+    """How a habit is checked: you tick it (`manual`) or Atlas reads your data (`data`)."""
+
+    MANUAL = "manual"
+    DATA = "data"
+
+
+class HabitSource(StrEnum):
+    """Where a data habit reads its day's value. The registry is `habit_sources.SOURCES`."""
+
+    WAKE_TIME = "wake_time"
+    BEDTIME = "bedtime"
+    TIME_ASLEEP = "time_asleep"
+    SCREEN_BAD_APPS = "screen_bad_apps"
+    SCREEN_CATEGORY = "screen_category"
+    SCREEN_APP = "screen_app"
+    SCREEN_TOTAL = "screen_total"
+    SESSIONS_PLANNED = "sessions_planned"
+
+
+class HabitThreshold(StrEnum):
+    AT_LEAST = "at_least"
+    AT_MOST = "at_most"
+    BEFORE = "before"
+    AFTER = "after"
+
+
+class HabitApply(StrEnum):
+    """Where a rule change applies: from today, or to every day since the habit's first."""
+
+    FROM_TODAY = "from_today"
+    ALL_DAYS = "all_days"
+
+
+class HabitMarkResult(StrEnum):
+    """An answer you gave for a day: a tick, or "Set by you" on a data habit."""
+
+    DONE = "done"
+    NOT_DONE = "not_done"
 
 
 class TimeOfDay(StrEnum):

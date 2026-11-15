@@ -7,7 +7,6 @@ from atlas.domain import ChapterState, Period, QuestStatus
 from atlas.services import (
     ValidationError,
     export_all,
-    habit_statuses,
     list_entries,
     list_habit_supports,
     screen_dashboard,
@@ -29,7 +28,7 @@ def test_seed_demo_loads_the_demo_dataset(session):
 
     assert summary.as_of == as_of
     assert summary.metrics == 18
-    assert summary.habits == 7
+    assert summary.habits == 12
     assert summary.entries > 0
     assert summary.screen_categories == 4
     assert summary.screen_apps == 6
@@ -47,20 +46,26 @@ def test_seed_demo_loads_the_demo_dataset(session):
     assert origins["journal"] == "journal"
     assert sorted(origins.values()).count("screen") == summary.screen_apps
     assert {habit["slug"] for habit in payload["habits"]} == {
+        "bad-apps-cap",
         "coffee-daily",
         "deep-work-weekdays",
         "family-monthly",
+        "instagram-cap",
         "meditated-daily",
         "no-doomscrolling",
+        "plan-the-day",
         "pushups-daily",
+        "read-before-bed",
         "runs-weekly",
+        "wake-early",
     }
     habits = {habit["slug"]: habit for habit in payload["habits"]}
-    assert habits["no-doomscrolling"]["kind"] == "quit"
-    assert habits["meditated-daily"]["breaks"][0]["note"] == "Travel day"
     assert habits["pushups-daily"]["time_of_day"] == "morning"
     assert habits["meditated-daily"]["name"] == "Meditate"
-    assert habits["deep-work-weekdays"]["name"] == "Deep work on weekdays"
+    assert habits["read-before-bed"]["archived_at"] is not None
+    freezes = {(row["habit"], row["reason"]) for row in payload["habit_freezes"]}
+    assert freezes == {(None, "Holiday"), ("meditated-daily", "Travel day")}
+    assert all(row["complete_through"] for row in payload["screen_devices"])
     occurred = {entry["occurred_on"] for entry in payload["entries"]}
     assert as_of.isoformat() in occurred
     assert (as_of - timedelta(days=27)).isoformat() in occurred
@@ -121,14 +126,40 @@ def test_seed_demo_loads_the_demo_dataset(session):
     assert chain_days & instagram_follow
 
 
-def test_seed_demo_makes_today_reviewable(session):
+def test_seed_demo_shows_every_kind_of_rule(session):
     as_of = date(2026, 8, 13)
     seed_demo(session, as_of=as_of)
-    slugs = {status.slug for status in habit_statuses(session, as_of=as_of) if status.scheduled}
-    assert "pushups-daily" in slugs
-    assert "meditated-daily" in slugs
-    assert "coffee-daily" in slugs
+    payload = export_all(session)
+    rules = [rule for habit in payload["habits"] for rule in habit["rules"]]
+
+    assert {rule["frequency"] for rule in rules} == {
+        "every_day",
+        "specific_days",
+        "times_a_week",
+        "times_a_month",
+    }
+    assert {rule["source"] for rule in rules if rule["check"] == "data"} == {
+        "wake_time",
+        "sessions_planned",
+        "screen_bad_apps",
+        "screen_app",
+    }
+    runs = next(habit for habit in payload["habits"] if habit["slug"] == "runs-weekly")
+    assert [rule["times"] for rule in runs["rules"]] == [2, 3]
+    ticked = {habit["slug"] for habit in payload["habits"] if habit["marks"]}
+    assert "pushups-daily" in ticked
+    assert "wake-early" not in ticked
     assert list_entries(session, start_on=as_of, end_on=as_of)
+
+
+def test_seed_demo_plans_some_sessions_late(session):
+    """ "Plan the day" passes on most weekdays and misses when the session was planned after
+    noon, so the demo shows both."""
+    as_of = date(2026, 8, 13)
+    seed_demo(session, as_of=as_of)
+    blocks = export_all(session)["time_blocks"]
+    hours = {block["created_at"][11:13] for block in blocks}
+    assert {"07", "13"} <= hours
 
 
 def test_seed_demo_fills_screen_dashboard(session, monkeypatch):
@@ -173,7 +204,8 @@ def test_seed_demo_covers_every_quest_structure(session, monkeypatch):
     as_of = date(2026, 8, 13)
     summary = seed_demo(session, as_of=as_of)
     assert (summary.ambitions, summary.goals, summary.side_quests) == (2, 4, 2)
-    assert summary.time_blocks == 8
+    # 8 around today, plus one on each of the 8 weekdays in the two weeks before.
+    assert summary.time_blocks == 16
 
     now = datetime(2026, 8, 13, 12, 0, tzinfo=UTC)
     main = main_quests_view(session, now=now)

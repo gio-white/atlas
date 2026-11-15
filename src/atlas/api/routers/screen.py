@@ -182,7 +182,11 @@ def get_devices(session: SessionDep, include_archived: bool = False) -> list[Scr
 
 @router.post("/devices", response_model=ScreenDeviceOut, status_code=201)
 def post_device(session: SessionDep, body: ScreenDeviceCreate) -> ScreenDeviceOut:
-    return screen_device_out(create_screen_device(session, body.slug, name=body.name))
+    return screen_device_out(
+        create_screen_device(
+            session, body.slug, name=body.name, complete_through=body.complete_through
+        )
+    )
 
 
 @router.get("/devices/{slug}", response_model=ScreenDeviceOut)

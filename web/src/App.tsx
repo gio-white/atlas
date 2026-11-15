@@ -1,16 +1,16 @@
 import { lazy } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
-
+import { NewHabitButton } from '@/components/habits/NewHabitButton'
 import { Layout } from '@/components/Layout'
 import { Redirect } from '@/components/shell/Redirect'
 import { SectionLayout } from '@/components/shell/SectionLayout'
-import { HabitPage } from '@/pages/HabitPage'
-import { HabitsPage } from '@/pages/HabitsPage'
 import { HealthPage } from '@/pages/HealthPage'
 import { HomePage } from '@/pages/HomePage'
+import { HabitPage } from '@/pages/habits/HabitPage'
+import { HabitsDayPage } from '@/pages/habits/HabitsDayPage'
+import { HabitsWeekPage } from '@/pages/habits/HabitsWeekPage'
 import { JournalPage } from '@/pages/JournalPage'
 import { AppearancePage } from '@/pages/settings/AppearancePage'
-import { WeekPage } from '@/pages/WeekPage'
 
 // Home, Habits, and a few small pages are in the main bundle; every other page loads on first
 // visit, in its own chunk (Layout and SectionLayout wrap pages in Suspense).
@@ -88,9 +88,11 @@ export default function App() {
           <Route path="/quests/goals/:id" element={<GoalPage />} />
           <Route path="/quests/side-quests/:id" element={<SideQuestPage />} />
 
-          <Route path="/habit" element={<HabitsPage />} />
+          <Route element={<SectionLayout section="habits" action={<NewHabitButton />} />}>
+            <Route path="/habits" element={<HabitsDayPage />} />
+            <Route path="/habits/week" element={<HabitsWeekPage />} />
+          </Route>
           <Route path="/habit/:slug" element={<HabitPage />} />
-          <Route path="/week" element={<WeekPage />} />
 
           <Route path="/stats" element={<Redirect to="/stats/week" />} />
           <Route element={<SectionLayout section="stats" />}>
@@ -127,6 +129,9 @@ export default function App() {
           <Route path="/history" element={<Redirect to="/settings/entries" />} />
           <Route path="/catalog" element={<Redirect to="/settings/metrics" />} />
           <Route path="/area/:slug" element={<Redirect to="/settings/metrics" />} />
+          {/* Old addresses from before the habits rebuild. */}
+          <Route path="/habit" element={<Redirect to="/habits" />} />
+          <Route path="/week" element={<Redirect to="/habits/week" />} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

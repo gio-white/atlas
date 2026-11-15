@@ -73,7 +73,7 @@ Service functions (in `src/atlas/services/`, each taking an explicit `Session` f
 
 | Function | Role |
 | -------- | ---- |
-| `log_sleep_session` / `list_sleep_sessions` / `get_sleep_session` / `sleep_stages` / `delete_sleep_session` / `sleep_view` | Sleep. `log_sleep_session` validates the interval and stages through `resolve_sleep_session`, derives `occurred_on` from the wake time in `ATLAS_TZ`, and stores the session plus its stages. Delete removes the stages first. `sleep_view(as_of, days)` checks `1 ≤ days ≤ 366` (`ValidationError` otherwise) and is `sleep_week_math` over every stored session. |
+| `log_sleep_session` / `list_sleep_sessions` / `get_sleep_session` / `sleep_stages` / `delete_sleep_session` / `sleep_view` | Sleep. `log_sleep_session` validates the interval and stages through `resolve_sleep_session`, derives `occurred_on` from the wake time in `ATLAS_TZ`, and stores the session plus its stages. Delete removes the stages first. `sleep_view(as_of, days)` checks `1 ≤ days ≤ 366` (`ValidationError` otherwise) and is `sleep_week_math` over every stored session. `sleep_nights(start, end)` gives the night of each day in a range that has one, the same night `sleep_week_math` picks; data habits read it ([habits](habits.md#readings)). |
 
 ## Screens
 

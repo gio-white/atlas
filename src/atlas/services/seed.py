@@ -1,6 +1,6 @@
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta, tzinfo
+from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from typing import Any
 
 from sqlmodel import Session, select
@@ -24,6 +24,7 @@ from atlas.settings import load_settings
 
 HISTORY_DAYS = 28
 WEEKDAYS = [1, 2, 3, 4, 5]
+DOOMSCROLL_SLIPS = (23, 9)
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,19 +100,21 @@ def _has_data(session: Session) -> bool:
 
 def demo_payload(as_of: date, zone: tzinfo | None = None) -> dict[str, Any]:
     start = as_of - timedelta(days=HISTORY_DAYS - 1)
+    zone = zone if zone is not None else load_settings().timezone
     return {
         "schema_version": CURRENT_SCHEMA_VERSION,
         "metrics": _metrics(),
         "habits": _habits(start, as_of),
+        "habit_freezes": _habit_freezes(as_of),
         "screen_categories": _screen_categories(),
         "screen_apps": _screen_apps(),
-        "screen_devices": _screen_devices(),
+        "screen_devices": _screen_devices(as_of, zone),
         "screen_budgets": _screen_budgets(start),
         "screen_sessions": _screen_sessions(start, as_of),
         "library_topics": _library_topics(),
         "library_titles": _library_titles(as_of),
         "sleep_sessions": _sleep_sessions(start, as_of),
-        **demo_quests(as_of, zone if zone is not None else load_settings().timezone),
+        **demo_quests(as_of, zone),
         "entries": _entries(start, as_of),
     }
 
@@ -216,88 +219,139 @@ def _metrics() -> list[dict[str, Any]]:
 
 
 def _habits(start: date, as_of: date) -> list[dict[str, Any]]:
+    """One habit per kind of rule (habits brief §2): ticked every day, on some days, N times a
+    week or a month, and read from sleep, screen time, and planned sessions. Ticked habits carry
+    a Done mark on the days the demo person did them; data habits are judged from the data."""
+    days = [day for day in _days(start, as_of) if not _demo_frozen(day, as_of)]
+    first_weekday = next(day for day in days if day.isoweekday() <= 5)
+    slips = {as_of - timedelta(days=offset) for offset in DOOMSCROLL_SLIPS}
     travel_day = as_of - timedelta(days=10)
+    runs_changed = as_of - timedelta(days=11)
     return [
         _habit(
             "pushups-daily",
             "Morning pushups",
-            "pushups",
-            "day",
-            40.0,
-            "at_least",
             start,
-            weekdays=WEEKDAYS,
-            kind="count",
+            [_manual_rule(start, "specific_days", weekdays=WEEKDAYS)],
+            [d for d in days if d.isoweekday() <= 5 and d != first_weekday],
             time_of_day="morning",
         ),
         _habit(
             "meditated-daily",
             "Meditate",
-            "meditated",
-            "day",
-            1.0,
-            "at_least",
             start,
-            kind="check",
+            [_manual_rule(start, "every_day")],
+            [d for d in days if (as_of - d).days % 7 != 3 and d != travel_day],
             time_of_day="morning",
-            breaks=[(travel_day, travel_day, "Travel day")],
+        ),
+        _habit(
+            "deep-work-weekdays",
+            "Deep work",
+            start,
+            [_manual_rule(start, "specific_days", weekdays=WEEKDAYS)],
+            [d for d in days if d.isoweekday() <= 5 and d != first_weekday and d != as_of],
+            time_of_day="morning",
+        ),
+        _habit(
+            "wake-early",
+            "Wake up early",
+            start,
+            [_data_rule(start, "every_day", "wake_time", "before", 7 * 60)],
+            time_of_day="morning",
+        ),
+        _habit(
+            "plan-the-day",
+            "Plan the day",
+            start,
+            [_data_rule(start, "specific_days", "sessions_planned", "before", 12 * 60, WEEKDAYS)],
+            time_of_day="morning",
         ),
         _habit(
             "coffee-daily",
-            "At most one coffee",
-            "coffee",
-            "day",
-            1.0,
-            "at_most",
+            "One coffee at most",
             start,
-            kind="count",
+            [_manual_rule(start, "every_day")],
+            [d for d in days if d.isoweekday() != 5 and d != as_of],
             time_of_day="afternoon",
         ),
         _habit(
             "runs-weekly",
-            "Run three times a week",
-            "runs",
-            "week",
-            3.0,
-            "at_least",
+            "Run",
             start,
-            kind="count",
-        ),
-        _habit(
-            "deep-work-weekdays",
-            "Deep work on weekdays",
-            "deep-work",
-            "day",
-            90.0,
-            "at_least",
-            start,
-            weekdays=WEEKDAYS,
-            kind="duration",
-            time_of_day="morning",
+            [
+                _manual_rule(start, "times_a_week", times=2),
+                _manual_rule(runs_changed, "times_a_week", times=3),
+            ],
+            [d for d in days if d.isoweekday() in {1, 3, 6}],
         ),
         _habit(
             "family-monthly",
             "Call family",
-            "called-family",
-            "month",
-            2.0,
-            "at_least",
             start,
-            kind="check",
+            [_manual_rule(start, "times_a_month", times=2)],
+            [d for d in days if d.isoweekday() == 7],
             time_of_day="evening",
         ),
         _habit(
             "no-doomscrolling",
             "No doomscrolling",
-            "no-doomscrolling",
-            "day",
-            0.0,
-            "at_most",
             start,
-            kind="quit",
+            [_manual_rule(start, "every_day")],
+            [d for d in days if d not in slips and d != as_of],
             time_of_day="evening",
         ),
+        _habit(
+            "bad-apps-cap",
+            "Keep Bad apps short",
+            start,
+            [_data_rule(start, "every_day", "screen_bad_apps", "at_most", 90)],
+            time_of_day="evening",
+        ),
+        _habit(
+            "instagram-cap",
+            "Instagram under half an hour",
+            start,
+            [_data_rule(start, "every_day", "screen_app", "at_most", 30, ref="instagram")],
+            time_of_day="evening",
+        ),
+        _habit(
+            "read-before-bed",
+            "Read before bed",
+            start,
+            [_manual_rule(start, "every_day")],
+            [d for d in days if d < as_of - timedelta(days=6) and d.toordinal() % 3 != 0],
+            time_of_day="evening",
+            archived_on=as_of - timedelta(days=5),
+        ),
     ]
+
+
+def _habit_freezes(as_of: date) -> list[dict[str, Any]]:
+    holiday_start, holiday_end = _demo_holiday(as_of)
+    travel_day = as_of - timedelta(days=10)
+    return [
+        {
+            "habit": None,
+            "start_on": holiday_start.isoformat(),
+            "end_on": holiday_end.isoformat(),
+            "reason": "Holiday",
+        },
+        {
+            "habit": "meditated-daily",
+            "start_on": travel_day.isoformat(),
+            "end_on": travel_day.isoformat(),
+            "reason": "Travel day",
+        },
+    ]
+
+
+def _demo_holiday(as_of: date) -> tuple[date, date]:
+    return as_of - timedelta(days=18), as_of - timedelta(days=16)
+
+
+def _demo_frozen(day: date, as_of: date) -> bool:
+    start, end = _demo_holiday(as_of)
+    return start <= day <= end
 
 
 def _entries(start: date, as_of: date) -> list[dict[str, Any]]:
@@ -329,7 +383,7 @@ def _entries(start: date, as_of: date) -> list[dict[str, Any]]:
         entries.append(_num("books", as_of - timedelta(days=offset), 1.0, note=f"book {i + 1}"))
     for offset, value in ((150, 1000.0), (90, 1800.0), (40, 2600.0), (0, 3200.0)):
         entries.append(_num("savings", as_of - timedelta(days=offset), value))
-    for offset, note in ((23, "Late night feed"), (9, "Couldn't sleep")):
+    for offset, note in zip(DOOMSCROLL_SLIPS, ("Late night feed", "Couldn't sleep"), strict=True):
         entries.append(_num("no-doomscrolling", as_of - timedelta(days=offset), 1.0, note=note))
     entries.append(_text("journal", as_of - timedelta(days=7), "Week started slow."))
     entries.append(_text("journal", as_of - timedelta(days=1), "Wrapped the deep-work block."))
@@ -501,10 +555,22 @@ def _screen_apps() -> list[dict[str, Any]]:
     ]
 
 
-def _screen_devices() -> list[dict[str, Any]]:
+def _screen_devices(as_of: date, zone: tzinfo) -> list[dict[str, Any]]:
+    """The phone has sent everything up to midnight; the laptop up to noon today, so a screen
+    habit is already judged for yesterday and still waiting for today (habits brief §3)."""
+
+    def through(hour: int) -> str:
+        local = datetime.combine(as_of, time(hour, 0), zone)
+        return local.astimezone(UTC).isoformat()
+
     return [
-        {"slug": "iphone", "name": "iPhone", "archived_at": None},
-        {"slug": "macbook", "name": "MacBook", "archived_at": None},
+        {"slug": "iphone", "name": "iPhone", "archived_at": None, "complete_through": through(0)},
+        {
+            "slug": "macbook",
+            "name": "MacBook",
+            "archived_at": None,
+            "complete_through": through(12),
+        },
     ]
 
 
@@ -698,34 +764,66 @@ def _metric(
 def _habit(
     slug: str,
     name: str,
-    metric: str,
-    period: str,
-    target_value: float,
-    comparator: str,
-    active_from: date,
+    first_day: date,
+    rules: list[dict[str, Any]],
+    done_days: list[date] | None = None,
     *,
-    weekdays: list[int] | None = None,
-    kind: str = "count",
     time_of_day: str = "anytime",
-    breaks: list[tuple[date, date, str | None]] | None = None,
+    archived_on: date | None = None,
 ) -> dict[str, Any]:
+    archived_at = (
+        datetime(archived_on.year, archived_on.month, archived_on.day, 20, 0, tzinfo=UTC)
+        if archived_on
+        else None
+    )
     return {
         "slug": slug,
-        "metric": metric,
         "name": name,
-        "period": period,
-        "target_value": target_value,
-        "comparator": comparator,
-        "weekdays": weekdays,
-        "active_from": active_from.isoformat(),
-        "active_to": None,
-        "kind": kind,
         "time_of_day": time_of_day,
-        "archived_at": None,
-        "breaks": [
-            {"start_on": start_on.isoformat(), "end_on": end_on.isoformat(), "note": note}
-            for start_on, end_on, note in breaks or []
-        ],
+        "first_day": first_day.isoformat(),
+        "archived_at": archived_at.isoformat() if archived_at else None,
+        "rules": rules,
+        "marks": [{"day": day.isoformat(), "result": "done"} for day in done_days or []],
+    }
+
+
+def _manual_rule(
+    starts_on: date,
+    frequency: str,
+    *,
+    weekdays: list[int] | None = None,
+    times: int | None = None,
+) -> dict[str, Any]:
+    return {
+        "starts_on": starts_on.isoformat(),
+        "frequency": frequency,
+        "weekdays": weekdays,
+        "times": times,
+        "check": "manual",
+        "source": None,
+        "source_ref": None,
+        "threshold": None,
+        "value": None,
+    }
+
+
+def _data_rule(
+    starts_on: date,
+    frequency: str,
+    source: str,
+    threshold: str,
+    value: float,
+    weekdays: list[int] | None = None,
+    *,
+    ref: str | None = None,
+) -> dict[str, Any]:
+    return {
+        **_manual_rule(starts_on, frequency, weekdays=weekdays),
+        "check": "data",
+        "source": source,
+        "source_ref": ref,
+        "threshold": threshold,
+        "value": float(value),
     }
 
 

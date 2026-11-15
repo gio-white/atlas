@@ -140,7 +140,7 @@ def test_waste_budget_streak_uses_merged_app_entries():
         EntryView(occurred_on=date(2026, 8, 13), value_num=20.0),
         EntryView(occurred_on=date(2026, 8, 14), value_num=80.0),
     ]
-    habit = budget.as_habit()
+    habit = budget.as_cap()
     assert habit.aggregation is Aggregation.SUM
     assert current_streak(habit, merged, date(2026, 8, 14)) == 3
 

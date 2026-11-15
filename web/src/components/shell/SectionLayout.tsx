@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef } from 'react'
+import { type ReactNode, Suspense, useEffect, useRef } from 'react'
 import { NavLink, Outlet, useLocation, useSearchParams } from 'react-router-dom'
 
 import { PageLoading } from '@/components/PageState'
@@ -8,9 +8,10 @@ import { cn } from '@/lib/utils'
 
 /**
  * A destination with sub-pages: its title, a row of text tabs (each with its own address),
- * and the active tab's page underneath. Detail pages (a goal, a habit) sit outside it.
+ * and the active tab's page underneath. Detail pages (a goal, a habit) sit outside it. `action`
+ * sits beside the title (Habits' New habit).
  */
-export function SectionLayout({ section }: { section: SectionId }) {
+export function SectionLayout({ section, action }: { section: SectionId; action?: ReactNode }) {
   const shell = useShell()
   const [params] = useSearchParams()
   const on = params.get('on')
@@ -30,7 +31,10 @@ export function SectionLayout({ section }: { section: SectionId }) {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">{title}</h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">{title}</h1>
+          {action}
+        </div>
         <nav
           ref={tabsRef}
           aria-label={title}

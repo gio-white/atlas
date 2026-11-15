@@ -1,6 +1,6 @@
 import base64
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time
 from typing import Any
 
 from sqlmodel import Session, select
@@ -9,7 +9,9 @@ from atlas.db import CURRENT_SCHEMA_VERSION
 from atlas.db.models import (
     Entry,
     Habit,
-    HabitBreak,
+    HabitFreeze,
+    HabitMark,
+    HabitRule,
     HabitSupport,
     LibraryTitle,
     LibraryTitleTopic,
@@ -27,7 +29,12 @@ from atlas.domain import (
     Aggregation,
     Comparator,
     Direction,
-    HabitKind,
+    EntryView,
+    HabitCheck,
+    HabitFrequency,
+    HabitMarkResult,
+    HabitSource,
+    HabitThreshold,
     LibraryKind,
     LibraryStatus,
     MetricOrigin,
@@ -39,7 +46,9 @@ from atlas.domain import (
     TimeOfDay,
     ValueType,
 )
+from atlas.domain.habit_migration import LegacyHabit, convert_legacy_habit
 from atlas.domain.quests import QuestKind
+from atlas.services.clock import resolve_today
 from atlas.services.errors import ValidationError
 from atlas.services.lookups import (
     require_habit,
@@ -63,6 +72,7 @@ QUESTS_SCHEMA_VERSION = 11
 ORIGIN_SCHEMA_VERSION = 12
 LIBRARY_SCHEMA_VERSION = 13
 SUPPORTS_SCHEMA_VERSION = 14
+HABIT_RULES_SCHEMA_VERSION = 15
 AREAS_SECTION = "areas"
 
 # What an export older than schema 12 says about a metric through its area.
@@ -95,9 +105,14 @@ class ImportSummary:
 def export_all(session: Session) -> dict[str, Any]:
     metrics = list(session.exec(select(Metric).order_by(Metric.slug)).all())
     habits = list(session.exec(select(Habit).order_by(Habit.slug)).all())
-    breaks_by_habit: dict[int | None, list[HabitBreak]] = {}
-    for row in session.exec(select(HabitBreak).order_by(HabitBreak.start_on)).all():
-        breaks_by_habit.setdefault(row.habit_id, []).append(row)
+    rules_by_habit: dict[int | None, list[HabitRule]] = {}
+    for rule in session.exec(select(HabitRule).order_by(HabitRule.starts_on)).all():
+        rules_by_habit.setdefault(rule.habit_id, []).append(rule)
+    marks_by_habit: dict[int | None, list[HabitMark]] = {}
+    for mark in session.exec(select(HabitMark).order_by(HabitMark.day)).all():
+        marks_by_habit.setdefault(mark.habit_id, []).append(mark)
+    freezes = list(session.exec(select(HabitFreeze).order_by(HabitFreeze.start_on)).all())
+    habit_by_id = {habit.id: habit.slug for habit in habits}
     screen_categories = list(
         session.exec(select(ScreenCategory).order_by(ScreenCategory.slug)).all()
     )
@@ -135,9 +150,10 @@ def export_all(session: Session) -> dict[str, Any]:
         "schema_version": CURRENT_SCHEMA_VERSION,
         "metrics": [_export_metric(metric) for metric in metrics],
         "habits": [
-            _export_habit(habit, metric_by_id, breaks_by_habit.get(habit.id, []))
+            _export_habit(habit, rules_by_habit.get(habit.id, []), marks_by_habit.get(habit.id, []))
             for habit in habits
         ],
+        "habit_freezes": [_export_habit_freeze(row, habit_by_id) for row in freezes],
         "screen_categories": [_export_screen_category(row) for row in screen_categories],
         "screen_apps": [
             _export_screen_app(row, category_by_id, metric_by_id) for row in screen_apps
@@ -185,9 +201,6 @@ def import_all(
         for raw in payload.get("metrics", []):
             _import_metric(session, raw, archived_areas)
         session.flush()
-        for raw in payload.get("habits", []):
-            _import_habit(session, raw)
-        session.flush()
         for raw in payload.get("screen_categories", []):
             _import_screen_category(session, raw)
         session.flush()
@@ -213,6 +226,17 @@ def import_all(
                 _import_screen_session(session, raw)
         else:
             _backfill_imported_sessions(session)
+        if version >= HABIT_RULES_SCHEMA_VERSION:
+            for raw in payload.get("habits", []):
+                _import_habit(session, raw)
+            session.flush()
+            for raw in payload.get("habit_freezes", []):
+                _import_habit_freeze(session, raw)
+        else:
+            today = resolve_today(None)
+            for raw in payload.get("habits", []):
+                _import_legacy_habit(session, raw, today)
+        session.flush()
         # Exports before schema 13 name the Library sections after Entertainment.
         prefix = "library" if version >= LIBRARY_SCHEMA_VERSION else "entertainment"
         for raw in payload.get(f"{prefix}_topics", []):
@@ -242,7 +266,9 @@ def _clear_user_data(session: Session) -> None:
     session.flush()
     clear_quests(session)
     for model in (
-        HabitBreak,
+        HabitRule,
+        HabitMark,
+        HabitFreeze,
         SleepSessionStage,
         SleepSession,
         LibraryTitleTopic,
@@ -332,32 +358,37 @@ def _export_metric(metric: Metric) -> dict[str, Any]:
     }
 
 
-def _export_habit(
-    habit: Habit,
-    metric_by_id: dict[int | None, str],
-    breaks: list[HabitBreak],
-) -> dict[str, Any]:
+def _export_habit(habit: Habit, rules: list[HabitRule], marks: list[HabitMark]) -> dict[str, Any]:
     return {
         "slug": habit.slug,
-        "metric": metric_by_id[habit.metric_id],
         "name": habit.name,
-        "period": str(habit.period),
-        "target_value": habit.target_value,
-        "comparator": str(habit.comparator),
-        "weekdays": list(habit.weekdays) if habit.weekdays is not None else None,
-        "active_from": habit.active_from.isoformat(),
-        "active_to": habit.active_to.isoformat() if habit.active_to is not None else None,
-        "kind": str(habit.kind),
         "time_of_day": str(habit.time_of_day),
+        "first_day": habit.first_day.isoformat(),
         "archived_at": _iso_dt(habit.archived_at),
-        "breaks": [
+        "rules": [
             {
-                "start_on": row.start_on.isoformat(),
-                "end_on": row.end_on.isoformat(),
-                "note": row.note,
+                "starts_on": rule.starts_on.isoformat(),
+                "frequency": str(rule.frequency),
+                "weekdays": list(rule.weekdays) if rule.weekdays else None,
+                "times": rule.times,
+                "check": str(rule.check),
+                "source": str(rule.source) if rule.source else None,
+                "source_ref": rule.source_ref,
+                "threshold": str(rule.threshold) if rule.threshold else None,
+                "value": rule.value,
             }
-            for row in breaks
+            for rule in rules
         ],
+        "marks": [{"day": mark.day.isoformat(), "result": str(mark.result)} for mark in marks],
+    }
+
+
+def _export_habit_freeze(row: HabitFreeze, habit_by_id: dict[int | None, str]) -> dict[str, Any]:
+    return {
+        "habit": habit_by_id.get(row.habit_id) if row.habit_id is not None else None,
+        "start_on": row.start_on.isoformat(),
+        "end_on": row.end_on.isoformat(),
+        "reason": row.reason,
     }
 
 
@@ -417,6 +448,7 @@ def _export_screen_device(device: ScreenDevice) -> dict[str, Any]:
         "slug": device.slug,
         "name": device.name,
         "archived_at": _iso_dt(device.archived_at),
+        "complete_through": _iso_dt(device.complete_through),
     }
 
 
@@ -618,54 +650,160 @@ def _import_metric(
 
 
 def _import_habit(session: Session, raw: dict[str, Any]) -> None:
+    """A schema 15+ habit: replaces a habit with the same slug, with its rules and answers."""
     slug = normalize_slug(_require(raw, "slug"))
-    metric = require_metric(session, normalize_slug(_require(raw, "metric")))
-    existing = session.exec(select(Habit).where(Habit.slug == slug)).first()
-    if existing is None:
-        existing = Habit(
-            slug=slug,
-            metric_id=metric.id,
-            name=_require(raw, "name"),
-            period=Period(_require(raw, "period")),
-            target_value=float(_require(raw, "target_value")),
-            comparator=Comparator(_require(raw, "comparator")),
-            active_from=_parse_date(_require(raw, "active_from")),
-        )
-        session.add(existing)
-    existing.metric_id = metric.id
-    existing.name = raw.get("name", existing.name)
-    existing.period = Period(raw.get("period", existing.period))
-    existing.target_value = float(raw.get("target_value", existing.target_value))
-    existing.comparator = Comparator(raw.get("comparator", existing.comparator))
-    existing.weekdays = raw.get("weekdays")
-    existing.active_from = _parse_date(raw.get("active_from", existing.active_from.isoformat()))
-    active_to = raw.get("active_to")
-    existing.active_to = _parse_date(active_to) if active_to else None
-    kind = raw.get("kind")
-    existing.kind = HabitKind(kind) if kind else _legacy_habit_kind(metric)
-    existing.time_of_day = TimeOfDay(raw.get("time_of_day") or TimeOfDay.ANYTIME)
-    existing.archived_at = _parse_datetime(raw.get("archived_at"))
+    first_day = _parse_date(_require(raw, "first_day"))
+    habit = session.exec(select(Habit).where(Habit.slug == slug)).first()
+    if habit is None:
+        habit = Habit(slug=slug, name=_require(raw, "name"), first_day=first_day)
+        session.add(habit)
+    habit.name = raw.get("name", habit.name)
+    habit.first_day = first_day
+    habit.time_of_day = TimeOfDay(raw.get("time_of_day") or TimeOfDay.ANYTIME)
+    habit.archived_at = _parse_datetime(raw.get("archived_at"))
     session.flush()
-    for row in session.exec(select(HabitBreak).where(HabitBreak.habit_id == existing.id)).all():
-        session.delete(row)
-    for item in raw.get("breaks") or []:
+    for model in (HabitRule, HabitMark):
+        for row in session.exec(select(model).where(model.habit_id == habit.id)).all():
+            session.delete(row)
+    session.flush()
+    rules = raw.get("rules") or []
+    if not rules:
+        raise ValidationError(f"import habit {slug!r} has no rules")
+    for item in rules:
+        source = item.get("source")
+        threshold = item.get("threshold")
         session.add(
-            HabitBreak(
-                habit_id=existing.id,
-                start_on=_parse_date(_require(item, "start_on")),
-                end_on=_parse_date(_require(item, "end_on")),
-                note=item.get("note"),
+            HabitRule(
+                habit_id=habit.id,
+                starts_on=_parse_date(_require(item, "starts_on")),
+                frequency=HabitFrequency(_require(item, "frequency")),
+                weekdays=item.get("weekdays") or None,
+                times=item.get("times"),
+                check=HabitCheck(_require(item, "check")),
+                source=HabitSource(source) if source else None,
+                source_ref=item.get("source_ref"),
+                threshold=HabitThreshold(threshold) if threshold else None,
+                value=item.get("value"),
+            )
+        )
+    for item in raw.get("marks") or []:
+        session.add(
+            HabitMark(
+                habit_id=habit.id,
+                day=_parse_date(_require(item, "day")),
+                result=HabitMarkResult(_require(item, "result")),
             )
         )
 
 
-def _legacy_habit_kind(metric: Metric) -> HabitKind:
+def _import_habit_freeze(session: Session, raw: dict[str, Any]) -> None:
+    habit_slug = raw.get("habit")
+    habit_id = require_habit(session, normalize_slug(habit_slug)).id if habit_slug else None
+    start_on = _parse_date(_require(raw, "start_on"))
+    end_on = _parse_date(_require(raw, "end_on"))
+    same = session.exec(
+        select(HabitFreeze).where(
+            HabitFreeze.habit_id == habit_id,
+            HabitFreeze.start_on == start_on,
+            HabitFreeze.end_on == end_on,
+        )
+    ).first()
+    if same is None:
+        session.add(
+            HabitFreeze(
+                habit_id=habit_id, start_on=start_on, end_on=end_on, reason=raw.get("reason")
+            )
+        )
+
+
+def _import_legacy_habit(session: Session, raw: dict[str, Any], today: date) -> None:
+    """A habit from an export before schema 15, converted as the schema 15 migration does:
+    its schedule becomes the first rule, its past becomes Done marks, its skips and pauses
+    become freezes, and the metric it read is archived unless it backs a screen app."""
+    slug = normalize_slug(_require(raw, "slug"))
+    metric = require_metric(session, normalize_slug(_require(raw, "metric")))
+    app = session.exec(select(ScreenApp).where(ScreenApp.metric_id == metric.id)).first()
+    breaks = [
+        (_parse_date(_require(item, "start_on")), _parse_date(_require(item, "end_on")), item)
+        for item in raw.get("breaks") or []
+    ]
+    active_to = raw.get("active_to")
+    kind = raw.get("kind") or _legacy_habit_kind(metric)
+    legacy = LegacyHabit(
+        kind=str(kind),
+        period=Period(_require(raw, "period")),
+        comparator=Comparator(_require(raw, "comparator")),
+        target_value=float(_require(raw, "target_value")),
+        active_from=_parse_date(_require(raw, "active_from")),
+        active_to=_parse_date(active_to) if active_to else None,
+        aggregation=Aggregation(metric.aggregation),
+        weekdays=frozenset(raw["weekdays"]) if raw.get("weekdays") else None,
+        breaks=tuple((start, end) for start, end, _ in breaks),
+        screen_app_slug=app.slug if app is not None else None,
+    )
+    entries = [
+        EntryView(occurred_on=row.occurred_on, value_num=row.value_num, value_bool=row.value_bool)
+        for row in session.exec(select(Entry).where(Entry.metric_id == metric.id)).all()
+    ]
+    converted = convert_legacy_habit(legacy, entries, today)
+    rule = converted.rule
+    archived_at = _parse_datetime(raw.get("archived_at"))
+    if archived_at is None and legacy.active_to is not None and legacy.active_to < today:
+        archived_at = datetime.combine(legacy.active_to, time(23, 59), tzinfo=UTC)
+    _import_habit(
+        session,
+        {
+            "slug": slug,
+            "name": _require(raw, "name"),
+            "time_of_day": raw.get("time_of_day"),
+            "first_day": legacy.active_from.isoformat(),
+            "archived_at": _iso_dt(archived_at),
+            "rules": [
+                {
+                    "starts_on": legacy.active_from.isoformat(),
+                    "frequency": rule.frequency,
+                    "weekdays": list(rule.weekdays) if rule.weekdays else None,
+                    "times": rule.times,
+                    "check": rule.check,
+                    "source": rule.source,
+                    "source_ref": rule.source_ref,
+                    "threshold": rule.threshold,
+                    "value": rule.value,
+                }
+            ],
+            "marks": [
+                {"day": day.isoformat(), "result": HabitMarkResult.DONE}
+                for day in converted.done_days
+            ],
+        },
+    )
+    session.flush()
+    for start_on, end_on, item in breaks:
+        _import_habit_freeze(
+            session,
+            {
+                "habit": slug,
+                "start_on": start_on.isoformat(),
+                "end_on": end_on.isoformat(),
+                "reason": item.get("note"),
+            },
+        )
+    origin = MetricOrigin(metric.origin)
+    if app is None and metric.archived_at is None and origin in _HABIT_READ_ORIGINS:
+        metric.archived_at = datetime.now(UTC)
+        session.add(metric)
+
+
+_HABIT_READ_ORIGINS = (MetricOrigin.MANUAL, MetricOrigin.HABIT)
+
+
+def _legacy_habit_kind(metric: Metric) -> str:
     value_type = ValueType(metric.value_type)
     if value_type is ValueType.BOOL:
-        return HabitKind.CHECK
+        return "check"
     if value_type is ValueType.DURATION:
-        return HabitKind.DURATION
-    return HabitKind.COUNT
+        return "duration"
+    return "count"
 
 
 def _import_screen_category(session: Session, raw: dict[str, Any]) -> None:
@@ -738,6 +876,7 @@ def _import_screen_device(session: Session, raw: dict[str, Any]) -> None:
         session.add(existing)
     existing.name = raw.get("name", existing.name)
     existing.archived_at = _parse_datetime(raw.get("archived_at"))
+    existing.complete_through = _parse_datetime(raw.get("complete_through"))
 
 
 def _import_screen_session(session: Session, raw: dict[str, Any]) -> None:

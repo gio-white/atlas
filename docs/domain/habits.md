@@ -2,58 +2,83 @@
 
 ## Purpose
 
-Recurring commitments over a metric: a schedule plus a target, with check-ins, skips and pauses, streaks, and adherence computed on read.
+Things you want to do (or stop doing) on a schedule. Each habit is either **ticked by you** or
+**read from your data** (sleep, screen time, planned sessions). Day results, streaks, and
+percentages are computed when a page loads, never stored. The full product brief is
+[habits-brief.md](../plans/habits-brief.md); the working plan and the owner's decisions are in
+[habits-plan.md](../plans/habits-plan.md).
 
 ## Concepts
 
-- **Habit** — a schedule (`period`, optional `weekdays`) plus a target and comparator over a metric.
-- **Kind** — `check`, `count`, `duration`, or `quit`; how it is checked in and shown.
-- **Check-in** — an ordinary entry written through the habit.
-- **Break** — a skip (one day) or pause (a range) that excuses buckets.
-- **Satisfied / missed / excused** — the outcome of one scheduled bucket.
+- **Habit** — a name, a time of day, a first day, and a rule. It no longer points at a metric.
+- **Rule** — how often (every day, specific days, N× a week, N× a month) and how it is checked
+  (you tick it, or from your data: a source, a threshold, a value). A rule is stored as
+  **versions**, each with a start date; every day is judged by the version in force that day.
+- **Manual habit** — ticked by you. Anything a device or Atlas cannot measure (coffee, pushups)
+  is manual (owner, 2026-11-14). A day without a tick is Not done.
+- **Data habit** — read from a **source** in the registry (`src/atlas/domain/habit_sources.py`).
+  An answer you set on a day ("Set by you") wins over the data.
+- **Mark** — your answer for one day: `done` or `not_done`. On a manual habit only `done` is
+  stored (a tick); on a data habit either is.
+- **Freeze** — a date range in which one habit, or every habit, is not judged (holiday, illness).
+  Replaces skips and pauses.
+- **Archive / Restore / Delete** — archive hides a finished habit and keeps its history; restore
+  brings it back; delete removes it with its history.
 - **Supports** — a habit can support quest items at any level: an ambition, goal, milestone, side
   quest, chapter, or task. The link is informational and never changes a quest's progress.
 
 ## Data model
 
+Schema 15 ([migrations](../architecture/migrations.md)). Enum columns store member names.
+
 ### Habit
 
-A recurring commitment over a metric: a schedule plus a target.
+| Field         | Type            | Notes                                                        |
+| ------------- | --------------- | ------------------------------------------------------------ |
+| `id`          | int             | primary key                                                  |
+| `slug`        | str             | unique; from the name unless given                           |
+| `name`        | str             | written by a person                                          |
+| `time_of_day` | enum            | `morning \| afternoon \| evening \| anytime`; groups lists   |
+| `first_day`   | date            | local; no day before it can be answered                      |
+| `archived_at` | datetime \| None | UTC; set by Archive, cleared by Restore                     |
+| `created_at`  | datetime        | UTC                                                          |
 
-| Field          | Type            | Notes                                                                                   |
-| -------------- | --------------- | --------------------------------------------------------------------------------------- |
-| `id`           | int             | primary key                                                                             |
-| `metric_id`    | int             | FK to `Metric`                                                                          |
-| `slug`         | str             | unique                                                                                  |
-| `name`         | str             |                                                                                         |
-| `period`       | enum            | `day | week | month` — the bucket the target applies to                                 |
-| `target_value` | float           |                                                                                         |
-| `comparator`   | enum            | `at_least | at_most | exactly`                                                          |
-| `weekdays`     | set[int] | None | ISO weekdays (Mon=1 … Sun=7); only valid when `period` is `day`, `None` means every day |
-| `active_from`  | date            | inclusive                                                                               |
-| `active_to`    | date | None     | inclusive; `None` means open-ended                                                      |
-| `kind`         | enum            | `check | count | duration | quit` — how it is checked in and displayed                  |
-| `time_of_day`  | enum            | `morning | afternoon | evening | anytime` — groups the Today checklist                   |
-| `archived_at`  | datetime | None | UTC; archived habits leave every board but keep their history                          |
+Name and time of day are not versioned: a change shows everywhere at once.
 
-`at_most` is not an afterthought: "no more than one coffee a day" and "at least three runs a week" are the same machinery with a different comparator.
+### HabitRule
 
-Habits are created habit-first: without an explicit metric, `create_habit` makes one, marked with origin `habit` ([trackers and entries](trackers-and-entries.md#data-model)), with slug = habit slug (`-2`… on collision) and name = the habit's name and picks its shape from `kind`: `check` → `bool`, `count` → `count` (user unit), `duration` → `duration` (`min`), `quit` → `count` (`slips`, `lower_is_better`). Every made metric aggregates with `sum`. A `quit` habit is always `period = day`, `at_most 0`: any slip fails the day, and its streak is the run of clean days. Passing a metric keeps the older metric-first path; `kind` then defaults from the metric's value type.
+Table `habit_rule`: one row per rule version.
 
-### HabitBreak
+| Field        | Type             | Notes                                                                    |
+| ------------ | ---------------- | ------------------------------------------------------------------------ |
+| `id`         | int              | primary key                                                              |
+| `habit_id`   | int              | FK to `Habit`, RESTRICT, indexed                                         |
+| `starts_on`  | date             | local; unique per habit (`ux_habit_rule_habit_starts_on`)                |
+| `frequency`  | enum             | `every_day \| specific_days \| times_a_week \| times_a_month`            |
+| `weekdays`   | list[int] \| None | ISO weekdays (Mon=1 … Sun=7), sorted; only for `specific_days`; JSON, NULL when empty |
+| `times`      | int \| None       | 1–7 a week, 1–31 a month; only for `times_a_*`                           |
+| `check`      | enum             | `manual \| data`                                                         |
+| `source`     | enum \| None      | a data habit's source (below)                                            |
+| `source_ref` | str \| None       | the screen category or app slug, for sources that need one              |
+| `threshold`  | enum \| None      | `at_least \| at_most \| before \| after`                                 |
+| `value`      | float \| None     | minutes, or minutes after midnight for a time of day                    |
+| `created_at` | datetime         | UTC                                                                      |
 
-A skip or pause: a date range in which a habit is excused. A one-day break is a skip.
+CHECK constraints: `ck_habit_rule_check_fields` (a manual rule has no `source`, `source_ref`,
+`threshold`, or `value`; a data rule has `source`, `threshold`, and `value`) and
+`ck_habit_rule_frequency_fields` (`weekdays` only for specific days, `times` only for N× a week
+or a month).
 
-| Field        | Type        | Notes                        |
-| ------------ | ----------- | ---------------------------- |
-| `id`         | int         | primary key                  |
-| `habit_id`   | int         | FK to `Habit`                |
-| `start_on`   | date        | inclusive, local             |
-| `end_on`     | date        | inclusive, `>= start_on`     |
-| `note`       | str | None  | reason (travel, sick…)       |
-| `created_at` | datetime    | UTC                          |
+### HabitMark
 
-Overlapping breaks are allowed; coverage is their union.
+Table `habit_mark`: `id`, `habit_id` (FK, RESTRICT, indexed), `day` (local date), `result`
+(`done \| not_done`), `created_at` (UTC). One per habit and day (`ux_habit_mark_habit_day`).
+
+### HabitFreeze
+
+Table `habit_freeze`: `id`, `habit_id` (FK, RESTRICT, indexed; **NULL means every habit**),
+`start_on` and `end_on` (local, inclusive; `ck_habit_freeze_end_after_start`), `reason`
+(optional text), `created_at` (UTC). Overlapping freezes are allowed.
 
 ### HabitSupport
 
@@ -79,48 +104,192 @@ a habit support an item at most once.
 
 ## Rules and calculations
 
-### Habit satisfaction
+### Sources
 
-For a habit and a bucket, let `v` be the rollup of that bucket's entries.
+`SOURCES` in `src/atlas/domain/habit_sources.py`, one entry per source. Each has a picker label,
+the subject of its rule line, the fact store it reads (`feed`: sleep, screen, or sessions), its
+measure (minutes, or a time of day), the thresholds it allows, and a default threshold and value.
 
-- If `v` is not `None`, the bucket is **satisfied** when the comparator holds: `at_least` → `v >= target_value`, `at_most` → `v <= target_value`, `exactly` → `v == target_value`.
-- If `v` is `None` (nothing recorded), the bucket is satisfied only when the comparator is `at_most`. Recording nothing cannot exceed a ceiling, so a coffee-free day satisfies "at most 1 coffee"; a run-free week fails "at least 3 runs".
+| Source             | Rule line                              | Thresholds        | Default         |
+| ------------------ | -------------------------------------- | ----------------- | --------------- |
+| `wake_time`        | Wake time before 07:00                 | before, after     | before 07:00    |
+| `bedtime`          | Bedtime before 23:00                   | before, after     | before 23:00    |
+| `time_asleep`      | Time asleep at least 7h                | at least, at most | at least 7h     |
+| `screen_bad_apps`  | Bad apps at most 1h 30m                | at least, at most | at most 1h 30m  |
+| `screen_category`  | Screen time in Social at most 1h       | at least, at most | at most 1h      |
+| `screen_app`       | Screen time in Instagram at most 30m   | at least, at most | at most 30m     |
+| `screen_total`     | Screen time at most 3h                 | at least, at most | at most 3h      |
+| `sessions_planned` | A session planned before 12:00         | before            | before 12:00    |
 
-A consequence worth knowing: `exactly 0` is never satisfied by an empty bucket. Express that commitment as `at_most 0`.
+Bedtime is compared on an evening-to-morning scale that starts at 18:00
+(`EVENING_SCALE_START`), so 00:40 is later than 23:30. `screen_category` and `screen_app` need
+`source_ref`, an active category or app. Adding a source means a `HabitSource` member, an entry
+here, and a branch in `HabitData.reading` (`src/atlas/services/habit_data.py`) that returns the
+day's reading.
 
-A bucket is **scheduled** when all of the following hold:
+### Readings
 
-- its range intersects `[active_from, active_to]` (an edge bucket only partly inside the window still counts, once),
-- for `period = day` with a `weekdays` mask, the day's ISO weekday is in the mask,
-- its range intersects `[…, as_of]` — future buckets are not scheduled yet.
+`HabitData` (`src/atlas/services/habit_data.py`) reads each feed once for a range of days and
+answers one rule and day with a `Reading`: `value` (minutes, or a time of day in minutes after
+midnight; None when nothing arrived), `complete` (the day's data is final), and `received` (some
+data for the day arrived). It only reads; nothing in Atlas is written.
 
-Unscheduled buckets are invisible to every habit computation: they do not break streaks and do not appear in adherence denominators. A weekday-masked habit is not failed by its off days.
+- **Sleep** (`wake_time`, `bedtime`, `time_asleep`): the night that ends on the day, the longest
+  when there are several (`sleep_nights`, as on Stats → Sleep). Wake time and bedtime are the local
+  times of its end and start; time asleep is the staged sleep (REM, light, deep), or the whole
+  night without stages. A night that arrived is complete; no night is "No data received".
+- **Screen time** (`screen_bad_apps`, `screen_category`, `screen_app`, `screen_total`): minutes on
+  the day, all devices, split across midnight by the session's interval as on the screen
+  dashboard. Bad apps are the apps whose category is judged Bad (`waste`). A day is **complete**
+  only when there is at least one active (not archived) device and every one has a
+  `complete_through` at or after the end of the day; a device that never reported holds every
+  day back. Data is **received** when a session falls on the day or a device is complete past
+  its start; then the value is the minutes so far (0 with no session).
+- **Sessions planned**: the earliest moment a session on the day was created, in minutes after
+  the day's local midnight (negative for one created the day before). Cancelled sessions do not
+  count; done and "didn't happen" ones do. Atlas's own data is always complete.
 
-Breaks change the target a scheduled bucket is judged against (`bucket_target`). Let `total` be the bucket's days and `available` the days not covered by any break:
+### Validating a rule
 
-- `available = 0` → the bucket is **excused**. Like an unscheduled bucket it neither breaks nor extends a streak and is left out of adherence, but it is still shown (as skipped).
-- `0 < available < total` and comparator `at_least` → the target scales to `ceil(target_value × available / total)`. Three runs a week with three days away (4 of 7 left) needs `ceil(3 × 4/7) = 2`.
-- Otherwise (`at_most`, `exactly`, or no break) the target is unchanged: a ceiling is not loosened by being away.
+`validate_rule` (in `services/habits.py`) refuses, with a 400:
 
-Each scheduled bucket therefore has one outcome: **satisfied**, **missed**, or **excused** (`bucket_outcome`).
+- specific days with no day, or a day outside 1–7; days on any other frequency;
+- `times` outside 1–7 (a week) or 1–31 (a month), or `times` on a daily frequency;
+- a manual rule with any data field;
+- a data rule without a source, with a threshold the source does not allow, a time outside
+  00:00–23:59, minutes outside (0, 24h], a missing, unknown, or archived category or app, or a
+  `source_ref` on a source that takes none.
 
-### Streaks
+A data rule without a threshold or value takes the source's default. Weekdays are deduplicated
+and sorted.
 
-`current_streak(habit, as_of)` counts consecutive satisfied scheduled buckets walking backwards from `as_of`:
+### Rule versions
 
-1. Start at the bucket containing `as_of`. If it is in progress and already satisfied, count it. If it is in progress and not yet satisfied, skip it without breaking the streak — the period is still open — unless the comparator is `at_most`: a ceiling already crossed cannot recover, so it ends the streak now (a slip today puts a quit habit at 0 clean days).
-2. Continue to earlier scheduled buckets, adding one for each satisfied bucket and stepping over excused ones.
-3. Stop at the first complete scheduled bucket that is missed, or when the buckets leave the active window.
+- **Create** stores one version starting on `first_day` (today when not given).
+- **The version for a day** (`rule_on`) is the latest with `starts_on <= day`; a day before the
+  first version uses the first.
+- **Change from today** (`apply: from_today`, the default) adds a version starting on
+  `max(today, first_day)`. A second change on the same day replaces that day's version. A rule
+  equal to the one in force stores nothing.
+- **Change to all days** (`apply: all_days`) replaces every version with one starting on
+  `first_day`.
+- Marks and freezes are never changed by a rule change. Each day is judged by the version in
+  force that day, so "From today" leaves every past result as it was and "To all past days too"
+  re-judges them ("Rule changes" in [habits-plan.md](../plans/habits-plan.md#rule-changes)).
 
-So a "3 runs per week" habit satisfied for the past four weeks reports a streak of 4 on Monday morning, and 5 once the third run of the current week is logged.
+### Answering a day
 
-`longest_streak(habit, as_of)` is the longest run of consecutive satisfied scheduled buckets anywhere in the active window up to `as_of`, stepping over excused buckets. The in-progress bucket participates only if it is already satisfied (or, for `at_most`, ends the run once crossed).
+- `set_habit_day(slug, day, result)` refuses a future day and a day before `first_day`.
+- On a manual habit (by the version in force that day), `done` stores a tick and `not_done`
+  removes it: a day without a tick is Not done, so nothing is stored for it.
+- On a data habit, either answer is stored and wins over the data.
+- `clear_habit_day` removes the answer for a day (untick, or "Use data again"); nothing to remove
+  is fine.
 
-### Adherence
+### Freezes, archive, restore, delete
 
-`adherence(habit, from_date, to_date)` is `satisfied / judged` over the scheduled, non-excused buckets in the range (`adherence_counts` returns both numbers), counting **complete** buckets only. The in-progress bucket is excluded from both numerator and denominator so that a fresh week cannot drag the ratio down. The result is a float in `0.0 … 1.0`, or `None` when the denominator is zero (nothing was scheduled in the range).
+- `add_freeze` covers one habit (`habit_slug`) or every habit (none); one day when no end is
+  given, today when neither date is. The end may not be before the start.
+- `list_freezes` is newest first; for a habit, its own freezes and those for every habit.
+- **Archive** sets `archived_at`; archiving twice is a 400. **Restore** clears it and freezes the
+  days it was archived: a freeze from the archived local date (not before `first_day`) to
+  yesterday, reason "Archived" (`ARCHIVED_REASON`), so a restored habit does not come back with
+  broken streaks. Restoring on the day it was archived adds none.
+- **Delete** removes the habit's rule versions, marks, own freezes, and quest links. Freezes for
+  every habit stay.
 
-`pooled_adherence_counts(start, as_of)` sums `adherence_counts` over every active habit: Habits kept on Home and on Stats → This week. `habit_week_progress(start, as_of)` gives, per active habit, the same counts over `[start, as_of]` (`kept` / `judged`) and its status on `as_of` (`value`, `target` as `effective_target`, `satisfied`): the habit rows of Stats → This week ([this week](this-week.md)).
+### Day results, streaks, and Habits kept
+
+Pure functions in `src/atlas/domain/habits.py` over `HabitFacts` (first day, rule versions, marks,
+freezes for the habit or all habits, one reading per data day) and a `Clock`. Everything is
+computed on read; nothing derived is stored.
+
+**Today.** The *As of* date is today. On the real today the clock is the current local minute; a
+past date is judged as if it had just ended (the whole day has passed), with the data stored now
+(`habit_clock` in `src/atlas/services/habit_views.py`). Yesterday is the day before it.
+
+**Day result** (`day_result`), in this order:
+
+1. **Not scheduled** before the first day, or on a day the rule does not ask for (a Specific days
+   habit off its days). A weekly or monthly habit asks for every day of its period.
+2. **Frozen** (reason `frozen`) inside a freeze for the habit or for all habits. A freeze wins
+   over a mark; the mark stays stored.
+3. **Upcoming** after today.
+4. **Your mark**: Done or Not done. On a data habit it carries the reason `set_by_you` and wins
+   over the data both ways.
+5. **Manual**: Open today until ticked; Not done on a past day.
+6. **Data** (`_judge`): Done only when the data arrived, is complete, and passes the threshold;
+   missing data never counts as success. Since a day's minutes only grow, an "at least" already
+   met is Done and an "at most" already passed is Not done (`over_limit`) before the day is
+   complete. Otherwise:
+   - today: In progress with the minutes so far for screen time ("On track · 40m of 1h 30m",
+     "20 of 30m"); Open for sleep (nothing is shown until the night arrives);
+   - yesterday: Waiting (`waiting_for_data`); it never breaks a streak;
+   - earlier: Not done, `data_incomplete` when some data arrived, else `no_data`. Data that
+     arrives later re-judges the day on the next load.
+   - Sessions planned: Done once a session on the day was created before the cut-off (value: when
+     it was planned); Open today until the cut-off; Not done after it.
+7. A past day of a **weekly or monthly** habit that is not Done is **Blank**, never a cross; its
+   reason stays. The period's figure carries the judgment (owner, 2026-11-14).
+
+Thresholds (`passes`): at least `value >= limit`, at most `value <= limit`, before `value < limit`,
+after `value > limit`. Bedtime compares both on the evening scale (minutes after 18:00).
+
+**Periods** (`periods`). Every day and Specific days are judged per day, N× a week per Monday–
+Sunday week, N× a month per calendar month. Consecutive rule versions with the same kind of period
+share their periods, and a weekly or monthly period takes N from the version in force on its last
+day: "3× → 4× a week from today" makes the week containing today a 4× week. Where the kind
+changes (every day → 3× a week), periods are clipped at the change, so the first period of the new
+rule is partial. A period always runs to its natural end; days after today are upcoming.
+
+- **Target**: 1 for a day (0 when frozen). For a week or month, `ceil(N × open days ÷ days in the
+  period)`, where open days are the period's days under this kind of rule that are not frozen; days
+  before the habit's first day or before the change are not open. A period with no open day is
+  **Frozen** and left out entirely.
+- **State**: Upcoming (starts after today); Frozen; **Kept** once Done days reach the target;
+  **Running** while it contains today; **Waiting** when finished, not kept, and a day in it is
+  waiting; otherwise **Missed**.
+
+**Streaks.** `current_streak`: kept periods back from the most recent, skipping Frozen, Waiting,
+and Running periods, stopping at the first Missed; the running period adds 1 once kept and never
+breaks it. `best_streak`: the longest run of kept periods, Missed resets it. The unit is the
+period of the rule in force today ("12 days", "3 weeks", "2 months").
+
+**Kept, last 4 weeks** (`kept_last_4_weeks`): kept ÷ judged periods among those that ended in the
+28 days before today; Frozen, Running, and Waiting periods are not judged. None when nothing was
+judged.
+
+**Habits kept** (`kept_counts`, `habits_kept`): across active habits, the sum of min(Done,
+target) over the sum of targets for the days shown. A daily habit counts each finished day as a
+target of 1 and today once it is Done (so the morning does not drag the figure down); frozen,
+waiting, and upcoming days are left out. A weekly or monthly habit counts the whole target of each
+period that overlaps the days, with its Done days up to the last day shown. The last day shown is
+judged as "today", so last week's same days compare like for like. Home's This week so far, Stats →
+This week (with each habit's part, `done` / `target`, adding up to the whole), and the Week tab
+use the same function.
+
+**Day count** ("3 of 6 done"): the habits whose day is neither Not scheduled, Frozen, nor
+Upcoming, and how many of them are Done.
+
+### Converting a schema 14 habit
+
+`convert_legacy_habit` (`src/atlas/domain/habit_migration.py`, pure) is shared by the schema 15
+migration and by importing an export written before schema 15:
+
+- A **daily** habit on a screen app's minutes, at least or at most (not quit), becomes a data
+  habit on `screen_app` with the same threshold and value, and keeps no marks.
+- Every other habit becomes **manual**. Daily habits keep their days (`specific_days` or
+  `every_day`; a quit habit is every day). Weekly or monthly "at least N" becomes N× a week or a
+  month (rounded up, 1–7 or 1–31). Weekly or monthly "at most" or "exactly" becomes every day.
+- Its past becomes one **Done mark** per scheduled day, outside breaks, up to today (or its end
+  date) that the old rule met: a check habit, a day with a yes; quit, a day without a slip (not
+  today); a daily amount, a day that met the target (an "at most" day with nothing logged is Done,
+  not today); weekly or monthly "at least", a day with anything logged; weekly or monthly "at
+  most" or "exactly", a day on which the period's running total was still within the target (not
+  today).
+- Skips and pauses become freezes for that habit, with the note as the reason. A habit whose end
+  date has passed is archived. The metric it read is archived (entries stay) unless it backs a
+  screen app.
 
 ### Quest links
 
@@ -133,81 +302,281 @@ with or without links.
   `id`, the same `QuestKind` values as the quest API). A habit may support several items, at
   several levels, and an item may be supported by several habits.
 - **Adding** (`add_habit_support`) refuses an unknown habit or item (404), an archived habit or an
-  archived item (400), and a link that already exists (409). Completed items can be linked.
+  archived item (400: "restore it first"), and a link that already exists (409). Completed items
+  can be linked.
 - **Removing** (`remove_habit_support`) deletes one link (404 if there is none). An archived habit
   keeps its links and can still remove them.
 - **From the habit** (`list_habit_supports`): every item it supports, ambitions first, then goals,
   milestones, side quests, chapters, and tasks, each by title, with the item's `path` (its
   ancestors from the root, as on tasks) and `archived`.
 - **From the item** (`habits_supporting`): the habits linked to the item itself (`direct: true`)
-  and to every item under it, at any depth (`direct: false`). A goal lists habits on the goal, its
-  milestones, their chapters, and every task below; a side quest those on its chapters and tasks.
-  One row per link, each naming the item it is on (`linked_to`), direct links first, then by
-  habit name.
+  and to every item under it, at any depth (`direct: false`), each with its `check` (manual or
+  data, by today's rule). One row per link, each naming the item it is on (`linked_to`), direct
+  links first, then by habit name.
 - **Deleting** a habit deletes its links; deleting a quest item (only possible while it is empty,
   or an Inbox task) deletes the links to it. **Promoting** an Inbox task moves its links to the
   item it becomes. Archiving either side keeps the links.
 
 ## API
 
-Conventions shared by every endpoint (slugs, `as_of`, errors): [api-conventions](../architecture/api-conventions.md).
+Conventions shared by every endpoint (slugs, errors): [api-conventions](../architecture/api-conventions.md).
+A rule is `{frequency, check, weekdays, times, source, source_ref, threshold, value}`; the
+response adds `starts_on` and `source_ref_name` (the category's or app's name).
 
 | Method   | Path                     | Purpose                                       | Status      |
 | -------- | ------------------------ | --------------------------------------------- | ----------- |
-| `GET`    | `/habits`                | List habits                                   | implemented |
-| `POST`   | `/habits`                | Create a habit (habit-first `name` + `kind`, or over a `metric`). There is no `area`: sending one is a 422 | implemented |
-| `GET`    | `/habits/{slug}`         | Get one habit                                 | implemented |
-| `PATCH`  | `/habits/{slug}`         | Update name, target, comparator, weekdays, `active_to`, `time_of_day`, `unit` | implemented |
-| `DELETE` | `/habits/{slug}`         | Delete a habit, its breaks, and its quest links (entries stay) | implemented |
-| `POST`   | `/habits/{slug}/archive` / `/unarchive` | Retire or restore a habit       | implemented |
-| `GET`    | `/habits/{slug}/detail`  | Habit, status, breaks, and recent check-ins   | implemented |
-| `POST`   | `/habits/{slug}/checkins` | Check in (`amount`, `on`, `note`; optional `as_of`) | implemented |
-| `DELETE` | `/habits/{slug}/checkins/last` | Undo the day's latest check-in (`on`, `as_of`) | implemented |
-| `GET`    | `/habits/{slug}/breaks`  | List skips and pauses                         | implemented |
-| `POST`   | `/habits/{slug}/breaks`  | Skip a day or pause a range (`start_on`, `end_on`, `note`) | implemented |
-| `DELETE` | `/habits/{slug}/breaks/{break_id}` | Remove a skip or pause              | implemented |
+| `GET`    | `/habits`                | List habits by name, each with today's rule (`include_archived`, default true) | implemented |
+| `POST`   | `/habits`                | Create (`name`, `rule`, optional `slug`, `time_of_day`, `first_day`); 400 when the rule does not fit | implemented |
+| `GET`    | `/habits/{slug}`         | One habit with today's rule                   | implemented |
+| `PATCH`  | `/habits/{slug}`         | Rename, move to another time of day, or change the rule (`rule`, `apply`: `from_today` or `all_days`) | implemented |
+| `DELETE` | `/habits/{slug}`         | Delete a habit with its rule versions, marks, own freezes, and quest links | implemented |
+| `POST`   | `/habits/{slug}/archive` | Archive (400 if already archived)             | implemented |
+| `POST`   | `/habits/{slug}/restore` | Restore, freezing the archived days (400 if not archived) | implemented |
+| `PUT`    | `/habits/{slug}/days/{day}` | Answer a day (`{result: done \| not_done}`); returns `{day, result}`, `result` null when nothing is stored | implemented |
+| `DELETE` | `/habits/{slug}/days/{day}` | Remove the day's answer (untick, or Use data again) | implemented |
+| `GET`    | `/freezes`               | Freezes newest first; `habit` narrows to its own and every-habit ones | implemented |
+| `POST`   | `/freezes`               | Freeze one habit (`habit`) or every habit, `start_on`, `end_on`, `reason` | implemented |
+| `DELETE` | `/freezes/{freeze_id}`   | Remove a freeze (404 if there is none)        | implemented |
 | `GET`    | `/habits/{slug}/supports` | The quest items the habit supports: `kind`, `id`, `title`, `path` (`[{kind, id, title}]`), `archived`, `created_at` | implemented |
 | `POST`   | `/habits/{slug}/supports` | Link the habit to a quest item (`{kind, id}`; `kind` is `ambition`, `goal`, `milestone`, `side_quest`, `chapter`, or `task`); 201 with the item; 400 archived, 404 unknown, 409 already linked | implemented |
 | `DELETE` | `/habits/{slug}/supports/{kind}/{item_id}` | Remove one link (404 if there is none) | implemented |
-| `GET`    | `/habits/{slug}/status`  | Streaks and adherence for a habit             | implemented |
-| `PUT`    | `/habits/{slug}/days/{day}` | Confirm or clear a bool habit on a day (`{done}`, optional `as_of`) | implemented |
-| `GET`    | `/views/habits`          | Frequency-grouped statuses, scheduled/satisfied counts, 7/30-day completion | implemented |
-| `GET`    | `/views/habits/grid` | Day / week / month history grid (`period`, `as_of`) | implemented |
+| `GET`    | `/views/habits/day`      | The Day tab for `as_of` (default today): `day`, `done` / `total`, `week` (Monday–Sunday `{day, done, total}`), and `rows` for the scheduled active habits, Morning first, each `{habit, result, streak, progress}` | implemented |
+| `GET`    | `/views/habits/week`     | The Week tab for `as_of`'s week: `rows` (`habit`, seven `days`, `streak`, `progress`), `kept` (Monday to `as_of`) and `kept_last_week` (the same days a week earlier), each `{done, target, share}` | implemented |
+| `GET`    | `/views/habit/{slug}`    | One habit's page for `as_of`: `current_streak`, `best_streak`, `kept_last_4_weeks`, `history` (periods of the last 12 weeks: `period`, `start`, `end`, `target`, `done`, `state`), `recent` (14 days, newest first), `freezes`; 404 for an unknown habit | implemented |
+
+A day `result` is `{day, status, reason, value}`: `status` is `not_scheduled`, `upcoming`,
+`frozen`, `done`, `not_done`, `open`, `in_progress`, `waiting`, or `blank`; `reason` is
+`no_data`, `data_incomplete`, `waiting_for_data`, `over_limit`, `set_by_you`, `frozen`, or null
+(the screens word it); `value` is the data habit's reading. `streak` is `{count, period}`;
+`progress` is `{period, done, target}` for a weekly or monthly habit, else null. One habit's view
+is `/views/habit/{slug}`, singular like the page `/habit/:slug`, so a habit called "day" or "week"
+stays reachable.
+
+Removed in schema 15: `/habits/{slug}/status`, `/detail`, `/checkins`, `/checkins/last`,
+`/breaks`, `/unarchive`, `GET /views/habits`, and `GET /views/habits/grid`.
 
 Service functions (in `src/atlas/services/`, each taking an explicit `Session` first; see [overview](../architecture/overview.md#services)):
 
 | Function | Role |
 | -------- | ---- |
-| `create_habit` / `list_habits` / `get_habit` / `update_habit` / `archive_habit` / `unarchive_habit` / `delete_habit` / `habit_status` / `habit_detail` / `habit_statuses` / `habits_board` / `set_habit_day` | Habits. `create_habit` is habit-first (see Habit) or takes an existing metric; slug defaults from the name. `update_habit` may change name, target, comparator, weekdays, `active_to`, time of day, and (for its own metric) unit; a quit habit's target and comparator are fixed. `archive_habit` hides a habit from boards; `delete_habit` removes it, its breaks, and its quest links, keeps its entries, and archives the metric when it was made for a habit (origin `habit`) and no other habit uses it. A metric set up by hand stays active. `set_habit_day(slug, day, done)` is the Home confirm toggle for **bool** metrics only. `habit_status` returns the habit's `kind` and `weekdays`, current/longest streak, adherence from `active_from` to `as_of`, the current bucket's rollup and range, `days_left`, `effective_target` (scaled, or `None` when excused), `excused`, `skipped_today`, `today_value`, and `last_entry_on`. `habit_detail` adds the breaks and the 30 latest check-ins. `habit_statuses` is every non-archived habit whose metric is active. `habits_board` groups those by frequency, counts non-excused scheduled/satisfied current buckets, and pools `adherence_counts` over the last 7 and 30 days (`completion_7d` / `completion_30d`). |
-| `check_in` / `undo_check_in` | Habit check-ins. `check_in(slug, amount, on, note)` marks a `check` habit done (idempotent per day), adds `amount` to a count or duration (count and quit default to 1), or logs a slip on a quit habit; future days are rejected. `undo_check_in` deletes the day's latest entry (every entry for a bool habit). Both write ordinary entries and return the habit status. |
-| `add_habit_break` / `list_habit_breaks` / `delete_habit_break` | Skips and pauses. `add_habit_break(slug, start_on=today, end_on=start_on, note)`. |
+| `create_habit` / `list_habits` / `get_habit` / `update_habit` / `archive_habit` / `restore_habit` / `delete_habit` | Habits (`services/habits.py`). `create_habit(name, rule, slug, time_of_day, first_day)`; `update_habit(slug, name, time_of_day, rule, apply, today)`. |
+| `habit_rules` / `rule_on` / `habit_view` / `validate_rule` / `rule_input` | Rule versions oldest first, the version for a day, a habit with today's rule and its category or app name, the rule check with source defaults, a stored version as a `RuleInput`. |
+| `set_habit_day` / `clear_habit_day` / `habit_marks` | Answers for a day. |
+| `add_freeze` / `list_freezes` / `delete_freeze` / `freeze_habit_slug` | Freezes. |
+| `habits_day` / `habits_week` / `habit_detail` / `habits_kept` | The views and Habits kept (`services/habit_views.py`), each taking `as_of` and `now`; `habit_results` builds each habit's facts and periods, reading every feed once through `HabitData` (`services/habit_data.py`). |
 | `list_habit_supports` / `add_habit_support` / `remove_habit_support` / `habits_supporting` | Quest links (`src/atlas/services/habit_supports.py`), see [Quest links](#quest-links). |
-| `habit_grid` / `habits_board` | Review. `habit_grid` is one row per active habit (carrying its `kind` and sorted `weekdays`) with one cell per local date in `bucket_for(as_of, period)` (day / week / month), using the same scheduled / value / satisfied rules as the week grid; a day inside a break is `excused` (shown as skipped, never missed). `habits_board` is summary counts plus statuses grouped by habit frequency. |
 
 ## Screens
 
-`/habit` is the time-window habit board: Day / Week / Month selects the grid from `GET /views/habits/grid` (default week, `?period=` / `?on=` like Screen). Every habit stays listed with a frequency tag from `frequencyLabel` (`web/src/lib/habits.ts`): a daily habit reads "Every day", "Weekdays" (Mon–Fri), "Weekends" (Sat–Sun), or its days ("Mon, Wed"); a weekly or monthly check habit reads "3× a week" / "2× a month"; a quit habit reads "Every day". The same tag appears on the board cards, the overview grid, and habit detail, with streak / adherence / this-bucket stats from `GET /views/habits`, and a log control (bool Mark done, otherwise Log value). `/week` redirects to `/habit?period=week`. Habit detail uses the same period selector on that habit's grid row.
+Habits is a section with two tabs, **Day** (`/habits`) and **Week** (`/habits/week`), under the
+title "Habits" (`SectionLayout`, [navigation](../product/navigation.md)); each habit has its own
+page, `/habit/:slug`. All three follow the shell's *As of* date (`?on=`). The writes behind a
+day (ticking and the row menu) are shared (`useDayActions`, `DayMenu` in
+`web/src/components/habits/`): each writes through the API, then the screen reloads; a failed
+write shows its error above the list and leaves the screen as it was.
 
-The row form of `HabitCard` (`layout="row"`) shows weekly and monthly habits on the board and every habit due today on Home; under a row, a quit habit reads its slips today and offers **Log a slip**, and a daily amount reads "10 of 40 today" ([home](home.md#screens)).
+**Habits → Day** (`/habits`, `web/src/pages/habits/HabitsDayPage.tsx`, brief §7), on
+`GET /views/habits/day`. The day is the shell's *As of* date (`?on=`, today when absent).
 
-Habits are created, edited, archived, and deleted on the Habits pages only; Catalog, which used to duplicate this, is gone. The **New habit** dialog has no Area field. Names are written by people: the form sends the typed name, and the demo seed uses written names ("Morning pushups", "Meditate", "At most one coffee", "Run three times a week", "Deep work on weekdays", "Call family", "No doomscrolling"), not names built from slugs.
+- **Week strip** (`web/src/components/habits/WeekStrip.tsx`): Monday to Sunday of the day's week,
+  each day its weekday letter, date, and a small accent ring filled to the share of its scheduled
+  habits that are Done (`done` / `total` from the view's `week`). The selected day is shaded;
+  today's date is in the accent colour. Days after today are dimmed and cannot be picked. ‹ goes
+  to the same weekday a week earlier; › a week later, but no later than today, and is off once
+  next week starts after today (`stripSteps`). Picking a day sets `?on=` (today clears it).
+  Each day and arrow is at least 44px high.
+- **Heading**: the day as "Saturday 14 Nov 2026" (`dayHeading`) and "3 of 6 done"
+  (`dayCountLabel`, the view's `done` / `total`: the [day count](#day-results-streaks-and-habits-kept)).
+- **Groups**: Morning, Afternoon, Evening, Any time, empty ones hidden; when no habit shown has
+  a time of day, one list without headings (`dayGroups`). Only habits scheduled that day are
+  listed (the view leaves out Not scheduled ones). The groups and rows are `HabitDayList.tsx`,
+  which Home's Habits block uses too, so both list the same habits the same way.
+- **Rows** (`web/src/components/habits/HabitDayRow.tsx`): the status icon, the name, the reason
+  line under it, and on the right "2 of 4 this week" / "1 of 2 this month" for a weekly or monthly
+  habit (`progressLabel`), then the accent flame and the streak, "12 days", "1 week", "2 months"
+  (`streakLabel`; nothing for no streak), then "…". On a phone the period figure and the streak
+  stack, so the name keeps its room.
+- **Status icons** (`StatusIcon.tsx`, brief §13): Done a filled check in the success green; Not
+  done a quiet grey cross (never red); In progress an accent ring filled to the share of the
+  rule's value (`progressShare`); Waiting a grey clock; Frozen a grey snowflake; Open an empty
+  circle; Blank a faint dashed circle.
+- **Reason line** (`reasonLine`): the reason in words — No data received, Data incomplete,
+  Waiting for data, Over the limit, Set by you, Frozen. With no reason, a data habit shows its
+  reading: today's screen time "On track · 40m of 1h 30m" (at most) or "20 of 30m" (at least)
+  while In progress; on a judged day "06:48 · from sleep" (wake time, bedtime), "7h 20m · from
+  sleep" (time asleep), "40m · from screen time", or "Session planned at 08:10" ("…the day before
+  at 23:10" for one planned the evening before). A habit you tick has no line unless frozen.
+- **Ticking**: on a habit you tick, the icon toggles Done: a Done day's mark is removed
+  (`DELETE /habits/{slug}/days/{day}`, so today is Open again and a past day Not done); any other
+  day gets Done (`PUT …/days/{day}`). On a data habit, or on a frozen day, the icon opens the row
+  menu instead. Tapping the rest of the row also opens it.
+- **Row menu** (`rowActions`), only what applies: Mark done (unless Done) · Mark not done (unless
+  Not done) · Use data again (only when Set by you; removes your mark) · Freeze this day (a
+  one-day freeze for this habit, `POST /freezes`) · Open habit (`/habit/:slug`). A frozen day takes no answer, since a freeze
+  wins over a mark: its menu is Unfreeze, when the freeze is this habit's own one-day freeze
+  (`ownDayFreeze`, `DELETE /freezes/{id}`), and Open habit. A longer freeze, or one for every
+  habit, is not undone from a row.
+- After each change the day reloads, so the count, strip, streaks, and progress follow.
+- **Empty**: "No habits yet" when there is no active habit; "No habits scheduled on this day."
+  when none is due that day. With no habit, "No habits yet" reads "Habits you add show here, day
+  by day." with a New habit button under it (the Week tab's empty state too).
+- **New habit** (`NewHabitButton.tsx`) sits beside the Habits title on both tabs (the
+  `SectionLayout` `action`) and opens the habit sheet. Saving a habit fires the
+  `atlas:habits-changed` window event (`notifyHabitsChanged`), and the Day and Week tabs reload on
+  it, so the new habit shows at once.
+
+**Habits → Week** (`/habits/week`, `web/src/pages/habits/HabitsWeekPage.tsx`, brief §8), on
+`GET /views/habits/week`: the Monday–Sunday week holding the *As of* date.
+
+- **Heading**: "Week of 9 Nov 2026" (`weekOfLabel`) with ‹ ›, which move a whole week like Stats →
+  This week (`weekSteps`: the other week's Sunday, so it is judged whole; none past today's week).
+- **Rows** (`web/src/components/habits/HabitWeekRow.tsx`): every active habit, in the Day tab's
+  order and groups (`dayGroups`), its name a link to its page, then seven day cells under a
+  weekday header, then "2 of 4" for a weekly or monthly habit and the flame streak. On a narrow
+  screen the name and streak sit above the seven cells, each cell 44px high.
+- **Cells** (`StatusIcon`, small): Done, Not done, In progress, Waiting, Frozen, Open, Blank as on
+  the Day tab; Not scheduled empty; a day after today a dimmed dot. What a tap does
+  (`cellAction`): on a habit you tick, a day up to today that is not frozen toggles Done (as the
+  Day tab's icon does); any other judged day opens that day's row menu (`rowActions`, the Day
+  tab's); Not scheduled and later days do nothing. Each cell is labelled "Run, Tue 10 Nov: Done".
+- **Footer**: "Habits kept this week 84% · last week 83%" (`keptFigure`, the view's `kept` and
+  `kept_last_week`; "—" when nothing was judged).
+- **Archived**: archived habits by name with their rule (`ruleSummary`), each a link to its page.
+  Nowhere else lists them.
+- **Empty**: "No habits yet".
+
+**Habit page** (`/habit/:slug`, `web/src/pages/habits/HabitPage.tsx`, brief §8), on
+`GET /views/habit/{slug}`. Reached from a name on the Week tab or Open habit in a row menu; the
+"Habits" link above goes back to Day (Week for an archived habit).
+
+- **Header**: the name ("Archived" beside it when archived) and one line from `ruleSummary`:
+  "Every day · From your data: wake time before 07:00 · Morning".
+- **Figures**: Current streak and Best streak in the habit's period ("12 days", "0 weeks",
+  `streakFigure`), and Kept, last 4 weeks as a share with "24 of 28 days" under it.
+- **History** (`HistoryGrid.tsx`): for a habit judged per day, a calendar of one square per day,
+  Monday-first columns from the habit's first week (at most 12 weeks back) to the As of week;
+  days it was not scheduled are empty. For a weekly or monthly habit, one square per period,
+  with the first and last period's dates under the row. Squares: Done or Kept in the success
+  green, Not done or Missed a quiet grey (never red), Today or In progress an accent outline,
+  Waiting a dashed outline, Frozen a grey snowflake, Upcoming a faint outline; each has a tooltip
+  ("Tue 10 Nov: Done", "Week of 9 Nov 2026: Kept, 3 of 3", `periodLabel`), a legend names the
+  states shown, and screen readers get "20 of 24 days kept in the last 12 weeks."
+- **Recent days**: the last 14 days, newest first (from the habit's first day), each with its
+  status icon, "Sat 14 Nov", and a line (`dayLine`): "Done · 06:48 · from sleep", "Not done · No
+  data received", "Frozen", or for a Blank day its reason or "No tick". Each row opens the day's
+  row menu without Open habit; an archived habit's rows do not.
+- **Freezes**: Upcoming (ending today or later, soonest first) and Past (latest first), each
+  "13–15 Nov 2026 · Holiday" (`dateRangeLabel`), "All habits" under one for every habit, and a
+  remove button (`DELETE /freezes/{id}`; a freeze for every habit is removed for all of them).
+  Without any: "No freezes. Freeze a day from its row menu to keep the streak through it."
+- **Actions**: Edit (the habit sheet, filled in) and Freeze… (the Freeze sheet, both dates the
+  As of day), then Archive (`POST /habits/{slug}/archive`; the habit leaves the Day tab, the Week
+  tab's rows, Home, and Habits kept, and shows under Archived) or, when archived, Restore
+  (`POST …/restore`, which freezes the archived days), and Delete, which asks first: "Delete
+  Run? Its history goes with it: every day's result, its rule changes, and its freezes. To keep
+  the history, archive it instead." Deleting goes to the Week tab. An archived habit shows no
+  Edit or Freeze…: restore it first.
+- An unknown address: "There is no habit at this address."
+
+**Habit sheet** (`web/src/components/habits/HabitSheet.tsx`, logic in `web/src/lib/habitForm.ts`,
+brief §9): one dialog, "New habit" or "Edit habit", with four questions.
+
+1. **What do you want to do?** — the name.
+2. **How often?** — Every day · Specific days (seven day circles, Monday first, weekdays to start)
+   · Times a week (a − / + stepper, 1–7, 3 to start). **More options** reveals Times a month
+   (1–31, 2 to start); it is open already when the habit is monthly.
+3. **How is it checked?** — You tick it · From your data. From your data shows a Source select,
+   then the rule as one line: the subject ("Wake time", "Bad apps", "Screen time in"), a
+   category or app select when the source needs one ("Pick a category" / "Pick an app"; the
+   sheet's hint says when you have none yet), the threshold (a select between at least / at most
+   or before / after; plain "before" for Sessions planned), and the value — a time for wake time,
+   bedtime, and a session planned, hours and minutes for time asleep and screen time. The source
+   list, its subjects, thresholds, and starting values mirror the API's registry
+   (`habit_sources.py`): wake time before 07:00, bedtime before 23:00, time asleep at least 7h,
+   Bad apps at most 1h 30m, a category at most 1h, an app at most 30m, total at most 3h, a session
+   planned before 12:00. Picking a source starts again from its values.
+4. **When?** — Morning · Afternoon · Evening · Any time (Any time to start).
+
+What stops saving shows under its field: "Give the habit a name.", "Pick at least one day.",
+"Pick a category." / "Pick an app.", "Enter a time between 1 minute and 24 hours.", "Enter a time
+of day." A name already in use (409) reads "You already have a habit with this name."; other
+refusals show the API's message as a sentence. The button is **Create habit** (`POST /habits`)
+or **Save** on Edit.
+
+Edit (`PATCH /habits/{slug}`) starts from the rule in force today (`fieldsFromHabit`). Name and
+time of day are not versioned, so changing only those just saves. When the schedule or the check
+differs from today's rule (`ruleChanged`), **Apply this change** appears: **From today** (the
+default; "Days before today keep the rule they had.") or **To all past days too** ("Every past day is
+judged again by the new rule."), sent as `apply`.
+
+**Freeze sheet** (`web/src/components/habits/FreezeSheet.tsx`, brief §9): "Freeze Run", or
+"Freeze all habits" while the switch is on, with "A frozen day is neither done nor not done, and
+doesn’t break a streak." **From** and **To** dates (both the As of day to start), an optional
+**Reason** ("Holiday"), the switch **Freeze all habits**, and **Freeze** (`POST /freezes`, for
+this habit or, with the switch, every habit). "Pick both dates." and "To can’t be before From."
+stop it. The freeze then shows under the page's Freezes.
+
+**Home's Habits block** (brief §10, [home](home.md#screens)) is the Day tab for the As of day
+without the strip: "3 of 6 done" beside a heading that opens Habits → Day, then the same groups
+and rows (`HabitDayList`), ticking and the row menu included; after a change Home reloads, so
+Habits kept in This week so far follows. Stats → This week lists each active habit with its part
+of Habits kept ("4 of 5"), its name a link to its page.
+
+`/habit` redirects to `/habits`, and `/week` to `/habits/week`.
+
+The demo seed (`atlas seed`) shows every kind of rule: ticked every day (Meditate, One coffee at
+most, No doomscrolling), on weekdays (Morning pushups, Deep work), 3× a week (Run, changed from
+2× eleven days ago), 2× a month (Call family), and from data (Wake up early: wake time before
+07:00; Plan the day: a session planned before 12:00 on weekdays; Keep Bad apps short: Bad apps at
+most 1h 30m; Instagram under half an hour: Instagram at most 30m), plus one archived habit (Read
+before bed), a three-day Holiday freeze for every habit, and a one-day Travel day freeze on
+Meditate. Manual habits carry Done marks on the days the demo person did them.
 
 Route inventory with status: [navigation](../product/navigation.md).
 
 ## Tests
 
-- `tests/domain/test_habits.py`
-- `tests/services/test_habits.py`, `tests/services/test_habit_tracker.py`, `tests/services/test_views.py`
-- `tests/api/test_habits.py`, `tests/api/test_habit_tracker.py`, `tests/api/test_views.py`
-- `tests/services/test_seed.py` (habit names are written, not derived)
-- `web/src/lib/habits.test.ts`, `web/src/lib/habitsSummary.test.ts`
-- `tests/services/test_week.py` (each habit's progress for a week adds up to Habits kept)
+- `tests/domain/test_habits.py` — every case in brief §6: a tick and its removal; your answer
+  beating the data both ways; no night; an incomplete screen-time day; going over the limit mid-day;
+  yesterday waiting, then Not done; late data re-judging a day; a rule change from today and to all
+  past days (a threshold, a weekly count, every day → 3× a week); a single-day and a holiday
+  freeze; the proportional weekly target; a habit created mid-week; a bedtime after midnight; the
+  Sessions planned cut-off; plus Blank days, monthly periods, streaks, Kept last 4 weeks, and
+  Habits kept
+- `tests/services/test_habit_views.py` — the clock; each feed's reading (the longest night, device
+  completeness, archived devices, cancelled and day-before sessions); the Day tab (order, count,
+  strip, As of), the Week tab, the habit page; Habits kept agreeing on Home, This week, and the
+  Week tab
+- `tests/domain/test_caps.py` — the screen-cap period helpers
+- `tests/domain/test_habit_migration.py` — every conversion case for a schema 14 habit
+- `tests/db/test_habit_migration.py` — the schema 15 migration of a schema 14 database, once
+- `tests/db/test_schema.py`, `tests/db/test_quest_schema.py` — rule constraints, JSON weekdays,
+  older databases reaching schema 15
+- `tests/services/test_habits.py` — create, validate, rule versions, answers, archive / restore,
+  delete, freezes
+- `tests/services/test_port.py` — v15 round trip (rules, marks, freezes) and older exports
+  converted like the migration
+- `tests/services/test_seed.py` — every kind of rule, late-planned sessions
+- `tests/api/test_habits.py` — the endpoints above, including the three views; the old
+  endpoints (board, grid, status, detail, check-ins, breaks) are gone
 - `tests/services/test_habit_supports.py` — links at every level, the path from the habit, habits on an item and under it, no progress / weight / Next action change, refusals, removal, deletes and promote, export round trip and replace
 - `tests/api/test_habit_supports.py` — read, add, remove at every level; error codes; each item's `/habits`
-- `tests/db/test_quest_schema.py` — `habit_support` holds exactly one item, once per habit; RESTRICT, indexed foreign keys
-- `tests/services/test_seed.py` — the demo habits support items at several levels
-- `web/src/components/habits/HabitFormDialog.test.tsx` (the typed name is sent; there is no Area field and no `area` in the request)
+- `web/src/lib/habits.test.ts` — rule lines, Day tab words (streaks, progress, every reason and reading), the row menu, Unfreeze, the strip arrows, groups; Week tab words and cell taps; Recent days lines, streak figures, date ranges, history labels and calendar, freezes split
+- `web/src/pages/habits/HabitsWeekPage.test.tsx` — the Week tab: heading, groups, cells and their labels, progress, streak, Habits kept, Next week off; future days inert; ticking and unticking from a cell (Blank included); a data habit's cell menu; the Archived list
+- `web/src/pages/habits/HabitPage.test.tsx` — the habit page: rule line, figures, history summary, recent days, freezes; a recent day's menu; removing a freeze; archive and restore; Delete asking first, then going to Week; an unknown habit
+- `web/src/pages/habits/HabitsDayPage.test.tsx` — the Day tab: heading, count, groups, reasons, progress, streaks; the strip; ticking and unticking; a data habit's icon opening the menu; Freeze this day, Use data again, Unfreeze; no headings; no habits yet
+- `web/src/lib/habitForm.test.ts` — fields from a habit, a new source's starting values, the rule sent for each schedule and check, rule changes (name and time of day not counted), field errors, clock inputs
+- `web/src/components/habits/sheets.test.tsx` — the New habit flow, More options and the stepper, a data rule with its category, name required, the 409 wording; Edit renaming without Apply, a schedule change applied to all past days; freezing with a reason, freezing all habits, To before From
+- `web/src/pages/habits/HabitPage.test.tsx` also: Edit opens filled in and Freeze… from the As of day; neither on an archived habit
 
 ## Status
 
-Implemented. Quest links are backend only (redesign brief phase 6): no screen shows or edits them yet.
+Implemented: all seven phases of the [habits brief](../plans/habits-brief.md). The model, schema 15, the API, the demo data, the calculations with their
+views (day results from your marks and the data, periods, streaks, Kept last 4 weeks, Habits
+kept), the Day tab (ticking, the row menu, one-day freezes), the Week tab, the habit page
+(history, recent days, freezes, archive, restore, delete), the New habit, Edit, and Freeze
+sheets, and Home's Habits block. Nothing of the old shape is left: no kinds, "exactly" target,
+skips, pauses, or Log value in the UI or the API; the old board, grid, and detail page are gone,
+and `/habit` and `/week` only redirect. The schema 15 migration and the import of older exports
+still read the old shape, once, to convert it.
+Quest links have no screen yet.

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from sqlalchemy import inspect, text
@@ -11,6 +11,7 @@ from atlas.db import (
     Chapter,
     Goal,
     Habit,
+    HabitRule,
     HabitSupport,
     Milestone,
     SchemaVersion,
@@ -22,8 +23,8 @@ from atlas.db import (
     init_schema,
     make_session_factory,
 )
-from atlas.domain import HabitKind, Period, TaskStatus
-from atlas.services import create_habit
+from atlas.domain import HabitCheck, HabitFrequency, TaskStatus
+from atlas.services import RuleInput, create_habit
 
 NOW = datetime(2026, 11, 8, 9, 0, tzinfo=UTC)
 QUEST_TABLES = {"ambition", "goal", "milestone", "side_quest", "chapter", "task", "time_block"}
@@ -214,19 +215,22 @@ def test_init_schema_migrates_a_v10_database_to_quests(tmp_path):
         assert session.exec(select(Goal)).all() == []
         assert session.exec(select(Task)).all() == []
         habit = session.exec(select(Habit)).one()
-        assert (habit.slug, habit.target_value, habit.time_of_day.value) == (
+        assert (habit.slug, habit.first_day, habit.time_of_day.value) == (
             "pushups-daily",
-            20.0,
+            date(2026, 8, 1),
             "morning",
         )
+        rule = session.exec(select(HabitRule)).one()
+        assert (rule.frequency, rule.check) == (HabitFrequency.EVERY_DAY, HabitCheck.MANUAL)
         habit.name = "Pushups every day"
         session.add(habit)
         session.commit()
     with engine.connect() as connection:
         assert connection.execute(text("PRAGMA foreign_key_check")).all() == []
         assert connection.execute(text("PRAGMA foreign_keys")).scalar() == 1
-        breaks = connection.execute(text("SELECT habit_id, note FROM habit_break")).all()
-    assert [tuple(row) for row in breaks] == [(1, "Travel")]
+        freezes = connection.execute(text("SELECT habit_id, reason FROM habit_freeze")).all()
+        assert "habit_break" not in inspect(engine).get_table_names()
+    assert [tuple(row) for row in freezes] == [(1, "Travel")]
 
 
 def test_v10_migration_is_idempotent(tmp_path):
@@ -244,7 +248,7 @@ def test_v10_migration_is_idempotent(tmp_path):
 
 
 def _habit_id(session: Session) -> int:
-    return create_habit(session, "read", kind=HabitKind.CHECK, period=Period.DAY).id
+    return create_habit(session, "Read", RuleInput(frequency=HabitFrequency.EVERY_DAY)).id
 
 
 def test_habit_support_points_at_exactly_one_quest_item(session):

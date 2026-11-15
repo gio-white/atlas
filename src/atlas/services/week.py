@@ -1,8 +1,8 @@
 """This week: the numbers of one Monday-to-`as_of` window, each from its section's own rule.
 
 `week_numbers` computes one window; `this_week` adds the same window one week earlier for the
-comparison and each habit's progress; `week_so_far` is Home's four of them. Nothing here is
-stored.
+comparison and each habit's part of Habits kept; `week_so_far` is Home's four of them. Nothing
+here is stored.
 """
 
 from dataclasses import dataclass
@@ -14,7 +14,7 @@ from atlas.db.models import Milestone, Task, TimeBlock
 from atlas.domain import Period, QuestStatus, TaskStatus
 from atlas.domain.quests import as_utc, sessions_kept
 from atlas.services.clock import resolve_today
-from atlas.services.habits import HabitWeekProgress, habit_week_progress, pooled_adherence_counts
+from atlas.services.habit_views import habits_kept, habits_kept_by_habit
 from atlas.services.library import library_dashboard
 from atlas.services.quest_views import local_day_bounds
 from atlas.services.quests import block_view
@@ -50,6 +50,17 @@ class WeekNumbers:
 
 
 @dataclass(frozen=True, slots=True)
+class WeekHabit:
+    """An active habit on This week with its part of Habits kept: Done (capped at the target)
+    over the target for Monday to `as_of`. The rows add up to Habits kept."""
+
+    slug: str
+    name: str
+    done: int
+    target: int
+
+
+@dataclass(frozen=True, slots=True)
 class ThisWeek:
     """The week holding `as_of`, counted up to `as_of`, against the same days a week earlier.
 
@@ -63,7 +74,7 @@ class ThisWeek:
     complete: bool
     current: WeekNumbers
     previous: WeekNumbers
-    habits: list[HabitWeekProgress]
+    habits: list[WeekHabit]
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,7 +124,7 @@ def week_numbers(session: Session, *, as_of: date, now: datetime | None = None) 
         )
     ).one()
 
-    satisfied, judged = pooled_adherence_counts(session, monday, as_of)
+    habits = habits_kept(session, monday, as_of, now=now)
     days = (as_of - monday).days + 1
     sleep = sleep_view(session, as_of=as_of, days=days)
     screen = screen_dashboard(session, as_of=as_of, period=Period.WEEK)
@@ -125,9 +136,9 @@ def week_numbers(session: Session, *, as_of: date, now: datetime | None = None) 
         sessions_total=kept.total,
         tasks_completed=tasks,
         milestones_completed=milestones,
-        habits_kept=satisfied,
-        habits_judged=judged,
-        habits_kept_share=None if judged == 0 else satisfied / judged,
+        habits_kept=habits.done,
+        habits_judged=habits.target,
+        habits_kept_share=habits.share,
         sleep_average_minutes=sleep.average_asleep,
         sleep_average_bedtime=sleep.average_bed_offset,
         sleep_average_wake=sleep.average_wake_offset,
@@ -157,7 +168,10 @@ def this_week(
         complete=as_of >= week_end,
         current=current,
         previous=previous,
-        habits=habit_week_progress(session, current.week_start, as_of),
+        habits=[
+            WeekHabit(slug=habit.slug, name=habit.name, done=figure.done, target=figure.target)
+            for habit, figure in habits_kept_by_habit(session, current.week_start, as_of, now=now)
+        ],
     )
 
 

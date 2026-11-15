@@ -3,7 +3,20 @@ export type Aggregation = 'sum' | 'last' | 'mean' | 'max' | 'min'
 export type Direction = 'higher_is_better' | 'lower_is_better' | 'neutral'
 export type Period = 'day' | 'week' | 'month'
 export type Comparator = 'at_least' | 'at_most' | 'exactly'
-export type HabitKind = 'check' | 'count' | 'duration' | 'quit'
+/** How often a habit is due (docs/domain/habits.md). */
+export type HabitFrequency = 'every_day' | 'specific_days' | 'times_a_week' | 'times_a_month'
+/** Ticked by you, or read from a source (sleep, screen time, planned sessions). */
+export type HabitCheck = 'manual' | 'data'
+export type HabitSource =
+  | 'wake_time'
+  | 'bedtime'
+  | 'time_asleep'
+  | 'screen_bad_apps'
+  | 'screen_category'
+  | 'screen_app'
+  | 'screen_total'
+  | 'sessions_planned'
+export type HabitThreshold = 'at_least' | 'at_most' | 'before' | 'after'
 export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'anytime'
 export type Source = 'cli' | 'api' | 'import'
 
@@ -36,103 +49,132 @@ export type Entry = {
   created_at: string
 }
 
+/** A rule version: the one in force today. A data rule's `value` is minutes (a duration) or
+ * minutes after midnight (a time of day). */
+export type HabitRule = {
+  starts_on: string
+  frequency: HabitFrequency
+  check: HabitCheck
+  weekdays: number[] | null
+  times: number | null
+  source: HabitSource | null
+  source_ref: string | null
+  /** The category's or app's name, for a rule on one. */
+  source_ref_name: string | null
+  threshold: HabitThreshold | null
+  value: number | null
+}
+
 export type Habit = {
   id: number
   slug: string
-  metric: string
   name: string
-  kind: HabitKind
-  period: Period
-  target_value: number
-  comparator: Comparator
-  unit: string | null
-  weekdays: number[] | null
   time_of_day: TimeOfDay
-  active_from: string
-  active_to: string | null
+  first_day: string
   archived_at: string | null
+  rule: HabitRule
 }
 
-export type HabitStatus = {
-  slug: string
-  name: string
-  metric_slug: string
-  period: Period
-  target_value: number
-  comparator: Comparator
-  current_streak: number
-  longest_streak: number
-  adherence: number | null
-  current_value: number | null
-  satisfied: boolean
-  scheduled: boolean
-  as_of: string
-  kind: HabitKind
-  time_of_day: TimeOfDay
-  unit: string | null
-  archived: boolean
-  bucket_start: string | null
-  bucket_end: string | null
-  days_left: number
-  effective_target: number | null
-  excused: boolean
-  skipped_today: boolean
-  today_value: number | null
-  last_entry_on: string | null
-  weekdays: number[] | null
-}
+/** One day of one habit (docs/domain/habits.md, Day results). `value` is a data habit's
+ * reading: minutes, or a time of day in minutes after midnight (negative for a session planned the
+ * day before). */
+export type HabitDayStatus =
+  | 'not_scheduled'
+  | 'upcoming'
+  | 'frozen'
+  | 'done'
+  | 'not_done'
+  | 'open'
+  | 'in_progress'
+  | 'waiting'
+  | 'blank'
+export type HabitDayReason =
+  | 'no_data'
+  | 'data_incomplete'
+  | 'waiting_for_data'
+  | 'over_limit'
+  | 'set_by_you'
+  | 'frozen'
 
-export type HabitBreak = {
-  id: number
-  start_on: string
-  end_on: string
-  note: string | null
-}
-
-export type HabitCheckIn = {
-  id: number
-  occurred_on: string
+export type HabitDayResult = {
+  day: string
+  status: HabitDayStatus
+  reason: HabitDayReason | null
   value: number | null
-  note: string | null
-  created_at: string
 }
 
+export type HabitStreak = { count: number; period: Period }
+
+/** A weekly or monthly habit's Done days and target in the period holding the day. */
+export type HabitProgress = { period: Period; done: number; target: number }
+
+export type HabitDayRow = {
+  habit: Habit
+  result: HabitDayResult
+  streak: HabitStreak
+  progress: HabitProgress | null
+}
+
+/** The Day tab: the day's scheduled active habits, Morning first, and its Monday–Sunday week. */
+export type HabitsDay = {
+  day: string
+  done: number
+  total: number
+  week: { day: string; done: number; total: number }[]
+  rows: HabitDayRow[]
+}
+
+/** The Week tab: every active habit's Monday–Sunday, and Habits kept for this week so far and
+ * the same days of last week. */
+export type HabitsWeek = {
+  as_of: string
+  week_start: string
+  week_end: string
+  rows: {
+    habit: Habit
+    days: HabitDayResult[]
+    streak: HabitStreak
+    progress: HabitProgress | null
+  }[]
+  kept: HabitKept
+  kept_last_week: HabitKept
+}
+
+export type HabitKept = { done: number; target: number; share: number | null }
+
+export type HabitPeriodState = 'kept' | 'missed' | 'running' | 'waiting' | 'frozen' | 'upcoming'
+
+/** One period of a habit: a day, a Monday–Sunday week, or a calendar month. */
+export type HabitPeriod = {
+  period: Period
+  start: string
+  end: string
+  target: number
+  done: number
+  state: HabitPeriodState
+}
+
+/** One habit's page: streaks, Kept last 4 weeks, 12 weeks of history, the last 14 days (newest
+ * first), and its freezes (its own and those for every habit). */
 export type HabitDetail = {
   habit: Habit
-  status: HabitStatus
-  breaks: HabitBreak[]
-  recent: HabitCheckIn[]
-}
-
-export type WeekDayCell = {
-  day: string
-  scheduled: boolean
-  value: number | null
-  satisfied: boolean | null
-  excused: boolean
-}
-
-export type WeekHabit = {
-  slug: string
-  name: string
-  metric_slug: string
-  period: Period
-  target_value: number
-  comparator: Comparator
-  current_value: number | null
-  satisfied: boolean
-  current_streak: number
-  days: WeekDayCell[]
-  kind: HabitKind
-  weekdays: number[] | null
-}
-
-export type HabitsGrid = {
   as_of: string
-  period: Period
-  range_start: string
-  range_end: string
-  habits: WeekHabit[]
+  current_streak: HabitStreak
+  best_streak: number
+  kept_last_4_weeks: HabitKept
+  history: HabitPeriod[]
+  recent: HabitDayResult[]
+  freezes: HabitFreeze[]
+}
+
+/** A freeze for one habit (`habit` is its slug) or for every habit (`habit` null). */
+export type HabitFreeze = {
+  id: number
+  habit: string | null
+  start_on: string
+  end_on: string
+  reason: string | null
+  created_at: string
 }
 
 export type ScreenJudgment = 'useful' | 'waste' | 'neutral'
@@ -286,6 +328,8 @@ export type ScreenDevice = {
   id: number
   slug: string
   name: string
+  /** Everything up to this moment has arrived from the device (UTC); null until it says so. */
+  complete_through: string | null
   archived_at: string | null
 }
 
@@ -326,18 +370,6 @@ export type SleepView = {
   bed_spread: number | null
   wake_spread: number | null
   last_recorded_at: string | null
-}
-
-export type HabitsBoard = {
-  as_of: string
-  scheduled: number
-  satisfied: number
-  fraction: number | null
-  completion_7d: number | null
-  completion_30d: number | null
-  day: HabitStatus[]
-  week: HabitStatus[]
-  month: HabitStatus[]
 }
 
 export type JournalDay = {
@@ -517,16 +549,105 @@ export function listEntries(filters?: {
   return request(`/entries${queryString(filters ?? {})}`)
 }
 
-export function listHabits(metric?: string): Promise<Habit[]> {
-  return request(`/habits${queryString({ metric })}`)
+export function listHabits(): Promise<Habit[]> {
+  return request('/habits')
 }
 
-export function getHabitsBoard(asOf?: string): Promise<HabitsBoard> {
-  return request(`/views/habits${queryString({ as_of: asOf })}`)
+export function getHabitsDay(asOf?: string): Promise<HabitsDay> {
+  return request(`/views/habits/day${queryString({ as_of: asOf })}`)
 }
 
-export function getHabitsGrid(period: Period, asOf?: string): Promise<HabitsGrid> {
-  return request(`/views/habits/grid${queryString({ period, as_of: asOf })}`)
+export function getHabitsWeek(asOf?: string): Promise<HabitsWeek> {
+  return request(`/views/habits/week${queryString({ as_of: asOf })}`)
+}
+
+export function getHabitDetail(slug: string, asOf?: string): Promise<HabitDetail> {
+  return request(`/views/habit/${encodeURIComponent(slug)}${queryString({ as_of: asOf })}`)
+}
+
+/** A rule as the API takes it: a habit you tick has no data fields. */
+export type HabitRuleInput = {
+  frequency: HabitFrequency
+  check: HabitCheck
+  weekdays: number[] | null
+  times: number | null
+  source: HabitSource | null
+  source_ref: string | null
+  threshold: HabitThreshold | null
+  value: number | null
+}
+
+export function createHabit(body: {
+  name: string
+  time_of_day: TimeOfDay
+  rule: HabitRuleInput
+  first_day?: string
+}): Promise<Habit> {
+  return request('/habits', { method: 'POST', body: JSON.stringify(body) })
+}
+
+/** Rename, move, or change the rule; a rule change applies from today or to all past days. */
+export function updateHabit(
+  slug: string,
+  body: {
+    name?: string
+    time_of_day?: TimeOfDay
+    rule?: HabitRuleInput
+    apply?: 'from_today' | 'all_days'
+  },
+): Promise<Habit> {
+  return request(`/habits/${encodeURIComponent(slug)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+}
+
+export function archiveHabit(slug: string): Promise<Habit> {
+  return request(`/habits/${encodeURIComponent(slug)}/archive`, { method: 'POST' })
+}
+
+/** Restore an archived habit; the days it was archived are frozen. */
+export function restoreHabit(slug: string): Promise<Habit> {
+  return request(`/habits/${encodeURIComponent(slug)}/restore`, { method: 'POST' })
+}
+
+/** Delete a habit with its rule versions, marks, own freezes, and quest links. */
+export function deleteHabit(slug: string): Promise<void> {
+  return request(`/habits/${encodeURIComponent(slug)}`, { method: 'DELETE' })
+}
+
+/** Answer a habit's day: Done or Not done, set by you. */
+export function setHabitDay(
+  slug: string,
+  day: string,
+  result: 'done' | 'not_done',
+): Promise<{ day: string; result: 'done' | 'not_done' | null }> {
+  return request(`/habits/${encodeURIComponent(slug)}/days/${day}`, {
+    method: 'PUT',
+    body: JSON.stringify({ result }),
+  })
+}
+
+/** Remove the day's answer: untick a habit you tick, or use the data again. */
+export function clearHabitDay(slug: string, day: string): Promise<void> {
+  return request(`/habits/${encodeURIComponent(slug)}/days/${day}`, { method: 'DELETE' })
+}
+
+export function listFreezes(habit?: string): Promise<HabitFreeze[]> {
+  return request(`/freezes${queryString({ habit })}`)
+}
+
+export function createFreeze(body: {
+  habit?: string
+  start_on?: string
+  end_on?: string
+  reason?: string
+}): Promise<HabitFreeze> {
+  return request('/freezes', { method: 'POST', body: JSON.stringify(body) })
+}
+
+export function deleteFreeze(id: number): Promise<void> {
+  return request(`/freezes/${id}`, { method: 'DELETE' })
 }
 
 export function getScreenDashboard(period: Period, asOf?: string): Promise<ScreenDashboard> {
@@ -730,18 +851,6 @@ export function logJournal(body: { text: string; occurred_on?: string | null }):
   return request('/journal', { method: 'POST', body: JSON.stringify(body) })
 }
 
-export function setHabitDay(
-  slug: string,
-  day: string,
-  done: boolean,
-  asOf?: string,
-): Promise<HabitStatus> {
-  return request(`/habits/${encodeURIComponent(slug)}/days/${day}${queryString({ as_of: asOf })}`, {
-    method: 'PUT',
-    body: JSON.stringify({ done }),
-  })
-}
-
 export function logEntry(body: EntryCreate): Promise<Entry> {
   return request('/entries', { method: 'POST', body: JSON.stringify(body) })
 }
@@ -781,89 +890,6 @@ export function updateMetric(
 
 export function archiveMetric(slug: string): Promise<Metric> {
   return request(`/metrics/${encodeURIComponent(slug)}/archive`, { method: 'POST' })
-}
-
-export function createHabit(body: {
-  slug?: string | null
-  name?: string | null
-  kind?: HabitKind | null
-  metric?: string | null
-  period?: Period
-  target_value?: number | null
-  comparator?: Comparator | null
-  unit?: string | null
-  weekdays?: number[] | null
-  time_of_day?: TimeOfDay
-  active_from?: string | null
-  active_to?: string | null
-}): Promise<Habit> {
-  return request('/habits', { method: 'POST', body: JSON.stringify(body) })
-}
-
-export function updateHabit(
-  slug: string,
-  body: {
-    name?: string
-    target_value?: number
-    comparator?: Comparator
-    weekdays?: number[] | null
-    active_to?: string | null
-    time_of_day?: TimeOfDay
-    unit?: string | null
-  },
-): Promise<Habit> {
-  return request(`/habits/${encodeURIComponent(slug)}`, {
-    method: 'PATCH',
-    body: JSON.stringify(body),
-  })
-}
-
-function habitPath(slug: string, rest = ''): string {
-  return `/habits/${encodeURIComponent(slug)}${rest}`
-}
-
-export function archiveHabit(slug: string): Promise<Habit> {
-  return request(habitPath(slug, '/archive'), { method: 'POST' })
-}
-
-export function unarchiveHabit(slug: string): Promise<Habit> {
-  return request(habitPath(slug, '/unarchive'), { method: 'POST' })
-}
-
-export function deleteHabit(slug: string): Promise<void> {
-  return request(habitPath(slug), { method: 'DELETE' })
-}
-
-export function getHabitDetail(slug: string, asOf?: string): Promise<HabitDetail> {
-  return request(habitPath(slug, `/detail${queryString({ as_of: asOf })}`))
-}
-
-export function checkInHabit(
-  slug: string,
-  body: { amount?: number | null; on?: string | null; note?: string | null },
-  asOf?: string,
-): Promise<HabitStatus> {
-  return request(habitPath(slug, `/checkins${queryString({ as_of: asOf })}`), {
-    method: 'POST',
-    body: JSON.stringify(body),
-  })
-}
-
-export function undoHabitCheckIn(slug: string, on?: string, asOf?: string): Promise<HabitStatus> {
-  return request(habitPath(slug, `/checkins/last${queryString({ on, as_of: asOf })}`), {
-    method: 'DELETE',
-  })
-}
-
-export function addHabitBreak(
-  slug: string,
-  body: { start_on: string; end_on?: string | null; note?: string | null },
-): Promise<HabitBreak> {
-  return request(habitPath(slug, '/breaks'), { method: 'POST', body: JSON.stringify(body) })
-}
-
-export function deleteHabitBreak(slug: string, breakId: number): Promise<void> {
-  return request(habitPath(slug, `/breaks/${breakId}`), { method: 'DELETE' })
 }
 
 // --- Quests (docs/domain/quests.md, docs/domain/time-blocks.md) ------------------------------
@@ -1341,18 +1367,12 @@ export type WeekNumbers = {
   titles_finished: number
 }
 
-export type HabitWeekProgress = {
+/** An active habit on This week with its part of Habits kept (Done, capped, over the target). */
+export type WeekHabit = {
   slug: string
   name: string
-  kind: HabitKind
-  period: Period
-  comparator: Comparator
-  unit: string | null
-  kept: number
-  judged: number
-  value: number | null
-  target: number | null
-  satisfied: boolean
+  done: number
+  target: number
 }
 
 export type ThisWeek = {
@@ -1362,7 +1382,7 @@ export type ThisWeek = {
   complete: boolean
   current: WeekNumbers
   previous: WeekNumbers
-  habits: HabitWeekProgress[]
+  habits: WeekHabit[]
 }
 
 export function getThisWeek(asOf?: string): Promise<ThisWeek> {

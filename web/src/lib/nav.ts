@@ -19,7 +19,7 @@ export const DESTINATIONS: readonly Destination[] = [
   // Earlier notes (`/journal`) is reached from Home's note, so it lights Home up.
   { id: 'home', label: 'Home', to: '/', owns: ['/journal'] },
   { id: 'quests', label: 'Quests', to: '/quests', owns: ['/quests'] },
-  { id: 'habits', label: 'Habits', to: '/habit', owns: ['/habit'] },
+  { id: 'habits', label: 'Habits', to: '/habits', owns: ['/habits', '/habit'] },
   { id: 'stats', label: 'Stats', to: '/stats', owns: ['/stats'] },
   { id: 'library', label: 'Library', to: '/library', owns: ['/library'] },
 ]
@@ -31,7 +31,7 @@ export const SETTINGS: Destination = {
   owns: ['/settings'],
 }
 
-export type SectionId = 'quests' | 'stats' | 'settings'
+export type SectionId = 'quests' | 'habits' | 'stats' | 'settings'
 
 export type Tab = { label: string; to: string }
 
@@ -45,6 +45,13 @@ export const SECTIONS: Record<SectionId, Section> = {
       { label: 'Side quests', to: '/quests/side-quests' },
       { label: 'Inbox', to: '/quests/inbox' },
       { label: 'Plan', to: '/quests/plan' },
+    ],
+  },
+  habits: {
+    title: 'Habits',
+    tabs: [
+      { label: 'Day', to: '/habits' },
+      { label: 'Week', to: '/habits/week' },
     ],
   },
   stats: {

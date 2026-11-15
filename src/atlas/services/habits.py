@@ -1,192 +1,97 @@
+"""Habits: rule versions, your answers (marks), and freezes (habits brief §2, §5).
+
+A habit is ticked by you (`manual`) or checked from your data (`data`). Its schedule and check
+are stored as rule versions; a day is judged by the version in force that day. Only facts and
+decisions are stored here. Results, streaks, and percentages are computed on read.
+
+Habits only read other parts of Atlas (sleep, screen time, sessions); nothing here writes to
+them.
+"""
+
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 
-from sqlmodel import Session, col, select
+from sqlmodel import Session, col, or_, select
 
-from atlas.db.models import Entry, Habit, HabitBreak, HabitSupport, Metric
+from atlas.db.models import Habit, HabitFreeze, HabitMark, HabitRule, HabitSupport
 from atlas.domain import (
-    Aggregation,
-    Comparator,
-    Direction,
-    HabitKind,
-    HabitSpec,
-    MetricOrigin,
-    Period,
-    Source,
+    HabitApply,
+    HabitCheck,
+    HabitFrequency,
+    HabitMarkResult,
+    HabitSource,
+    HabitThreshold,
     TimeOfDay,
-    ValueType,
-    adherence,
-    adherence_counts,
-    bucket_for,
-    bucket_target,
-    current_streak,
-    is_satisfied,
-    is_scheduled,
-    longest_streak,
-    rollup,
 )
+from atlas.domain.habit_sources import SourceMeasure, SourceRef, source_spec
+from atlas.domain.screen import local_date
 from atlas.services.clock import resolve_today
-from atlas.services.entries import delete_entry, log_entry
 from atlas.services.errors import NotFoundError, ValidationError
 from atlas.services.lookups import (
     ensure_unique_slug,
-    entries_for_metric,
-    metric_by_id,
-    normalize_weekdays,
-    require_active_metric,
     require_habit,
+    require_screen_app,
+    require_screen_category,
 )
-from atlas.services.mapping import entry_view, habit_spec
-from atlas.services.metrics import create_metric
-from atlas.services.slugs import display_name, normalize_slug, slug_from_name
+from atlas.services.slugs import normalize_slug, slug_from_name
+from atlas.settings import load_settings
 
-RECENT_CHECKINS = 30
-_UNSET = object()
-
-# What a habit-first create makes underneath: the metric's type, unit, and direction.
-_KIND_METRICS: dict[HabitKind, tuple[ValueType, str | None]] = {
-    HabitKind.CHECK: (ValueType.BOOL, None),
-    HabitKind.COUNT: (ValueType.COUNT, None),
-    HabitKind.DURATION: (ValueType.DURATION, "min"),
-    HabitKind.QUIT: (ValueType.COUNT, "slips"),
-}
+ARCHIVED_REASON = "Archived"
+MINUTES_IN_DAY = 24 * 60
 
 
 @dataclass(frozen=True, slots=True)
-class HabitStatus:
-    slug: str
-    name: str
-    metric_slug: str
-    period: Period
-    target_value: float
-    comparator: Comparator
-    current_streak: int
-    longest_streak: int
-    adherence: float | None
-    current_value: float | None
-    satisfied: bool
-    scheduled: bool
-    as_of: date
-    kind: HabitKind = HabitKind.COUNT
-    time_of_day: TimeOfDay = TimeOfDay.ANYTIME
-    unit: str | None = None
-    archived: bool = False
-    bucket_start: date | None = None
-    bucket_end: date | None = None
-    days_left: int = 0
-    effective_target: float | None = None
-    excused: bool = False
-    skipped_today: bool = False
-    today_value: float | None = None
-    last_entry_on: date | None = None
-    weekdays: list[int] | None = None
+class RuleInput:
+    """A rule as asked for: "How often?" plus "How is it checked?" (brief §9)."""
+
+    frequency: HabitFrequency
+    check: HabitCheck = HabitCheck.MANUAL
+    weekdays: tuple[int, ...] | None = None
+    times: int | None = None
+    source: HabitSource | None = None
+    source_ref: str | None = None
+    threshold: HabitThreshold | None = None
+    value: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
-class HabitsBoard:
-    as_of: date
-    scheduled: int
-    satisfied: int
-    fraction: float | None
-    completion_7d: float | None
-    completion_30d: float | None
-    day: list[HabitStatus]
-    week: list[HabitStatus]
-    month: list[HabitStatus]
+class HabitView:
+    """A habit with the rule in force on `on`, and the name of the category or app it reads."""
 
-
-@dataclass(frozen=True, slots=True)
-class HabitCheckIn:
-    id: int
-    occurred_on: date
-    value: float | None
-    note: str | None
-    created_at: datetime
-
-
-@dataclass(frozen=True, slots=True)
-class HabitDetail:
     habit: Habit
-    status: HabitStatus
-    breaks: list[HabitBreak]
-    recent: list[HabitCheckIn]
+    rule: HabitRule
+    source_ref_name: str | None
 
 
 def create_habit(
     session: Session,
-    slug: str | None = None,
+    name: str,
+    rule: RuleInput,
     *,
-    period: Period,
-    target_value: float | None = None,
-    comparator: Comparator | None = None,
-    metric_slug: str | None = None,
-    kind: HabitKind | None = None,
-    name: str | None = None,
-    unit: str | None = None,
-    weekdays: Sequence[int] | None = None,
+    slug: str | None = None,
     time_of_day: TimeOfDay = TimeOfDay.ANYTIME,
-    active_from: date | None = None,
-    active_to: date | None = None,
+    first_day: date | None = None,
 ) -> Habit:
-    """Create a habit. Without `metric_slug` a metric is made for it and marked as habit-made,
-    so deleting the habit can retire it."""
-    if slug is None:
-        if name is None or not name.strip():
-            raise ValidationError("a habit needs a name or a slug")
-        slug = slug_from_name(name)
-    slug = normalize_slug(slug)
+    if not isinstance(name, str) or not name.strip():
+        raise ValidationError("a habit needs a name")
+    slug = normalize_slug(slug) if slug is not None else slug_from_name(name)
     ensure_unique_slug(session, Habit, slug)
-    period = Period(period)
-    metric = require_active_metric(session, normalize_slug(metric_slug)) if metric_slug else None
-    if metric is not None and ValueType(metric.value_type) is ValueType.TEXT:
-        raise ValidationError("habits cannot target a text metric")
-    kind = HabitKind(kind) if kind is not None else _kind_for_metric(metric)
-    if kind is HabitKind.QUIT:
-        period, comparator, target_value, weekdays = Period.DAY, Comparator.AT_MOST, 0.0, None
-    comparator = Comparator(comparator) if comparator is not None else Comparator.AT_LEAST
-    if target_value is None:
-        if kind is not HabitKind.CHECK:
-            raise ValidationError(f"a {kind} habit needs a target")
-        target_value = 1.0
-    if target_value < 0:
-        raise ValidationError("target_value must not be negative")
-    if active_from is None:
-        active_from = resolve_today(None)
-    if active_to is not None and active_to < active_from:
-        raise ValidationError("active_to must be on or after active_from")
-    normalized_weekdays = normalize_weekdays(weekdays, period)
-    if metric is None:
-        metric = _create_habit_metric(session, slug, name, kind, comparator, unit)
+    rule = validate_rule(session, rule)
+    first_day = resolve_today(None) if first_day is None else first_day
     habit = Habit(
-        metric_id=metric.id,
-        slug=slug,
-        name=name.strip() if name is not None and name.strip() else display_name(slug),
-        period=period,
-        target_value=float(target_value),
-        comparator=comparator,
-        weekdays=normalized_weekdays,
-        active_from=active_from,
-        active_to=active_to,
-        kind=kind,
-        time_of_day=TimeOfDay(time_of_day),
+        slug=slug, name=name.strip(), time_of_day=TimeOfDay(time_of_day), first_day=first_day
     )
     session.add(habit)
+    session.flush()
+    session.add(_rule_row(habit, rule, first_day))
     session.commit()
     session.refresh(habit)
     return habit
 
 
-def list_habits(
-    session: Session,
-    *,
-    metric_slug: str | None = None,
-    include_archived: bool = True,
-) -> list[Habit]:
-    statement = select(Habit).order_by(Habit.slug)
-    if metric_slug is not None:
-        metric = require_active_metric(session, normalize_slug(metric_slug))
-        statement = statement.where(Habit.metric_id == metric.id)
+def list_habits(session: Session, *, include_archived: bool = True) -> list[Habit]:
+    statement = select(Habit).order_by(Habit.name, Habit.slug)
     if not include_archived:
         statement = statement.where(col(Habit.archived_at).is_(None))
     return list(session.exec(statement).all())
@@ -196,55 +101,54 @@ def get_habit(session: Session, slug: str) -> Habit:
     return require_habit(session, normalize_slug(slug))
 
 
+def habit_rules(session: Session, habit: Habit) -> list[HabitRule]:
+    """Every rule version of a habit, oldest first."""
+    return list(
+        session.exec(
+            select(HabitRule).where(HabitRule.habit_id == habit.id).order_by(HabitRule.starts_on)
+        ).all()
+    )
+
+
+def rule_on(rules: Sequence[HabitRule], day: date) -> HabitRule:
+    """The version in force on `day`; before the first day, the first version."""
+    current = rules[0]
+    for rule in rules:
+        if rule.starts_on <= day:
+            current = rule
+    return current
+
+
+def habit_view(session: Session, habit: Habit, *, on: date | None = None) -> HabitView:
+    rule = rule_on(habit_rules(session, habit), resolve_today(on))
+    return HabitView(habit=habit, rule=rule, source_ref_name=_source_ref_name(session, rule))
+
+
 def update_habit(
     session: Session,
     slug: str,
     *,
     name: str | None = None,
-    target_value: float | None = None,
-    comparator: Comparator | None = None,
-    weekdays: Sequence[int] | None | object = _UNSET,
-    active_to: date | None | object = _UNSET,
     time_of_day: TimeOfDay | None = None,
-    unit: str | None | object = _UNSET,
+    rule: RuleInput | None = None,
+    apply: HabitApply = HabitApply.FROM_TODAY,
+    today: date | None = None,
 ) -> Habit:
+    """Rename, move to another time of day, or change the rule.
+
+    A rule change applies `from_today` (a version starting today, replacing one already made
+    today) or to `all_days` (every version replaced by one from the habit's first day). Name and
+    time of day are not versioned. An unchanged rule stores nothing.
+    """
     habit = require_habit(session, normalize_slug(slug))
-    kind = HabitKind(habit.kind)
     if name is not None:
         if not isinstance(name, str) or not name.strip():
-            raise ValidationError("name must be a non-empty string")
+            raise ValidationError("name must not be empty")
         habit.name = name.strip()
-    if target_value is not None:
-        if kind is HabitKind.QUIT:
-            raise ValidationError("a quit habit always targets zero slips")
-        if target_value < 0:
-            raise ValidationError("target_value must not be negative")
-        habit.target_value = float(target_value)
-    if comparator is not None:
-        if kind is HabitKind.QUIT:
-            raise ValidationError("a quit habit always allows zero slips")
-        habit.comparator = comparator
-    if weekdays is not _UNSET:
-        if weekdays is not None and not isinstance(weekdays, Sequence):
-            raise ValidationError("weekdays must be a list of ISO weekdays or None")
-        habit.weekdays = normalize_weekdays(
-            None if weekdays is None else [int(day) for day in weekdays],
-            Period(habit.period),
-        )
-    if active_to is not _UNSET:
-        if active_to is not None and (
-            isinstance(active_to, datetime) or not isinstance(active_to, date)
-        ):
-            raise ValidationError("active_to must be a date or None")
-        if isinstance(active_to, date) and active_to < habit.active_from:
-            raise ValidationError("active_to must be on or after active_from")
-        habit.active_to = active_to
     if time_of_day is not None:
         habit.time_of_day = TimeOfDay(time_of_day)
-    if unit is not _UNSET:
-        metric = metric_by_id(session, habit.metric_id)
-        metric.unit = (unit.strip() or None) if isinstance(unit, str) else None
-        session.add(metric)
+    if rule is not None:
+        _change_rule(session, habit, validate_rule(session, rule), HabitApply(apply), today)
     session.add(habit)
     session.commit()
     session.refresh(habit)
@@ -252,6 +156,7 @@ def update_habit(
 
 
 def archive_habit(session: Session, slug: str) -> Habit:
+    """Hide a habit everywhere but the Archived list. Its history stays."""
     habit = require_habit(session, normalize_slug(slug))
     if habit.archived_at is not None:
         raise ValidationError(f"habit {habit.slug!r} is already archived")
@@ -262,8 +167,21 @@ def archive_habit(session: Session, slug: str) -> Habit:
     return habit
 
 
-def unarchive_habit(session: Session, slug: str) -> Habit:
+def restore_habit(session: Session, slug: str, *, today: date | None = None) -> Habit:
+    """Bring an archived habit back. The days it was archived are frozen (reason "Archived"),
+    so it does not return with a broken streak."""
     habit = require_habit(session, normalize_slug(slug))
+    if habit.archived_at is None:
+        raise ValidationError(f"habit {habit.slug!r} is not archived")
+    today = resolve_today(today)
+    archived_on = max(local_date(habit.archived_at, load_settings().timezone), habit.first_day)
+    yesterday = today - timedelta(days=1)
+    if archived_on <= yesterday:
+        session.add(
+            HabitFreeze(
+                habit_id=habit.id, start_on=archived_on, end_on=yesterday, reason=ARCHIVED_REASON
+            )
+        )
     habit.archived_at = None
     session.add(habit)
     session.commit()
@@ -272,43 +190,87 @@ def unarchive_habit(session: Session, slug: str) -> Habit:
 
 
 def delete_habit(session: Session, slug: str) -> None:
-    """Delete the habit, its breaks, and its quest links. Logged entries stay; a metric made
-    for it is archived."""
+    """Delete a habit with its history: rule versions, answers, its own freezes, quest links."""
     habit = require_habit(session, normalize_slug(slug))
-    for row in session.exec(select(HabitBreak).where(HabitBreak.habit_id == habit.id)).all():
-        session.delete(row)
-    for link in session.exec(select(HabitSupport).where(HabitSupport.habit_id == habit.id)).all():
-        session.delete(link)
+    for model in (HabitRule, HabitMark, HabitFreeze, HabitSupport):
+        for row in session.exec(select(model).where(model.habit_id == habit.id)).all():
+            session.delete(row)
     session.flush()
-    metric = metric_by_id(session, habit.metric_id)
     session.delete(habit)
-    session.flush()
-    still_used = session.exec(select(Habit).where(Habit.metric_id == metric.id)).first()
-    if MetricOrigin(metric.origin) is MetricOrigin.HABIT and still_used is None:
-        metric.archived_at = datetime.now(UTC)
-        session.add(metric)
     session.commit()
 
 
-def add_habit_break(
+def set_habit_day(
     session: Session,
     slug: str,
+    day: date,
+    result: HabitMarkResult,
+    *,
+    today: date | None = None,
+) -> HabitMark | None:
+    """Answer a day: Mark done or Mark not done.
+
+    On a manual habit Done is a tick and Not done removes it (a day without a tick is Not done).
+    On a data habit either answer is stored and wins over the data ("Set by you").
+    """
+    habit = require_habit(session, normalize_slug(slug))
+    _check_answerable(habit, day, resolve_today(today))
+    result = HabitMarkResult(result)
+    rule = rule_on(habit_rules(session, habit), day)
+    mark = _mark_on(session, habit, day)
+    if HabitCheck(rule.check) is HabitCheck.MANUAL and result is HabitMarkResult.NOT_DONE:
+        if mark is not None:
+            session.delete(mark)
+            session.commit()
+        return None
+    if mark is None:
+        mark = HabitMark(habit_id=habit.id, day=day, result=result)
+    else:
+        mark.result = result
+        mark.created_at = datetime.now(UTC)
+    session.add(mark)
+    session.commit()
+    session.refresh(mark)
+    return mark
+
+
+def clear_habit_day(session: Session, slug: str, day: date) -> None:
+    """Remove your answer for a day: untick, or "Use data again". Nothing to remove is fine."""
+    habit = require_habit(session, normalize_slug(slug))
+    mark = _mark_on(session, habit, day)
+    if mark is not None:
+        session.delete(mark)
+        session.commit()
+
+
+def habit_marks(session: Session, habit: Habit) -> list[HabitMark]:
+    return list(
+        session.exec(
+            select(HabitMark).where(HabitMark.habit_id == habit.id).order_by(HabitMark.day)
+        ).all()
+    )
+
+
+def add_freeze(
+    session: Session,
+    *,
     start_on: date | None = None,
     end_on: date | None = None,
-    *,
-    note: str | None = None,
-) -> HabitBreak:
-    """Pause a habit for a date range; one day (default today) is a skip."""
-    habit = require_habit(session, normalize_slug(slug))
+    reason: str | None = None,
+    habit_slug: str | None = None,
+) -> HabitFreeze:
+    """Freeze one habit, or every habit when `habit_slug` is empty, from `start_on` to
+    `end_on` (one day when no end is given; today when neither is)."""
+    habit = require_habit(session, normalize_slug(habit_slug)) if habit_slug else None
     start_on = resolve_today(None) if start_on is None else start_on
     end_on = start_on if end_on is None else end_on
     if end_on < start_on:
-        raise ValidationError("end_on must be on or after start_on")
-    row = HabitBreak(
-        habit_id=habit.id,
+        raise ValidationError("the end date must be on or after the start date")
+    row = HabitFreeze(
+        habit_id=habit.id if habit is not None else None,
         start_on=start_on,
         end_on=end_on,
-        note=(note.strip() or None) if isinstance(note, str) else None,
+        reason=(reason.strip() or None) if isinstance(reason, str) else None,
     )
     session.add(row)
     session.commit()
@@ -316,342 +278,177 @@ def add_habit_break(
     return row
 
 
-def list_habit_breaks(session: Session, slug: str) -> list[HabitBreak]:
-    habit = require_habit(session, normalize_slug(slug))
-    return _breaks_for(session, habit)
+def list_freezes(session: Session, *, habit_slug: str | None = None) -> list[HabitFreeze]:
+    """All freezes, newest first; for a habit, its own freezes and those for all habits."""
+    statement = select(HabitFreeze).order_by(
+        col(HabitFreeze.start_on).desc(), col(HabitFreeze.id).desc()
+    )
+    if habit_slug:
+        habit = require_habit(session, normalize_slug(habit_slug))
+        statement = statement.where(
+            or_(col(HabitFreeze.habit_id) == habit.id, col(HabitFreeze.habit_id).is_(None))
+        )
+    return list(session.exec(statement).all())
 
 
-def delete_habit_break(session: Session, slug: str, break_id: int) -> None:
-    habit = require_habit(session, normalize_slug(slug))
-    row = session.get(HabitBreak, break_id)
-    if row is None or row.habit_id != habit.id:
-        raise NotFoundError("habit_break", break_id)
+def delete_freeze(session: Session, freeze_id: int) -> None:
+    row = session.get(HabitFreeze, freeze_id)
+    if row is None:
+        raise NotFoundError("freeze", freeze_id)
     session.delete(row)
     session.commit()
 
 
-def check_in(
-    session: Session,
-    slug: str,
-    *,
-    amount: float | None = None,
-    on: date | None = None,
-    note: str | None = None,
-    as_of: date | None = None,
-    source: Source = Source.CLI,
-) -> HabitStatus:
-    """Record progress for a day: mark a check habit done, add to a count or timer, or log
-    a slip on a quit habit."""
-    habit = require_habit(session, normalize_slug(slug))
-    metric = metric_by_id(session, habit.metric_id)
-    today = resolve_today(as_of)
-    day = today if on is None else on
+def freeze_habit_slug(session: Session, freeze: HabitFreeze) -> str | None:
+    if freeze.habit_id is None:
+        return None
+    habit = session.get(Habit, freeze.habit_id)
+    return habit.slug if habit is not None else None
+
+
+def validate_rule(session: Session, rule: RuleInput) -> RuleInput:
+    """Check a rule and fill a data source's default threshold and value."""
+    frequency = HabitFrequency(rule.frequency)
+    weekdays: tuple[int, ...] | None = None
+    times: int | None = None
+    if frequency is HabitFrequency.SPECIFIC_DAYS:
+        days = sorted({int(day) for day in rule.weekdays or ()})
+        if not days:
+            raise ValidationError("pick at least one day")
+        if any(day < 1 or day > 7 for day in days):
+            raise ValidationError("days must be 1 (Monday) to 7 (Sunday)")
+        weekdays = tuple(days)
+    elif rule.weekdays:
+        raise ValidationError("days are only set for specific days")
+    if frequency in (HabitFrequency.TIMES_A_WEEK, HabitFrequency.TIMES_A_MONTH):
+        most = 7 if frequency is HabitFrequency.TIMES_A_WEEK else 31
+        if rule.times is None or not 1 <= int(rule.times) <= most:
+            raise ValidationError(f"times must be 1 to {most}")
+        times = int(rule.times)
+    elif rule.times is not None:
+        raise ValidationError("times are only set for times a week or a month")
+
+    check = HabitCheck(rule.check)
+    if check is HabitCheck.MANUAL:
+        data_fields = (rule.source, rule.source_ref, rule.threshold, rule.value)
+        if any(field is not None for field in data_fields):
+            raise ValidationError("a habit you tick has no source or threshold")
+        return RuleInput(frequency=frequency, weekdays=weekdays, times=times, check=check)
+
+    if rule.source is None:
+        raise ValidationError("a data habit needs a source")
+    spec = source_spec(HabitSource(rule.source))
+    threshold = HabitThreshold(rule.threshold) if rule.threshold else spec.default_threshold
+    if threshold not in spec.thresholds:
+        allowed = ", ".join(item.value for item in spec.thresholds)
+        raise ValidationError(f"{spec.label} takes {allowed}")
+    value = spec.default_value if rule.value is None else float(rule.value)
+    if spec.measure is SourceMeasure.TIME_OF_DAY:
+        if not 0 <= value < MINUTES_IN_DAY:
+            raise ValidationError("a time must be between 00:00 and 23:59")
+    elif not 0 < value <= MINUTES_IN_DAY:
+        raise ValidationError("minutes must be more than 0 and at most 24 hours")
+    source_ref: str | None = None
+    if spec.ref is SourceRef.CATEGORY:
+        source_ref = _active_ref(rule.source_ref, "category")
+        category = require_screen_category(session, source_ref)
+        if category.archived_at is not None:
+            raise ValidationError(f"category {source_ref!r} is archived")
+    elif spec.ref is SourceRef.APP:
+        source_ref = _active_ref(rule.source_ref, "app")
+        app = require_screen_app(session, source_ref)
+        if app.archived_at is not None:
+            raise ValidationError(f"app {source_ref!r} is archived")
+    elif rule.source_ref is not None:
+        raise ValidationError(f"{spec.label} does not take a category or app")
+    return RuleInput(
+        frequency=frequency,
+        weekdays=weekdays,
+        times=times,
+        check=check,
+        source=spec.source,
+        source_ref=source_ref,
+        threshold=threshold,
+        value=value,
+    )
+
+
+def rule_input(rule: HabitRule) -> RuleInput:
+    return RuleInput(
+        frequency=HabitFrequency(rule.frequency),
+        weekdays=tuple(rule.weekdays) if rule.weekdays else None,
+        times=rule.times,
+        check=HabitCheck(rule.check),
+        source=HabitSource(rule.source) if rule.source else None,
+        source_ref=rule.source_ref,
+        threshold=HabitThreshold(rule.threshold) if rule.threshold else None,
+        value=rule.value,
+    )
+
+
+def _change_rule(
+    session: Session, habit: Habit, rule: RuleInput, apply: HabitApply, today: date | None
+) -> None:
+    today = resolve_today(today)
+    rules = habit_rules(session, habit)
+    if apply is HabitApply.ALL_DAYS:
+        if len(rules) == 1 and rule_input(rules[0]) == rule:
+            return
+        for row in rules:
+            session.delete(row)
+        session.flush()
+        session.add(_rule_row(habit, rule, habit.first_day))
+        return
+    starts_on = max(today, habit.first_day)
+    if rule_input(rule_on(rules, starts_on)) == rule:
+        return
+    same_day = next((row for row in rules if row.starts_on == starts_on), None)
+    if same_day is not None:
+        session.delete(same_day)
+        session.flush()
+    session.add(_rule_row(habit, rule, starts_on))
+
+
+def _rule_row(habit: Habit, rule: RuleInput, starts_on: date) -> HabitRule:
+    return HabitRule(
+        habit_id=habit.id,
+        starts_on=starts_on,
+        frequency=rule.frequency,
+        weekdays=list(rule.weekdays) if rule.weekdays else None,
+        times=rule.times,
+        check=rule.check,
+        source=rule.source,
+        source_ref=rule.source_ref,
+        threshold=rule.threshold,
+        value=rule.value,
+    )
+
+
+def _source_ref_name(session: Session, rule: HabitRule) -> str | None:
+    if rule.source is None or rule.source_ref is None:
+        return None
+    ref = source_spec(HabitSource(rule.source)).ref
+    if ref is SourceRef.CATEGORY:
+        return require_screen_category(session, rule.source_ref).name
+    if ref is SourceRef.APP:
+        return require_screen_app(session, rule.source_ref).name
+    return None
+
+
+def _active_ref(value: str | None, what: str) -> str:
+    if not value:
+        raise ValidationError(f"pick a {what}")
+    return normalize_slug(value)
+
+
+def _check_answerable(habit: Habit, day: date, today: date) -> None:
     if day > today:
-        raise ValidationError("cannot check in on a future day")
-    kind = HabitKind(habit.kind)
-    if ValueType(metric.value_type) is ValueType.BOOL:
-        if not any(entry.value_bool for entry in _entries_on(session, metric, day)):
-            log_entry(session, metric.slug, True, occurred_on=day, note=note, source=source)
-    else:
-        if amount is None:
-            amount = 1.0 if kind in (HabitKind.COUNT, HabitKind.QUIT) else None
-        if amount is None or amount <= 0:
-            raise ValidationError("amount must be a positive number")
-        log_entry(session, metric.slug, float(amount), occurred_on=day, note=note, source=source)
-    return _status_for(session, habit, metric, today)
+        raise ValidationError("a future day cannot be answered yet")
+    if day < habit.first_day:
+        raise ValidationError(f"habit {habit.slug!r} starts on {habit.first_day.isoformat()}")
 
 
-def undo_check_in(
-    session: Session,
-    slug: str,
-    *,
-    on: date | None = None,
-    as_of: date | None = None,
-) -> HabitStatus:
-    """Remove the latest check-in on a day (all of them for a yes/no habit)."""
-    habit = require_habit(session, normalize_slug(slug))
-    metric = metric_by_id(session, habit.metric_id)
-    today = resolve_today(as_of)
-    day_entries = _entries_on(session, metric, today if on is None else on)
-    if not day_entries:
-        raise ValidationError("nothing logged on that day to undo")
-    if ValueType(metric.value_type) is ValueType.BOOL:
-        targets = day_entries
-    else:
-        targets = [max(day_entries, key=lambda entry: (entry.created_at, entry.id or 0))]
-    for entry in targets:
-        delete_entry(session, entry.id)
-    return _status_for(session, habit, metric, today)
-
-
-def habit_status(session: Session, slug: str, *, as_of: date | None = None) -> HabitStatus:
-    as_of = resolve_today(as_of)
-    habit = require_habit(session, normalize_slug(slug))
-    metric = metric_by_id(session, habit.metric_id)
-    return _status_for(session, habit, metric, as_of)
-
-
-def habit_detail(session: Session, slug: str, *, as_of: date | None = None) -> HabitDetail:
-    as_of = resolve_today(as_of)
-    habit = require_habit(session, normalize_slug(slug))
-    metric = metric_by_id(session, habit.metric_id)
-    entries = sorted(
-        entries_for_metric(session, metric.id),
-        key=lambda entry: (entry.occurred_on, entry.created_at, entry.id or 0),
-        reverse=True,
-    )
-    recent = [
-        HabitCheckIn(
-            id=entry.id or 0,
-            occurred_on=entry.occurred_on,
-            value=entry_view(entry).numeric_value(),
-            note=entry.note,
-            created_at=entry.created_at,
-        )
-        for entry in entries[:RECENT_CHECKINS]
-    ]
-    return HabitDetail(
-        habit=habit,
-        status=_status_for(session, habit, metric, as_of),
-        breaks=sorted(_breaks_for(session, habit), key=lambda row: row.start_on, reverse=True),
-        recent=recent,
-    )
-
-
-def set_habit_day(
-    session: Session,
-    slug: str,
-    day: date,
-    *,
-    done: bool,
-    as_of: date | None = None,
-    source: Source = Source.CLI,
-) -> HabitStatus:
-    habit = require_habit(session, normalize_slug(slug))
-    metric = metric_by_id(session, habit.metric_id)
-    if ValueType(metric.value_type) is not ValueType.BOOL:
-        raise ValidationError(
-            f"habit {habit.slug!r} measures a {metric.value_type} metric; log a value instead"
-        )
-    day_entries = _entries_on(session, metric, day)
-    if done:
-        if not any(entry.value_bool for entry in day_entries):
-            log_entry(session, metric.slug, True, occurred_on=day, source=source)
-    else:
-        for entry in day_entries:
-            delete_entry(session, entry.id)
-    return _status_for(session, habit, metric, resolve_today(as_of))
-
-
-def habit_statuses(session: Session, *, as_of: date | None = None) -> list[HabitStatus]:
-    as_of = resolve_today(as_of)
-    return [_status_for(session, habit, metric, as_of) for habit, metric in active_habits(session)]
-
-
-def habits_board(session: Session, *, as_of: date | None = None) -> HabitsBoard:
-    as_of = resolve_today(as_of)
-    pairs = active_habits(session)
-    statuses = [_status_for(session, habit, metric, as_of) for habit, metric in pairs]
-    judged_rows = [status for status in statuses if status.scheduled and not status.excused]
-    scheduled = len(judged_rows)
-    satisfied = sum(1 for status in judged_rows if status.satisfied)
-    return HabitsBoard(
-        as_of=as_of,
-        scheduled=scheduled,
-        satisfied=satisfied,
-        fraction=None if scheduled == 0 else satisfied / scheduled,
-        completion_7d=_pooled_completion(session, pairs, as_of, days=7),
-        completion_30d=_pooled_completion(session, pairs, as_of, days=30),
-        day=[status for status in statuses if status.period is Period.DAY],
-        week=[status for status in statuses if status.period is Period.WEEK],
-        month=[status for status in statuses if status.period is Period.MONTH],
-    )
-
-
-def active_habits(session: Session) -> list[tuple[Habit, Metric]]:
-    rows: list[tuple[Habit, Metric]] = []
-    for habit in session.exec(select(Habit).order_by(Habit.slug)).all():
-        if habit.archived_at is not None:
-            continue
-        metric = metric_by_id(session, habit.metric_id)
-        if metric.archived_at is not None:
-            continue
-        rows.append((habit, metric))
-    return rows
-
-
-def spec_for(session: Session, habit: Habit, metric: Metric) -> HabitSpec:
-    return habit_spec(habit, metric, breaks=_breaks_for(session, habit))
-
-
-def _status_for(session: Session, habit: Habit, metric: Metric, as_of: date) -> HabitStatus:
-    spec = spec_for(session, habit, metric)
-    views = [entry_view(entry) for entry in entries_for_metric(session, metric.id)]
-    bucket = bucket_for(as_of, spec.period)
-    scheduled = is_scheduled(spec, bucket, as_of)
-    in_bucket = [
-        view for view in views if bucket.start <= view.occurred_on <= min(bucket.end, as_of)
-    ]
-    current_value = rollup(in_bucket, spec.aggregation)
-    target = bucket_target(spec, bucket)
-    logged_days = [view.occurred_on for view in views if (view.numeric_value() or 0) > 0]
-    return HabitStatus(
-        slug=habit.slug,
-        name=habit.name,
-        metric_slug=metric.slug,
-        period=spec.period,
-        target_value=spec.target_value,
-        comparator=spec.comparator,
-        current_streak=current_streak(spec, views, as_of),
-        longest_streak=longest_streak(spec, views, as_of),
-        adherence=adherence(spec, views, spec.active_from, as_of),
-        current_value=current_value,
-        satisfied=is_satisfied(current_value, spec.comparator, target or spec.target_value),
-        scheduled=scheduled,
-        as_of=as_of,
-        kind=HabitKind(habit.kind),
-        time_of_day=TimeOfDay(habit.time_of_day),
-        unit=metric.unit,
-        archived=habit.archived_at is not None,
-        bucket_start=bucket.start,
-        bucket_end=bucket.end,
-        days_left=max(0, (bucket.end - as_of).days),
-        effective_target=target,
-        excused=target is None,
-        skipped_today=spec.on_break(as_of),
-        today_value=rollup([view for view in views if view.occurred_on == as_of], spec.aggregation),
-        last_entry_on=max((day for day in logged_days if day <= as_of), default=None),
-        weekdays=sorted(habit.weekdays) if habit.weekdays else None,
-    )
-
-
-def pooled_adherence_counts(session: Session, start: date, as_of: date) -> tuple[int, int]:
-    """Satisfied and judged buckets in [start, as_of], pooled over every active habit.
-
-    The same rule as each habit's adherence: only complete, scheduled, non-excused buckets
-    count, so today (for daily habits) and this week (for weekly ones) are not judged yet.
-    """
-    satisfied = 0
-    judged = 0
-    for habit, metric in active_habits(session):
-        views = [entry_view(entry) for entry in entries_for_metric(session, metric.id)]
-        done, counted = adherence_counts(spec_for(session, habit, metric), views, start, as_of)
-        satisfied += done
-        judged += counted
-    return satisfied, judged
-
-
-@dataclass(frozen=True, slots=True)
-class HabitWeekProgress:
-    """One habit's progress over a week window [start, as_of].
-
-    `kept` / `judged` are its adherence counts over that window (complete, scheduled,
-    non-excused buckets, the rule behind Habits kept). `value` / `target` / `satisfied` are its
-    status on `as_of`: the day's, week's, or month's amount so far.
-    """
-
-    slug: str
-    name: str
-    kind: HabitKind
-    period: Period
-    comparator: Comparator
-    unit: str | None
-    kept: int
-    judged: int
-    value: float | None
-    target: float | None
-    satisfied: bool
-
-
-def habit_week_progress(session: Session, start: date, as_of: date) -> list[HabitWeekProgress]:
-    rows: list[HabitWeekProgress] = []
-    for habit, metric in active_habits(session):
-        views = [entry_view(entry) for entry in entries_for_metric(session, metric.id)]
-        kept, judged = adherence_counts(spec_for(session, habit, metric), views, start, as_of)
-        status = _status_for(session, habit, metric, as_of)
-        rows.append(
-            HabitWeekProgress(
-                slug=habit.slug,
-                name=habit.name,
-                kind=status.kind,
-                period=status.period,
-                comparator=status.comparator,
-                unit=status.unit,
-                kept=kept,
-                judged=judged,
-                value=status.current_value,
-                target=status.effective_target,
-                satisfied=status.satisfied,
-            )
-        )
-    return rows
-
-
-def _pooled_completion(
-    session: Session,
-    pairs: list[tuple[Habit, Metric]],
-    as_of: date,
-    *,
-    days: int,
-) -> float | None:
-    start = as_of - timedelta(days=days - 1)
-    satisfied = 0
-    judged = 0
-    for habit, metric in pairs:
-        views = [entry_view(entry) for entry in entries_for_metric(session, metric.id)]
-        done, counted = adherence_counts(spec_for(session, habit, metric), views, start, as_of)
-        satisfied += done
-        judged += counted
-    return None if judged == 0 else satisfied / judged
-
-
-def _breaks_for(session: Session, habit: Habit) -> list[HabitBreak]:
-    return list(session.exec(select(HabitBreak).where(HabitBreak.habit_id == habit.id)).all())
-
-
-def _entries_on(session: Session, metric: Metric, day: date) -> list[Entry]:
-    return [entry for entry in entries_for_metric(session, metric.id) if entry.occurred_on == day]
-
-
-def _kind_for_metric(metric: Metric | None) -> HabitKind:
-    if metric is None:
-        return HabitKind.CHECK
-    match ValueType(metric.value_type):
-        case ValueType.BOOL:
-            return HabitKind.CHECK
-        case ValueType.DURATION:
-            return HabitKind.DURATION
-        case _:
-            return HabitKind.COUNT
-
-
-def _create_habit_metric(
-    session: Session,
-    slug: str,
-    name: str | None,
-    kind: HabitKind,
-    comparator: Comparator,
-    unit: str | None,
-) -> Metric:
-    value_type, default_unit = _KIND_METRICS[kind]
-    lower_is_better = kind is HabitKind.QUIT or comparator is Comparator.AT_MOST
-    return create_metric(
-        session,
-        _free_metric_slug(session, slug),
-        value_type=value_type,
-        aggregation=Aggregation.SUM,
-        origin=MetricOrigin.HABIT,
-        name=name.strip() if name is not None and name.strip() else display_name(slug),
-        unit=(unit.strip() or None) if unit is not None else default_unit,
-        direction=Direction.LOWER_IS_BETTER if lower_is_better else Direction.HIGHER_IS_BETTER,
-    )
-
-
-def _free_metric_slug(session: Session, slug: str) -> str:
-    taken = set(session.exec(select(Metric.slug)).all())
-    if slug not in taken:
-        return slug
-    index = 2
-    while f"{slug}-{index}" in taken:
-        index += 1
-    return f"{slug}-{index}"
+def _mark_on(session: Session, habit: Habit, day: date) -> HabitMark | None:
+    return session.exec(
+        select(HabitMark).where(HabitMark.habit_id == habit.id, HabitMark.day == day)
+    ).first()

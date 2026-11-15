@@ -10,6 +10,7 @@ from sqlmodel import Session
 from atlas.api.errors import register_exception_handlers
 from atlas.api.routers import (
     entries_router,
+    freezes_router,
     habits_router,
     journal_router,
     library_router,
@@ -55,6 +56,7 @@ def create_app(
     app.include_router(library_router)
     app.include_router(metrics_router)
     app.include_router(habits_router)
+    app.include_router(freezes_router)
     app.include_router(views_router)
     app.include_router(screen_router)
     app.include_router(sleep_router)

@@ -5,11 +5,10 @@ import {
   type ApiError,
   completeQuestGoal,
   createQuestTask,
-  getHabitsBoard,
-  getHabitsGrid,
   getLibraryDashboard,
   getPlan,
   getScreenDashboard,
+  listHabits,
   listQuestTasks,
   logEntry,
   organizeTask,
@@ -25,48 +24,13 @@ describe('queryString', () => {
 })
 
 describe('request helpers', () => {
-  it('getHabitsBoard appends as_of', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        as_of: '2026-08-13',
-        scheduled: 0,
-        satisfied: 0,
-        fraction: null,
-        day: [],
-        week: [],
-        month: [],
-      }),
-    })
+  it('listHabits reads every habit', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => [] })
     vi.stubGlobal('fetch', fetchMock)
 
-    await getHabitsBoard('2026-08-13')
+    await listHabits()
 
-    expect(fetchMock).toHaveBeenCalledWith('/views/habits?as_of=2026-08-13', expect.any(Object))
-    vi.unstubAllGlobals()
-  })
-
-  it('getHabitsGrid sends period and as_of', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        as_of: '2026-08-13',
-        period: 'month',
-        range_start: '2026-08-01',
-        range_end: '2026-08-31',
-        habits: [],
-      }),
-    })
-    vi.stubGlobal('fetch', fetchMock)
-
-    await getHabitsGrid('month', '2026-08-13')
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/views/habits/grid?period=month&as_of=2026-08-13',
-      expect.any(Object),
-    )
+    expect(fetchMock).toHaveBeenCalledWith('/habits', expect.any(Object))
     vi.unstubAllGlobals()
   })
 
@@ -173,7 +137,7 @@ describe('request helpers', () => {
       }),
     )
 
-    await expect(getHabitsBoard('2026-08-15')).rejects.toMatchObject({
+    await expect(listHabits()).rejects.toMatchObject({
       name: 'ApiError',
       status: 502,
       message: API_UNREACHABLE,
@@ -184,7 +148,7 @@ describe('request helpers', () => {
   it('maps a network failure to a reachable API message', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
 
-    await expect(getHabitsBoard('2026-08-15')).rejects.toMatchObject({
+    await expect(listHabits()).rejects.toMatchObject({
       name: 'ApiError',
       status: 0,
       message: API_UNREACHABLE,
