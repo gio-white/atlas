@@ -47,12 +47,12 @@ The first of these is machine-enforced. Ruff's `flake8-tidy-imports` bans `atlas
 
 ## Derived computations
 
-Nothing in this section is stored. Every definition below is a pure function of stored facts (entries, screen sessions, or library titles) plus configuration and an explicit `as_of` date, so results are reproducible and testable without a database.
+Nothing in this section is stored. Every definition below is a pure function of stored facts (entries, screen sessions, sleep, sessions, a habit's rules, marks, and freezes, or library titles) plus configuration and an explicit `as_of` date, so results are reproducible and testable without a database.
 
 The definitions live with each feature:
 
 - Period bucketing and rollup: [trackers and entries](../domain/trackers-and-entries.md#rules-and-calculations)
-- Habit satisfaction, streaks, adherence: [habits](../domain/habits.md#rules-and-calculations)
+- Habit day results, periods, streaks, Kept last 4 weeks, Habits kept: [habits](../domain/habits.md#rules-and-calculations)
 - Quest progress, completion eligibility, chapter state, next action: [quests](../domain/quests.md#rules-and-calculations)
 - Planned effort and unconfirmed sessions: [time blocks](../domain/time-blocks.md#rules-and-calculations)
 - Library dashboard: [library](../domain/library.md#rules-and-calculations)

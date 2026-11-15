@@ -29,9 +29,8 @@ Five destinations plus Settings. Labels, order, and addresses live in `web/src/l
 `/habits` and `/habits/week` are also API addresses (the list of habits, and `GET /habits/{slug}`);
 the server sends the SPA for a browser's page load there ([frontend](../architecture/frontend.md)).
 The habits rebuild ([habits brief](../plans/habits-brief.md), [habits plan](../plans/habits-plan.md))
-lands in seven phases; phases 1–6 are built (the model, the calculations, the Day and Week tabs,
-the habit page, the New habit, Edit, and Freeze sheets, and Home's Habits block); phase 7
-removes the old habit screens and API.
+is complete: the Day and Week tabs, the habit page, its sheets, and Home's Habits block replace
+the old habit screens, and the old `/habit` and `/week` addresses redirect.
 
 ## Shell
 

@@ -2,7 +2,8 @@
 
 The working plan for [habits-brief.md](habits-brief.md). It records what exists today, how each
 habit migrates, which files each phase touches, and the questions that must be answered before
-phase 1. Phase 1 (the model, schema 15, the API, and the demo data) is built; the rest is not.
+phase 1. All seven phases are built (phase 7, the removal and link check, on 2026-11-15); what
+was built is described in [habits](../domain/habits.md).
 
 ## What exists today
 

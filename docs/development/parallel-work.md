@@ -24,7 +24,9 @@ are the owners below. When a new plan defines new tracks, update the ownership t
 
 > The table is the November tracks' and is kept as their record. Some files it names are gone
 > (`sections.ts`, `ProfileDialog.tsx`, the Area, Catalog, and quest Today pages, the old Home
-> cards, `docs/domain/life-areas.md`):
+> cards, `docs/domain/life-areas.md`, and the old habit card, form, and pages, which the
+> [habits rebuild](../plans/habits-brief.md) replaced with `web/src/components/habits/` and
+> `web/src/pages/habits/`):
 > the [redesign brief](../plans/redesign-brief.md) replaced track T2 and runs as one branch, in
 > phases, so it needs no ownership split.
 

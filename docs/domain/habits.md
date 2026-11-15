@@ -557,7 +557,8 @@ Route inventory with status: [navigation](../product/navigation.md).
 - `tests/services/test_port.py` — v15 round trip (rules, marks, freezes) and older exports
   converted like the migration
 - `tests/services/test_seed.py` — every kind of rule, late-planned sessions
-- `tests/api/test_habits.py` — the endpoints above, including the three views
+- `tests/api/test_habits.py` — the endpoints above, including the three views; the old
+  endpoints (board, grid, status, detail, check-ins, breaks) are gone
 - `tests/services/test_habit_supports.py` — links at every level, the path from the habit, habits on an item and under it, no progress / weight / Next action change, refusals, removal, deletes and promote, export round trip and replace
 - `tests/api/test_habit_supports.py` — read, add, remove at every level; error codes; each item's `/habits`
 - `web/src/lib/habits.test.ts` — rule lines, Day tab words (streaks, progress, every reason and reading), the row menu, Unfreeze, the strip arrows, groups; Week tab words and cell taps; Recent days lines, streak figures, date ranges, history labels and calendar, freezes split
@@ -570,9 +571,12 @@ Route inventory with status: [navigation](../product/navigation.md).
 
 ## Status
 
-Brief phases 1–6 of 7: the model, schema 15, the API, the demo data, the calculations with their
+Implemented: all seven phases of the [habits brief](../plans/habits-brief.md). The model, schema 15, the API, the demo data, the calculations with their
 views (day results from your marks and the data, periods, streaks, Kept last 4 weeks, Habits
 kept), the Day tab (ticking, the row menu, one-day freezes), the Week tab, the habit page
 (history, recent days, freezes, archive, restore, delete), the New habit, Edit, and Freeze
-sheets, and Home's Habits block. Phase 7 removes what is left of the old shape.
+sheets, and Home's Habits block. Nothing of the old shape is left: no kinds, "exactly" target,
+skips, pauses, or Log value in the UI or the API; the old board, grid, and detail page are gone,
+and `/habit` and `/week` only redirect. The schema 15 migration and the import of older exports
+still read the old shape, once, to convert it.
 Quest links have no screen yet.

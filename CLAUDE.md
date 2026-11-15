@@ -1,6 +1,6 @@
 # Atlas
 
-Single-user, local-first life tracker: a FastAPI + SQLModel backend over SQLite, a small Typer admin CLI, and a React SPA in `web/` for review. Entries are the stored facts; streaks, adherence, goal progress, and pace are computed on read.
+Single-user, local-first life tracker: a FastAPI + SQLModel backend over SQLite, a small Typer admin CLI, and a React SPA in `web/` for review. Entries, sessions, quest items, and a habit's marks and freezes are the stored facts; streaks, Habits kept, quest progress, and pace are computed on read.
 
 - How to install and run: [README.md](README.md).
 - Product, architecture, one doc per feature, data sources, development workflow, decisions, and the changelog: [docs/README.md](docs/README.md). It is the source of truth and changes in the same commit as the behavior it describes. The **code → doc map** there says which doc covers which file.

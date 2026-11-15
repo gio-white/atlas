@@ -157,3 +157,22 @@ def test_the_day_week_and_habit_views(client):
     assert detail["history"][0]["state"] == "running"
     assert detail["kept_last_4_weeks"] == {"done": 0, "target": 0, "share": None}
     assert client.get("/views/habit/nope").status_code == 404
+
+
+def test_the_old_habit_api_is_gone():
+    """Habits brief §11: kinds, skips, pauses, Log value, the board, and the grid left the API.
+    A GET on these paths now falls through to the SPA like any unknown path."""
+    from atlas.api.app import create_app
+
+    paths = set(create_app(session_factory=lambda: None).openapi()["paths"])
+    for removed in (
+        "/views/habits",
+        "/views/habits/grid",
+        "/habits/{slug}/status",
+        "/habits/{slug}/detail",
+        "/habits/{slug}/checkins",
+        "/habits/{slug}/checkins/last",
+        "/habits/{slug}/breaks",
+    ):
+        assert removed not in paths
+    assert "/views/habits/day" in paths
