@@ -73,9 +73,9 @@ tab; `/stats` opens it.
   `?on=`.
   - **Quests** (to Main quests): Sessions kept "5 of 7" with "Last week 4 of 6"; Tasks completed;
     Milestones completed.
-  - **Habits** (to Habits): Habits kept "84%", then one row per active habit with its name
-    only *until habits phase 6* (the API already sends each row's `done` / `target`). Empty: "No
-    habits yet."
+  - **Habits** (to Habits): Habits kept "84%", then one row per active habit: its name, a link
+    to its page, and its part of Habits kept, "4 of 5" (`done` / `target`, Done capped at what
+    was due so far; "—" when nothing was due yet). Empty: "No habits yet."
   - **Sleep** (to Stats → Sleep): Time asleep, average; Bedtime, average; Wake time, average;
     Missing nights. Empty: "No sleep data this week."
   - **Screen time** (to Stats → Screen time): Total, Daily average, Score, and a Good / Neutral /
@@ -95,7 +95,7 @@ Home's **This week so far** has the link **This week** to this page.
   far
 - `tests/api/test_views.py` — `GET /views/this-week`
 - `web/src/lib/thisWeek.test.ts` — titles, range line, week steps, the wording of changes
-- `web/src/pages/ThisWeekPage.test.tsx` — the five blocks with their changes and links, empty
+- `web/src/pages/ThisWeekPage.test.tsx` — the five blocks with their changes and links (each habit's "4 of 5" and its page), empty
   states
 
 ## Status

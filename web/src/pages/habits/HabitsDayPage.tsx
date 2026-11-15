@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
-import { HabitDayRow } from '@/components/habits/HabitDayRow'
+import { HabitDayList } from '@/components/habits/HabitDayList'
 import { NewHabitButton } from '@/components/habits/NewHabitButton'
 import { useDayActions } from '@/components/habits/useDayActions'
 import { WeekStrip } from '@/components/habits/WeekStrip'
@@ -15,14 +15,7 @@ import {
   listHabits,
 } from '@/lib/api'
 import { useAsOf } from '@/lib/asOf'
-import {
-  dayCountLabel,
-  dayGroups,
-  dayHeading,
-  HABITS_CHANGED_EVENT,
-  ownDayFreeze,
-  stripSteps,
-} from '@/lib/habits'
+import { dayCountLabel, dayHeading, HABITS_CHANGED_EVENT, stripSteps } from '@/lib/habits'
 import { todayIso } from '@/lib/utils'
 
 type Loaded = { view: HabitsDay; freezes: HabitFreeze[]; hasHabits: boolean }
@@ -96,8 +89,6 @@ export function HabitsDayPage() {
     setParams(next)
   }
 
-  const groups = dayGroups(view.rows)
-
   return (
     <div className="flex flex-col gap-5">
       <PageHeader title="Day" tab />
@@ -129,34 +120,10 @@ export function HabitsDayPage() {
           </div>
           <NewHabitButton size="sm" />
         </div>
-      ) : groups.length === 0 ? (
+      ) : view.rows.length === 0 ? (
         <p className="text-sm text-muted">No habits scheduled on this day.</p>
       ) : (
-        groups.map((group) => (
-          <section
-            key={group.id}
-            aria-label={group.label ?? 'Habits'}
-            className="flex flex-col gap-1"
-          >
-            {group.label !== null && (
-              <h3 className="px-1 text-xs font-semibold tracking-wide text-muted uppercase">
-                {group.label}
-              </h3>
-            )}
-            <ul className="-mx-2 flex flex-col md:mx-0">
-              {group.rows.map((row) => (
-                <HabitDayRow
-                  key={row.habit.slug}
-                  row={row}
-                  busy={actions.isBusy(row.habit.slug, view.day)}
-                  canUnfreeze={ownDayFreeze(freezes, row.habit.slug, view.day) !== undefined}
-                  onToggle={() => actions.toggle(row.habit.slug, row.result)}
-                  onAction={(action) => actions.act(row.habit.slug, view.day, action, freezes)}
-                />
-              ))}
-            </ul>
-          </section>
-        ))
+        <HabitDayList view={view} freezes={freezes} actions={actions} />
       )}
     </div>
   )

@@ -45,10 +45,10 @@ end of `as_of`, four of the numbers of Stats → This week (`week_numbers`,
 | ------ | ---- | ------- | ------ |
 | `GET` | `/views/week-so-far` | This week so far: `sessions_kept` / `sessions_total`, `habits_kept` / `habits_judged` / `habits_kept_share`, `sleep_average_minutes` / `sleep_nights`, `screen_score`, and `week_start` (`as_of`) | implemented |
 
-Home also calls `GET /views/today`, `GET /habits`, `GET /journal`, `GET /views/main-quests`,
+Home also calls `GET /views/today`, `GET /views/habits/day`, `GET /freezes`, `GET /habits`, `GET /journal`, `GET /views/main-quests`,
 `GET /sleep/view`, `GET /screen/dashboard?period=day`, and
 `GET /library/titles?status=in_progress`, and the write endpoints of the controls it
-reuses (session and journal).
+reuses (session, journal, and a habit's day and freezes).
 
 ## Screens
 
@@ -69,12 +69,16 @@ Left, in order:
    **Schedule**. Empty: "Nothing due today."
 4. **Up next** — the next action of each active goal and side quest, with **Schedule**. Empty:
    "No next steps yet. Add tasks to your quests."
-5. **Habits** — read-only *until habits phase 6*: the active habits due today (every day, on
-   today's weekday, or times a week or month), Morning, Afternoon, Evening, then Any time, each
-   with its name and its rule in plain words (`ruleSummary`, [habits](habits.md#screens)), from
-   `GET /habits`. Nothing can be ticked here yet. **All habits** goes to `/habits`. Empty: "No
-   habits yet."; with habits but none today: "No habits scheduled today."
-   (`HabitsTodayBlock.tsx`).
+5. **Habits** (habits brief §10, `HabitsTodayBlock.tsx`) — the heading opens Habits → Day, with
+   "3 of 6 done" beside it. Then the As of day's scheduled habits in the Day tab's groups and
+   order, each with its status icon, name, reason line, period figure, and streak
+   (`HabitDayList`, [habits](habits.md#screens)), from `GET /views/habits/day`. They act as on
+   the Day tab: the icon ticks a habit you tick (and unticks it), the name opens the row menu
+   (Mark done, Mark not done, Use data again, Freeze this day / Unfreeze, Open habit). After a
+   change Home reloads, so This week so far's Habits kept follows; a failed write shows its
+   message in the block. Empty: "No habits yet" with **New habit**; with habits but none
+   scheduled: "No habits scheduled today." ("…on this day." for another As of day). Swipe
+   gestures come later.
 6. **Note for today** — one line that grows to four while focused or once it holds more. **Save
    note** (or Ctrl/⌘+Enter) writes today's journal note (`POST /journal` the first time, then
    `PATCH /entries/{id}`) and shows "Saved". **Earlier notes** opens `/journal`
@@ -115,9 +119,11 @@ Route inventory with status: [navigation](../product/navigation.md).
 - `tests/api/test_views.py` — `GET /views/week-so-far`
 - `web/src/components/home/home.test.tsx` — the four weekly numbers and their "—", a block that
   fails alone, Main quests order and limit, the screen cap shown only for an active daily cap on
-  all screen time, In progress, Note for today (first write, then amend; grows when focused),
-  the Habits block (the habits due today, Morning first, each with its rule; archived and
-  unscheduled ones left out; its empty states)
+  all screen time, In progress, Note for today (first write, then amend; grows when focused)
+- `web/src/components/home/HabitsTodayBlock.test.tsx` — the Habits block: what it loads, the
+  count beside a heading that opens the Day tab, the Day tab's groups, reasons, progress, and
+  streaks; ticking and unticking, then Home reloading; the row menu and Open habit keeping the As
+  of date; a failed tick; New habit when there are none, and the not-scheduled wording
 - `web/src/components/quests/time/execution.test.tsx` — Home's sessions: time range and path,
   Session done never completes the task, Outcome achieved, To confirm answered as done or as
   didn't happen

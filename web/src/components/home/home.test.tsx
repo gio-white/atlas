@@ -7,7 +7,6 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type {
-  Habit,
   JournalDay,
   LibraryTitle,
   MainQuests,
@@ -23,7 +22,6 @@ vi.mock('@/lib/api', async (importOriginal) => ({
   ...api,
 }))
 
-import { HabitsTodayBlock } from './HabitsTodayBlock'
 import { NoteBlock } from './NoteBlock'
 import {
   activeGoals,
@@ -273,63 +271,5 @@ describe('Note for today', () => {
   it('links to the earlier notes', () => {
     renderBlock(<NoteBlock journal={empty} asOf="2026-11-12" search="" onSaved={async () => {}} />)
     expect(screen.getByRole('link', { name: 'Earlier notes' })).toHaveAttribute('href', '/journal')
-  })
-})
-
-function habit(slug: string, overrides: Partial<Habit> = {}): Habit {
-  return {
-    id: 1,
-    slug,
-    name: slug,
-    time_of_day: 'anytime',
-    first_day: '2026-11-01',
-    archived_at: null,
-    rule: {
-      starts_on: '2026-11-01',
-      frequency: 'every_day',
-      check: 'manual',
-      weekdays: null,
-      times: null,
-      source: null,
-      source_ref: null,
-      source_ref_name: null,
-      threshold: null,
-      value: null,
-    },
-    ...overrides,
-  }
-}
-
-describe('HabitsTodayBlock', () => {
-  // 2026-11-14 is a Saturday.
-  function renderHabits(habits: Habit[] | null) {
-    return renderBlock(<HabitsTodayBlock habits={habits} asOf="2026-11-14" search="" />)
-  }
-
-  it('lists the habits due today, Morning first, each with its rule', () => {
-    const weekdays = {
-      ...habit('x').rule,
-      frequency: 'specific_days' as const,
-      weekdays: [1, 2, 3, 4, 5],
-    }
-    renderHabits([
-      habit('read', { name: 'Read' }),
-      habit('wake', { name: 'Wake up early', time_of_day: 'morning' }),
-      habit('pushups', { name: 'Pushups', rule: weekdays }),
-      habit('old', { name: 'Old habit', archived_at: '2026-11-10T20:00:00' }),
-    ])
-    const names = screen.getAllByRole('listitem').map((item) => item.firstChild?.textContent)
-    expect(names).toEqual(['Wake up early', 'Read'])
-    expect(screen.getByText('Every day · You tick it · Morning')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'All habits' })).toHaveAttribute('href', '/habits')
-  })
-
-  it('says when nothing is due or nothing exists', () => {
-    const weekdays = { ...habit('x').rule, frequency: 'specific_days' as const, weekdays: [1] }
-    const { unmount } = renderHabits([habit('pushups', { rule: weekdays })])
-    expect(screen.getByText('No habits scheduled today.')).toBeInTheDocument()
-    unmount()
-    renderHabits([])
-    expect(screen.getByText('No habits yet.')).toBeInTheDocument()
   })
 })

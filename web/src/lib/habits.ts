@@ -106,26 +106,6 @@ export function ruleSummary(habit: Pick<Habit, 'rule' | 'time_of_day'>): string 
   return parts.join(' · ')
 }
 
-/** Whether a habit is due on a day: a daily rule on its days; N× a week or a month every day. */
-export function dueOn(
-  rule: Pick<HabitRule, 'frequency' | 'weekdays'>,
-  isoWeekday: number,
-): boolean {
-  if (rule.frequency !== 'specific_days') return true
-  return (rule.weekdays ?? []).includes(isoWeekday)
-}
-
-export type TimeGroup = { id: TimeOfDay; label: string; habits: Habit[] }
-
-/** Habits grouped Morning → Any time, in list order; empty groups are dropped. */
-export function timeGroups(habits: Habit[]): TimeGroup[] {
-  return TIME_OF_DAY_ORDER.map((id) => ({
-    id,
-    label: TIME_OF_DAY_LABEL[id],
-    habits: habits.filter((habit) => habit.time_of_day === id),
-  })).filter((group) => group.habits.length > 0)
-}
-
 const PERIOD_UNIT: Record<Period, [string, string]> = {
   day: ['day', 'days'],
   week: ['week', 'weeks'],

@@ -29,8 +29,9 @@ Five destinations plus Settings. Labels, order, and addresses live in `web/src/l
 `/habits` and `/habits/week` are also API addresses (the list of habits, and `GET /habits/{slug}`);
 the server sends the SPA for a browser's page load there ([frontend](../architecture/frontend.md)).
 The habits rebuild ([habits brief](../plans/habits-brief.md), [habits plan](../plans/habits-plan.md))
-lands in seven phases; phases 1–5 are built (the model, the calculations, the Day and Week tabs,
-the habit page, and the New habit, Edit, and Freeze sheets); Home follows in phase 6.
+lands in seven phases; phases 1–6 are built (the model, the calculations, the Day and Week tabs,
+the habit page, the New habit, Edit, and Freeze sheets, and Home's Habits block); phase 7
+removes the old habit screens and API.
 
 ## Shell
 
@@ -70,7 +71,7 @@ the habit page, and the New habit, Edit, and Freeze sheets); Home follows in pha
 
 | Path | Page | Status |
 | ---- | ---- | ------ |
-| `/` | Home: left, To confirm, Today (sessions with a Now line), Due today, Up next, Habits (today's, one tap), Note for today; right, This week so far, Main quests, Last night, Screen time today, In progress ([home](../domain/home.md)) | implemented |
+| `/` | Home: left, To confirm, Today (sessions with a Now line), Due today, Up next, Habits (the As of day as on Habits → Day: tick, row menu, "3 of 6 done"), Note for today; right, This week so far, Main quests, Last night, Screen time today, In progress ([home](../domain/home.md)) | implemented |
 | `/journal` | Earlier notes: the journal notes before today, newest first, reached from Home's Note for today ([journal](../domain/journal.md#screens)) | implemented |
 | `/quests` | Quests → Main quests: each ambition with its goal cards (ring, status, date, counts, next action) and direct tasks, ambitions without goals included, then independent goals; new ambition and new goal | implemented |
 | `/quests/side-quests` | Quests → Side quests: side quest cards with progress and standalone tasks; new side quest | implemented |

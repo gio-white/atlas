@@ -9,7 +9,6 @@ import {
   dayGroups,
   dayHeading,
   dayLine,
-  dueOn,
   frequencyLabel,
   historyWeeks,
   keptFigure,
@@ -27,7 +26,6 @@ import {
   streakFigure,
   streakLabel,
   stripSteps,
-  timeGroups,
   weekdaysLabel,
   weekOfLabel,
 } from './habits'
@@ -115,24 +113,6 @@ describe('ruleSummary', () => {
     expect(checkLabel(rule())).toBe('You tick it')
     const bad = rule({ check: 'data', source: 'screen_bad_apps', threshold: 'at_most', value: 90 })
     expect(checkLabel(bad)).toBe('From your data: Bad apps at most 1h 30m')
-  })
-})
-
-describe('dueOn and timeGroups', () => {
-  it('shows a specific-days habit only on its days', () => {
-    const weekdays = rule({ frequency: 'specific_days', weekdays: [1, 2, 3, 4, 5] })
-    expect(dueOn(weekdays, 1)).toBe(true)
-    expect(dueOn(weekdays, 6)).toBe(false)
-    expect(dueOn(rule({ frequency: 'times_a_week', times: 3 }), 6)).toBe(true)
-  })
-
-  it('groups habits Morning to Any time and drops empty groups', () => {
-    const groups = timeGroups([
-      habit('read', { time_of_day: 'evening' }),
-      habit('run'),
-      habit('wake', { time_of_day: 'morning' }),
-    ])
-    expect(groups.map((group) => group.id)).toEqual(['morning', 'evening', 'anytime'])
   })
 })
 

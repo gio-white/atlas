@@ -389,11 +389,13 @@ write shows its error above the list and leaves the screen as it was.
   (`dayCountLabel`, the view's `done` / `total`: the [day count](#day-results-streaks-and-habits-kept)).
 - **Groups**: Morning, Afternoon, Evening, Any time, empty ones hidden; when no habit shown has
   a time of day, one list without headings (`dayGroups`). Only habits scheduled that day are
-  listed (the view leaves out Not scheduled ones).
+  listed (the view leaves out Not scheduled ones). The groups and rows are `HabitDayList.tsx`,
+  which Home's Habits block uses too, so both list the same habits the same way.
 - **Rows** (`web/src/components/habits/HabitDayRow.tsx`): the status icon, the name, the reason
   line under it, and on the right "2 of 4 this week" / "1 of 2 this month" for a weekly or monthly
   habit (`progressLabel`), then the accent flame and the streak, "12 days", "1 week", "2 months"
-  (`streakLabel`; nothing for no streak), then "…".
+  (`streakLabel`; nothing for no streak), then "…". On a phone the period figure and the streak
+  stack, so the name keeps its room.
 - **Status icons** (`StatusIcon.tsx`, brief §13): Done a filled check in the success green; Not
   done a quiet grey cross (never red); In progress an accent ring filled to the share of the
   rule's value (`progressShare`); Waiting a grey clock; Frozen a grey snowflake; Open an empty
@@ -514,10 +516,13 @@ doesn’t break a streak." **From** and **To** dates (both the As of day to star
 this habit or, with the switch, every habit). "Pick both dates." and "To can’t be before From."
 stop it. The freeze then shows under the page's Freezes.
 
-`/habit` redirects to `/habits`, and `/week`
-to `/habits/week`. Home's Habits block still
-lists today's habits read-only ([home](home.md#screens)); Home and Stats → This week show Habits
-kept, and This week lists active habits by name.
+**Home's Habits block** (brief §10, [home](home.md#screens)) is the Day tab for the As of day
+without the strip: "3 of 6 done" beside a heading that opens Habits → Day, then the same groups
+and rows (`HabitDayList`), ticking and the row menu included; after a change Home reloads, so
+Habits kept in This week so far follows. Stats → This week lists each active habit with its part
+of Habits kept ("4 of 5"), its name a link to its page.
+
+`/habit` redirects to `/habits`, and `/week` to `/habits/week`.
 
 The demo seed (`atlas seed`) shows every kind of rule: ticked every day (Meditate, One coffee at
 most, No doomscrolling), on weekdays (Morning pushups, Deep work), 3× a week (Run, changed from
@@ -565,9 +570,9 @@ Route inventory with status: [navigation](../product/navigation.md).
 
 ## Status
 
-Brief phases 1–5 of 7: the model, schema 15, the API, the demo data, the calculations with their
+Brief phases 1–6 of 7: the model, schema 15, the API, the demo data, the calculations with their
 views (day results from your marks and the data, periods, streaks, Kept last 4 weeks, Habits
 kept), the Day tab (ticking, the row menu, one-day freezes), the Week tab, the habit page
-(history, recent days, freezes, archive, restore, delete), and the New habit, Edit, and Freeze
-sheets. Phase 6 builds Home; phase 7 removes what is left of the old shape.
+(history, recent days, freezes, archive, restore, delete), the New habit, Edit, and Freeze
+sheets, and Home's Habits block. Phase 7 removes what is left of the old shape.
 Quest links have no screen yet.

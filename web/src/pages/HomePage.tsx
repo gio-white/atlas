@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
-import { HabitsTodayBlock } from '@/components/home/HabitsTodayBlock'
+import {
+  type HabitsToday,
+  HabitsTodayBlock,
+  loadHabitsToday,
+} from '@/components/home/HabitsTodayBlock'
 import { NoteBlock } from '@/components/home/NoteBlock'
 import {
   DueTodayBlock,
@@ -26,10 +30,8 @@ import {
   getSleepView,
   getTodayQuests,
   getWeekSoFar,
-  type Habit,
   type JournalDay,
   type LibraryTitle,
-  listHabits,
   listLibraryTitles,
   type MainQuests,
   type ScreenDashboard,
@@ -39,11 +41,12 @@ import {
 } from '@/lib/api'
 import { useShell } from '@/lib/asOf'
 import { greetingForHour } from '@/lib/greeting'
+import { HABITS_CHANGED_EVENT } from '@/lib/habits'
 
 /** Every source Home reads. A source that fails is null, and only its blocks say so. */
 export type HomeData = {
   today: TodayQuests | null
-  habits: Habit[] | null
+  habits: HabitsToday | null
   journal: JournalDay | null
   week: WeekSoFar | null
   quests: MainQuests | null
@@ -55,7 +58,7 @@ export type HomeData = {
 export async function loadHome(asOf: string): Promise<HomeData> {
   const [today, habits, journal, week, quests, sleep, screen, reading] = await Promise.all([
     getTodayQuests(asOf).catch(() => null),
-    listHabits().catch(() => null),
+    loadHabitsToday(asOf).catch(() => null),
     getJournal(asOf).catch(() => null),
     getWeekSoFar(asOf).catch(() => null),
     getMainQuests().catch(() => null),
@@ -94,6 +97,13 @@ export function HomePage() {
       cancelled = true
     }
   }, [asOf])
+
+  // A habit made from the Habits block's New habit button shows at once.
+  useEffect(() => {
+    const reload = () => void refresh()
+    window.addEventListener(HABITS_CHANGED_EVENT, reload)
+    return () => window.removeEventListener(HABITS_CHANGED_EVENT, reload)
+  }, [refresh])
 
   const { actions, status, error, dialogs } = useSessionActions(refresh)
 
@@ -145,8 +155,8 @@ export function HomePage() {
           />
           <HabitsTodayBlock
             habits={data.habits}
-            asOf={asOf}
             search={search}
+            onChanged={refresh}
             className="order-4 lg:order-none"
           />
           <NoteBlock

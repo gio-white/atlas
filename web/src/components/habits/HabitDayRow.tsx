@@ -74,9 +74,14 @@ export function HabitDayRow({
             {reason !== null && <span className="truncate text-xs text-muted">{reason}</span>}
           </span>
           {(progressText !== null || streakText !== null) && (
-            <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted tabular-nums">
+            // Stacked on a phone, so the name keeps its room; side by side from `sm`.
+            <span className="flex shrink-0 flex-col items-end gap-0.5 text-xs text-muted tabular-nums sm:flex-row sm:items-center sm:gap-1.5">
               {progressText !== null && <span>{progressText}</span>}
-              {progressText !== null && streakText !== null && <span aria-hidden>·</span>}
+              {progressText !== null && streakText !== null && (
+                <span aria-hidden className="hidden sm:inline">
+                  ·
+                </span>
+              )}
               {streakText !== null && <Streak label={streakText} />}
             </span>
           )}

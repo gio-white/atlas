@@ -24,6 +24,8 @@ vi.mock('@/lib/api', async (importOriginal) => {
     missTimeBlock: vi.fn(async () => ({})),
     // Home's other blocks load on their own; here they fail quietly and show as unavailable.
     listHabits: vi.fn(async () => Promise.reject(new Error('not in this test'))),
+    getHabitsDay: vi.fn(async () => Promise.reject(new Error('not in this test'))),
+    listFreezes: vi.fn(async () => Promise.reject(new Error('not in this test'))),
     getJournal: vi.fn(async () => Promise.reject(new Error('not in this test'))),
     getWeekSoFar: vi.fn(async () => Promise.reject(new Error('not in this test'))),
     getMainQuests: vi.fn(async () => Promise.reject(new Error('not in this test'))),

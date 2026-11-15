@@ -1367,7 +1367,6 @@ export type WeekNumbers = {
   titles_finished: number
 }
 
-/** An active habit on This week. Its week's result returns with the habits calculations. */
 /** An active habit on This week with its part of Habits kept (Done, capped, over the target). */
 export type WeekHabit = {
   slug: string

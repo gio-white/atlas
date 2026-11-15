@@ -112,6 +112,12 @@ describe('ThisWeekPage', () => {
     expect(within(habits).getByText('+5 points vs last week')).toBeInTheDocument()
     expect(within(habits).getByText('Read')).toBeInTheDocument()
     expect(within(habits).getByText('Run')).toBeInTheDocument()
+    expect(within(habits).getByText('4 of 5')).toBeInTheDocument()
+    expect(within(habits).getByText('1 of 3')).toBeInTheDocument()
+    expect(within(habits).getByRole('link', { name: 'Run' })).toHaveAttribute(
+      'href',
+      expect.stringMatching(/^\/habit\/run/),
+    )
     const sleep = screen.getByRole('region', { name: 'Sleep' })
     expect(within(sleep).getByText('+35m vs last week')).toBeInTheDocument()
     expect(within(sleep).getByText('23:40')).toBeInTheDocument()
